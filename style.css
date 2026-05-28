@@ -1,0 +1,75 @@
+/* General page styling */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 2rem;
+  color: #222;
+}
+
+/* Main content container */
+main {
+  max-width: 700px;
+  margin: 0 auto;
+  background-color: white;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Heading */
+h1 {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #666;
+}
+
+/* Form layout */
+.book-form {
+  display: grid;
+  gap: 1rem;
+}
+
+/* Labels */
+.form-label {
+  font-weight: bold;
+}
+
+/* Inputs */
+.form-input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* Notes field */
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* Submit button */
+button {
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-weight: bold;
+  background-color: #222;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #444;
+}

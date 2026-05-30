@@ -73,3 +73,8 @@ button {
 button:hover {
   background-color: #444;
 }
+
+/* Hidden class for toggling form visibility */
+.hidden {
+  display: none;
+}

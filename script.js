@@ -56,6 +56,7 @@ class Book {
 
 showFormBtn.addEventListener("click", () => {
   form.classList.toggle("hidden");
+  showFormBtn.classList.toggle("hidden");
 });
 
 form.addEventListener("submit", (event) => {
@@ -83,5 +84,6 @@ form.addEventListener("submit", (event) => {
   console.log(books);
 
   form.reset();
-  form.classList.add("hidden");
+  form.classList.toggle("hidden");
+  showFormBtn.classList.toggle("hidden");
 });

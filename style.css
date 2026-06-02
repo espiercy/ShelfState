@@ -78,3 +78,17 @@ button:hover {
 .hidden {
   display: none;
 }
+
+/* Book list styling */
+#book-list {
+  margin-top: 2rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.book-card {
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: white;
+}

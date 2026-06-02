@@ -16,6 +16,7 @@ const categoryInput = document.querySelector("#category");
 const statusInput = document.querySelector("#status");
 
 const books = [];
+const bookList = document.querySelector("#book-list");
 
 class Book {
   constructor({
@@ -82,8 +83,26 @@ form.addEventListener("submit", (event) => {
   console.log(book);
   books.push(book);
   console.log(books);
-
+  renderBooks();
   form.reset();
   form.classList.toggle("hidden");
   showFormBtn.classList.toggle("hidden");
 });
+
+function renderBooks() {
+  bookList.innerHTML = "";
+
+  books.forEach((book) => {
+    const bookCard = document.createElement("article");
+    bookCard.classList.add("book-card");
+    bookCard.innerHTML = `
+      <h2>${book.title}</h2>
+      <p><strong>Author:</strong> ${book.author}</p>
+      <p><strong>Status:</strong> ${book.status}</p>
+      <p><strong>Progress:</strong> ${book.progress}/${book.pages} pages</p>
+      <p><strong>Category:</strong> ${book.category}</p>
+      `;
+
+    bookList.appendChild(bookCard);
+  });
+}

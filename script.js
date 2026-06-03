@@ -2,19 +2,6 @@ console.log("Welcome to ShelfState!");
 const showFormBtn = document.querySelector("#show-form-btn");
 const form = document.querySelector("#new-book-form");
 
-//not a fan of this many variables but it is what it is for now
-const titleInput = document.querySelector("#title");
-const authorInput = document.querySelector("#author");
-const pagesInput = document.querySelector("#pages");
-const progressInput = document.querySelector("#progress");
-const startDateInput = document.querySelector("#startDate");
-const endDateInput = document.querySelector("#endDate");
-const isbnInput = document.querySelector("#isbn");
-const notesInput = document.querySelector("#notes");
-const typeInput = document.querySelector("#type");
-const categoryInput = document.querySelector("#category");
-const statusInput = document.querySelector("#status");
-
 const books = [];
 const bookList = document.querySelector("#book-list");
 
@@ -75,7 +62,7 @@ form.addEventListener("submit", (event) => {
     endDate: formData.get("endDate"),
     isbn: formData.get("isbn"),
     notes: formData.get("notes"),
-    classification: formData.get("type"),
+    classification: formData.get("classification"),
     category: formData.get("category"),
     status: formData.get("status"),
   });
@@ -85,8 +72,8 @@ form.addEventListener("submit", (event) => {
   console.log(books);
   renderBooks();
   form.reset();
-  form.classList.toggle("hidden");
-  showFormBtn.classList.toggle("hidden");
+  form.classList.add("hidden");
+  showFormBtn.classList.remove("hidden");
 });
 
 function renderBooks() {

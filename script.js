@@ -5,6 +5,8 @@ const form = document.querySelector("#new-book-form");
 const books = [];
 const bookList = document.querySelector("#book-list");
 
+let editingBookId = null;
+
 class Book {
   constructor({
     title,
@@ -53,7 +55,7 @@ form.addEventListener("submit", (event) => {
   const formData = new FormData(form);
   console.log("Form Data:", Object.fromEntries(formData.entries()));
 
-  const book = new Book({
+  const bookData = {
     title: formData.get("title"),
     author: formData.get("author"),
     pages: Number(formData.get("pages")),
@@ -65,10 +67,37 @@ form.addEventListener("submit", (event) => {
     classification: formData.get("classification"),
     category: formData.get("category"),
     status: formData.get("status"),
-  });
+  };
 
-  console.log(book);
-  books.push(book);
+  console.log("Book Data:", bookData);
+  const errors = validateBookData(bookData);
+  if (errors.length > 0) {
+    alert(errors.join("\n"));
+    return;
+  }
+
+  if (editingBookId) {
+    const existingBook = books.find((book) => book.id === editingBookId);
+
+    existingBook.title = bookData.title;
+    existingBook.author = bookData.author;
+    existingBook.pages = bookData.pages;
+    existingBook.progress = bookData.progress;
+    existingBook.startDate = bookData.startDate;
+    existingBook.endDate = bookData.endDate;
+    existingBook.isbn = bookData.isbn;
+    existingBook.notes = bookData.notes;
+    existingBook.classification = bookData.classification;
+    existingBook.category = bookData.category;
+    existingBook.status = bookData.status;
+    existingBook.updatedAt = new Date();
+
+    editingBookId = null;
+  } else {
+    const book = new Book(bookData);
+    books.push(book);
+  }
+
   console.log(books);
   renderBooks();
   form.reset();
@@ -82,6 +111,7 @@ function renderBooks() {
   books.forEach((book) => {
     const bookCard = document.createElement("article");
     bookCard.classList.add("book-card");
+    bookCard.dataset.bookId = book.id;
     bookCard.innerHTML = `
       <h2>${book.title}</h2>
       <p><strong>Author:</strong> ${book.author}</p>
@@ -91,5 +121,54 @@ function renderBooks() {
       `;
 
     bookList.appendChild(bookCard);
+    bookCard.addEventListener("click", () => {
+      openEditForm(book.id);
+    });
   });
+}
+
+function validateBookData(bookData) {
+  const errors = [];
+
+  if (!bookData.title.trim()) {
+    errors.push("Title is required.");
+  }
+  if (!bookData.author.trim()) {
+    errors.push("Author is required.");
+  }
+  if (!bookData.pages || bookData.pages <= 0) {
+    errors.push("Pages must be greater than zero.");
+  }
+  if (!bookData.status || bookData.status === "Select Status") {
+    errors.push("Status is required.");
+  }
+  if (bookData.progress < 0) {
+    errors.push("Progress cannot be negative.");
+  }
+  if (bookData.progress > bookData.pages) {
+    errors.push("Progress cannot exceed total pages.");
+  }
+  return errors;
+}
+
+function openEditForm(bookId) {
+  const book = books.find((book) => book.id === bookId);
+  if (!book) return;
+
+  editingBookId = bookId;
+
+  form.elements["title"].value = book.title;
+  form.elements["author"].value = book.author;
+  form.elements["pages"].value = book.pages;
+  form.elements["progress"].value = book.progress;
+  form.elements["startDate"].value = book.startDate;
+  form.elements["endDate"].value = book.endDate;
+  form.elements["isbn"].value = book.isbn;
+  form.elements["notes"].value = book.notes;
+  form.elements["classification"].value = book.classification;
+  form.elements["category"].value = book.category;
+  form.elements["status"].value = book.status;
+
+  form.classList.remove("hidden");
+  showFormBtn.classList.add("hidden");
 }

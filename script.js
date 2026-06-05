@@ -42,6 +42,21 @@ class Book {
     this.createdAt = new Date();
     this.updatedAt = new Date();
   }
+
+  update = (bookData) => {
+    this.title = bookData.title;
+    this.author = bookData.author;
+    this.pages = bookData.pages;
+    this.progress = bookData.progress;
+    this.startDate = bookData.startDate;
+    this.endDate = bookData.endDate;
+    this.isbn = bookData.isbn;
+    this.notes = bookData.notes;
+    this.classification = bookData.classification;
+    this.category = bookData.category;
+    this.status = bookData.status;
+    this.updatedAt = new Date();
+  };
 }
 
 showFormBtn.addEventListener("click", () => {
@@ -78,21 +93,7 @@ form.addEventListener("submit", (event) => {
 
   if (editingBookId) {
     const existingBook = books.find((book) => book.id === editingBookId);
-
-    existingBook.title = bookData.title;
-    existingBook.author = bookData.author;
-    existingBook.pages = bookData.pages;
-    existingBook.progress = bookData.progress;
-    existingBook.startDate = bookData.startDate;
-    existingBook.endDate = bookData.endDate;
-    existingBook.isbn = bookData.isbn;
-    existingBook.notes = bookData.notes;
-    existingBook.classification = bookData.classification;
-    existingBook.category = bookData.category;
-    existingBook.status = bookData.status;
-    existingBook.updatedAt = new Date();
-
-    editingBookId = null;
+    existingBook.update(bookData);
   } else {
     const book = new Book(bookData);
     books.push(book);
@@ -100,9 +101,7 @@ form.addEventListener("submit", (event) => {
 
   console.log(books);
   renderBooks();
-  form.reset();
-  form.classList.add("hidden");
-  showFormBtn.classList.remove("hidden");
+  closeForm();
 });
 
 function renderBooks() {
@@ -110,7 +109,7 @@ function renderBooks() {
 
   books.forEach((book) => {
     const bookCard = document.createElement("article");
-    bookCard.classList.add("book-card");
+    bookCard.classList.add("book-card", `book-status-${book.status}`);
     bookCard.dataset.bookId = book.id;
     bookCard.innerHTML = `
       <h2>${book.title}</h2>
@@ -139,7 +138,7 @@ function validateBookData(bookData) {
   if (!bookData.pages || bookData.pages <= 0) {
     errors.push("Pages must be greater than zero.");
   }
-  if (!bookData.status || bookData.status === "Select Status") {
+  if (!bookData.status) {
     errors.push("Status is required.");
   }
   if (bookData.progress < 0) {
@@ -171,4 +170,11 @@ function openEditForm(bookId) {
 
   form.classList.remove("hidden");
   showFormBtn.classList.add("hidden");
+}
+
+function closeForm() {
+  form.reset();
+  form.classList.add("hidden");
+  showFormBtn.classList.remove("hidden");
+  editingBookId = null;
 }

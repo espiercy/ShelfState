@@ -1,11 +1,12 @@
 console.log("Welcome to ShelfState!");
 const showFormBtn = document.querySelector("#show-form-btn");
 const form = document.querySelector("#new-book-form");
-
-const books = [];
 const bookList = document.querySelector("#book-list");
 
-let editingBookId = null;
+const appState = {
+  books: [],
+  editingBookId: null,
+};
 
 class Book {
   constructor({
@@ -91,15 +92,17 @@ form.addEventListener("submit", (event) => {
     return;
   }
 
-  if (editingBookId) {
-    const existingBook = books.find((book) => book.id === editingBookId);
+  if (appState.editingBookId) {
+    const existingBook = appState.books.find(
+      (book) => book.id === appState.editingBookId,
+    );
     existingBook.update(bookData);
   } else {
     const book = new Book(bookData);
-    books.push(book);
+    appState.books.push(book);
   }
 
-  console.log(books);
+  console.log(appState.books);
   renderBooks();
   closeForm();
 });
@@ -107,7 +110,7 @@ form.addEventListener("submit", (event) => {
 function renderBooks() {
   bookList.innerHTML = "";
 
-  books.forEach((book) => {
+  appState.books.forEach((book) => {
     const bookCard = document.createElement("article");
     bookCard.classList.add("book-card", `book-status-${book.status}`);
     bookCard.dataset.bookId = book.id;
@@ -151,10 +154,10 @@ function validateBookData(bookData) {
 }
 
 function openEditForm(bookId) {
-  const book = books.find((book) => book.id === bookId);
+  const book = appState.books.find((book) => book.id === bookId);
   if (!book) return;
 
-  editingBookId = bookId;
+  appState.editingBookId = bookId;
 
   form.elements["title"].value = book.title;
   form.elements["author"].value = book.author;
@@ -176,7 +179,7 @@ function closeForm() {
   form.reset();
   form.classList.add("hidden");
   showFormBtn.classList.remove("hidden");
-  editingBookId = null;
+  appState.editingBookId = null;
 }
 
 // generated unit tests

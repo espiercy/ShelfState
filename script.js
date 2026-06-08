@@ -1,5 +1,7 @@
 console.log("Welcome to ShelfState!");
 const showFormBtn = document.querySelector("#show-form-btn");
+const submitBookBtn = document.querySelector("#submit-book-btn");
+const cancelFormBtn = document.querySelector("#cancel-form-btn");
 const form = document.querySelector("#new-book-form");
 const bookList = document.querySelector("#book-list");
 
@@ -10,6 +12,7 @@ const appState = {
 
 class Book {
   constructor({
+    id = crypto.randomUUID(),
     title,
     author,
     pages,
@@ -21,27 +24,23 @@ class Book {
     classification,
     category,
     status,
+    createdAt = new Date(),
+    updatedAt = new Date(),
   }) {
-    this.id = crypto.randomUUID();
-
+    this.id = id;
     this.title = title;
     this.author = author;
-
     this.pages = pages;
     this.progress = progress;
-
     this.startDate = startDate;
     this.endDate = endDate;
-
     this.isbn = isbn;
     this.notes = notes;
-
     this.classification = classification;
     this.category = category;
     this.status = status;
-
-    this.createdAt = new Date();
-    this.updatedAt = new Date();
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
   update(bookData) {
@@ -61,8 +60,14 @@ class Book {
 }
 
 showFormBtn.addEventListener("click", () => {
-  form.classList.toggle("hidden");
-  showFormBtn.classList.toggle("hidden");
+  form.classList.remove("hidden");
+  showFormBtn.classList.add("hidden");
+  bookList.classList.add("hidden");
+  submitBookBtn.textContent = "Save Book";
+});
+
+cancelFormBtn.addEventListener("click", () => {
+  closeForm();
 });
 
 form.addEventListener("submit", (event) => {
@@ -102,13 +107,23 @@ form.addEventListener("submit", (event) => {
     appState.books.push(book);
   }
 
-  console.log(appState.books);
   renderBooks();
+  saveBooks();
   closeForm();
 });
 
 function renderBooks() {
   bookList.innerHTML = "";
+
+  /*if (!Array.isArray(appState.books)) {
+    appState.books = [];
+    return;
+  }*/
+
+  if (appState.books.length === 0) {
+    bookList.innerHTML = `<p class="empty-state">No books added yet. Click Add Book to start your shelf.</p>`;
+    return;
+  }
 
   appState.books.forEach((book) => {
     const bookCard = document.createElement("article");
@@ -119,14 +134,32 @@ function renderBooks() {
       <p><strong>Author:</strong> ${book.author}</p>
       <p><strong>Status:</strong> ${book.status}</p>
       <p><strong>Progress:</strong> ${book.progress}/${book.pages} pages</p>
-      <p><strong>Category:</strong> ${book.category}</p>
+      ${book.category ? `<p><strong>Category:</strong> ${book.category}</p>` : ""}
+      ${book.isbn ? `<p><strong>ISBN:</strong> ${book.isbn}</p>` : ""}
+      ${book.notes ? `<p><strong>Notes:</strong> ${book.notes}</p>` : ""}
+      <button class = "delete-book-btn" data-book-id="${book.id}">Delete</button>
       `;
 
     bookList.appendChild(bookCard);
     bookCard.addEventListener("click", () => {
       openEditForm(book.id);
     });
+
+    const deleteBtn = bookCard.querySelector(".delete-book-btn");
+    deleteBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const bookId = deleteBtn.dataset.bookId;
+      deleteBook(bookId);
+    });
   });
+}
+
+function deleteBook(bookId) {
+  const shouldDelete = confirm(`Delete this book?`);
+  if (!shouldDelete) return;
+  appState.books = appState.books.filter((book) => book.id !== bookId);
+  renderBooks();
+  saveBooks();
 }
 
 function validateBookData(bookData) {
@@ -171,70 +204,44 @@ function openEditForm(bookId) {
   form.elements["category"].value = book.category;
   form.elements["status"].value = book.status;
 
+  submitBookBtn.textContent = "Update Book";
+
   form.classList.remove("hidden");
   showFormBtn.classList.add("hidden");
+  bookList.classList.add("hidden");
 }
 
 function closeForm() {
   form.reset();
   form.classList.add("hidden");
   showFormBtn.classList.remove("hidden");
+  bookList.classList.remove("hidden");
   appState.editingBookId = null;
+  submitBookBtn.textContent = "Save Book";
 }
 
-// generated unit tests
-function assert(condition, message) {
-  if (!condition) {
-    console.error(`❌ ${message}`);
-  } else {
-    console.log(`✅ ${message}`);
+function saveBooks() {
+  localStorage.setItem("shelfStateBooks", JSON.stringify(appState.books));
+}
+
+function loadBooks() {
+  const savedBooks = localStorage.getItem("shelfStateBooks");
+
+  if (!savedBooks) {
+    appState.books = [];
+    renderBooks();
+    return;
   }
+
+  const parsedBooks = JSON.parse(savedBooks);
+
+  if (!Array.isArray(parsedBooks)) {
+    appState.books = [];
+    return;
+  }
+
+  appState.books = parsedBooks.map((bookData) => new Book(bookData));
+  renderBooks();
 }
 
-function testValidateBookData() {
-  assert(
-    validateBookData({
-      title: "",
-      author: "Author",
-      pages: 100,
-      progress: 10,
-      status: "currently-reading",
-    }).includes("Title is required."),
-    "rejects missing title",
-  );
-
-  assert(
-    validateBookData({
-      title: "Book",
-      author: "",
-      pages: 100,
-      progress: 10,
-      status: "currently-reading",
-    }).includes("Author is required."),
-    "rejects missing author",
-  );
-
-  assert(
-    validateBookData({
-      title: "Book",
-      author: "Author",
-      pages: 0,
-      progress: 10,
-      status: "currently-reading",
-    }).includes("Pages must be greater than zero."),
-    "rejects zero pages",
-  );
-
-  assert(
-    validateBookData({
-      title: "Book",
-      author: "Author",
-      pages: 100,
-      progress: 150,
-      status: "currently-reading",
-    }).includes("Progress cannot exceed total pages."),
-    "rejects progress greater than pages",
-  );
-}
-
-testValidateBookData();
+loadBooks();

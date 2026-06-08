@@ -86,9 +86,26 @@ button:hover {
   gap: 1rem;
 }
 
+#book-list.hidden {
+  display: none;
+}
+
 .book-card {
   padding: 1rem;
   border: 1px solid #ccc;
   border-radius: 8px;
   background-color: white;
+}
+
+.empty-state {
+  text-align: center;
+  color: #666;
+  padding: 2rem;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.book-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }

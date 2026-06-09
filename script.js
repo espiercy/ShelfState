@@ -1,9 +1,23 @@
-console.log("Welcome to ShelfState!");
 const showFormBtn = document.querySelector("#show-form-btn");
 const submitBookBtn = document.querySelector("#submit-book-btn");
 const cancelFormBtn = document.querySelector("#cancel-form-btn");
 const form = document.querySelector("#new-book-form");
 const bookList = document.querySelector("#book-list");
+
+const STORAGE_KEY = "shelfStateBooks";
+const BOOK_FIELDS = [
+  "title",
+  "author",
+  "pages",
+  "progress",
+  "startDate",
+  "endDate",
+  "isbn",
+  "notes",
+  "classification",
+  "category",
+  "status",
+];
 
 const appState = {
   books: [],
@@ -44,53 +58,23 @@ class Book {
   }
 
   update(bookData) {
-    this.title = bookData.title;
-    this.author = bookData.author;
-    this.pages = bookData.pages;
-    this.progress = bookData.progress;
-    this.startDate = bookData.startDate;
-    this.endDate = bookData.endDate;
-    this.isbn = bookData.isbn;
-    this.notes = bookData.notes;
-    this.classification = bookData.classification;
-    this.category = bookData.category;
-    this.status = bookData.status;
+    BOOK_FIELDS.forEach((field) => {
+      this[field] = bookData[field];
+    });
     this.updatedAt = new Date();
   }
 }
 
 showFormBtn.addEventListener("click", () => {
-  form.classList.remove("hidden");
-  showFormBtn.classList.add("hidden");
-  bookList.classList.add("hidden");
-  submitBookBtn.textContent = "Save Book";
+  openForm();
 });
 
-cancelFormBtn.addEventListener("click", () => {
-  closeForm();
-});
+cancelFormBtn.addEventListener("click", closeForm);
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
 
-  const formData = new FormData(form);
-  console.log("Form Data:", Object.fromEntries(formData.entries()));
-
-  const bookData = {
-    title: formData.get("title"),
-    author: formData.get("author"),
-    pages: Number(formData.get("pages")),
-    progress: Number(formData.get("progress")),
-    startDate: formData.get("startDate"),
-    endDate: formData.get("endDate"),
-    isbn: formData.get("isbn"),
-    notes: formData.get("notes"),
-    classification: formData.get("classification"),
-    category: formData.get("category"),
-    status: formData.get("status"),
-  };
-
-  console.log("Book Data:", bookData);
+  const bookData = getBookData();
   const errors = validateBookData(bookData);
   if (errors.length > 0) {
     alert(errors.join("\n"));
@@ -101,7 +85,9 @@ form.addEventListener("submit", (event) => {
     const existingBook = appState.books.find(
       (book) => book.id === appState.editingBookId,
     );
-    existingBook.update(bookData);
+    if (existingBook) {
+      existingBook.update(bookData);
+    }
   } else {
     const book = new Book(bookData);
     appState.books.push(book);
@@ -112,50 +98,85 @@ form.addEventListener("submit", (event) => {
   closeForm();
 });
 
-function renderBooks() {
-  bookList.innerHTML = "";
+bookList.addEventListener("click", (event) => {
+  const bookCard = event.target.closest(".book-card");
+  if (!bookCard) return;
 
-  /*if (!Array.isArray(appState.books)) {
-    appState.books = [];
-    return;
-  }*/
-
-  if (appState.books.length === 0) {
-    bookList.innerHTML = `<p class="empty-state">No books added yet. Click Add Book to start your shelf.</p>`;
+  if (event.target.closest(".delete-book-btn")) {
+    deleteBook(bookCard.dataset.bookId);
     return;
   }
 
-  appState.books.forEach((book) => {
-    const bookCard = document.createElement("article");
-    bookCard.classList.add("book-card", `book-status-${book.status}`);
-    bookCard.dataset.bookId = book.id;
-    bookCard.innerHTML = `
-      <h2>${book.title}</h2>
-      <p><strong>Author:</strong> ${book.author}</p>
-      <p><strong>Status:</strong> ${book.status}</p>
-      <p><strong>Progress:</strong> ${book.progress}/${book.pages} pages</p>
-      ${book.category ? `<p><strong>Category:</strong> ${book.category}</p>` : ""}
-      ${book.isbn ? `<p><strong>ISBN:</strong> ${book.isbn}</p>` : ""}
-      ${book.notes ? `<p><strong>Notes:</strong> ${book.notes}</p>` : ""}
-      <button class = "delete-book-btn" data-book-id="${book.id}">Delete</button>
-      `;
+  openEditForm(bookCard.dataset.bookId);
+});
 
-    bookList.appendChild(bookCard);
-    bookCard.addEventListener("click", () => {
-      openEditForm(book.id);
-    });
+function getBookData() {
+  const formData = new FormData(form);
+  const bookData = Object.fromEntries(
+    BOOK_FIELDS.map((field) => [field, formData.get(field) ?? ""]),
+  );
 
-    const deleteBtn = bookCard.querySelector(".delete-book-btn");
-    deleteBtn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const bookId = deleteBtn.dataset.bookId;
-      deleteBook(bookId);
-    });
+  bookData.pages = Number(bookData.pages);
+  bookData.progress = Number(bookData.progress);
+  return bookData;
+}
+
+function renderBooks() {
+  bookList.replaceChildren();
+
+  if (appState.books.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "empty-state";
+    emptyState.textContent =
+      "No books added yet. Click Add Book to start your shelf.";
+    bookList.appendChild(emptyState);
+    return;
+  }
+
+  const cards = appState.books.map(createBookCard);
+  bookList.append(...cards);
+}
+
+function createBookCard(book) {
+  const bookCard = document.createElement("article");
+  bookCard.classList.add("book-card", `book-status-${book.status}`);
+  bookCard.dataset.bookId = book.id;
+
+  const heading = document.createElement("h2");
+  heading.textContent = book.title;
+  bookCard.appendChild(heading);
+
+  [
+    ["Author", book.author],
+    ["Status", book.status],
+    ["Progress", `${book.progress}/${book.pages} pages`],
+    ["Category", book.category],
+    ["ISBN", book.isbn],
+    ["Notes", book.notes],
+  ].forEach(([label, value]) => {
+    if (value === "" || value === null || value === undefined) return;
+    bookCard.appendChild(createBookDetail(label, value));
   });
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "delete-book-btn";
+  deleteBtn.type = "button";
+  deleteBtn.textContent = "Delete";
+  bookCard.appendChild(deleteBtn);
+
+  return bookCard;
+}
+
+function createBookDetail(label, value) {
+  const detail = document.createElement("p");
+  const labelElement = document.createElement("strong");
+  labelElement.textContent = `${label}:`;
+  detail.append(labelElement, ` ${value}`);
+  return detail;
 }
 
 function deleteBook(bookId) {
-  const shouldDelete = confirm(`Delete this book?`);
+  const shouldDelete = confirm("Delete this book?");
   if (!shouldDelete) return;
   appState.books = appState.books.filter((book) => book.id !== bookId);
   renderBooks();
@@ -191,24 +212,17 @@ function openEditForm(bookId) {
   if (!book) return;
 
   appState.editingBookId = bookId;
+  BOOK_FIELDS.forEach((field) => {
+    form.elements[field].value = book[field] ?? "";
+  });
+  openForm("Update Book");
+}
 
-  form.elements["title"].value = book.title;
-  form.elements["author"].value = book.author;
-  form.elements["pages"].value = book.pages;
-  form.elements["progress"].value = book.progress;
-  form.elements["startDate"].value = book.startDate;
-  form.elements["endDate"].value = book.endDate;
-  form.elements["isbn"].value = book.isbn;
-  form.elements["notes"].value = book.notes;
-  form.elements["classification"].value = book.classification;
-  form.elements["category"].value = book.category;
-  form.elements["status"].value = book.status;
-
-  submitBookBtn.textContent = "Update Book";
-
+function openForm(submitLabel = "Save Book") {
   form.classList.remove("hidden");
   showFormBtn.classList.add("hidden");
   bookList.classList.add("hidden");
+  submitBookBtn.textContent = submitLabel;
 }
 
 function closeForm() {
@@ -221,11 +235,11 @@ function closeForm() {
 }
 
 function saveBooks() {
-  localStorage.setItem("shelfStateBooks", JSON.stringify(appState.books));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.books));
 }
 
 function loadBooks() {
-  const savedBooks = localStorage.getItem("shelfStateBooks");
+  const savedBooks = localStorage.getItem(STORAGE_KEY);
 
   if (!savedBooks) {
     appState.books = [];
@@ -233,14 +247,15 @@ function loadBooks() {
     return;
   }
 
-  const parsedBooks = JSON.parse(savedBooks);
-
-  if (!Array.isArray(parsedBooks)) {
+  try {
+    const parsedBooks = JSON.parse(savedBooks);
+    appState.books = Array.isArray(parsedBooks)
+      ? parsedBooks.map((bookData) => new Book(bookData))
+      : [];
+  } catch {
     appState.books = [];
-    return;
   }
 
-  appState.books = parsedBooks.map((bookData) => new Book(bookData));
   renderBooks();
 }
 

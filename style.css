@@ -94,7 +94,8 @@ button:hover {
   padding: 1rem;
   border: 1px solid #ccc;
   border-radius: 8px;
-  background-color: fafafa;
+  background-color: #fafafa;
+  flex: 0 0 180px;
 }
 
 .empty-state {
@@ -112,9 +113,17 @@ button:hover {
 
 .book-shelf {
   margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 4px solid #8b5a2b;
 }
 
 .book-shelf h2 {
   border-bottom: 2px solid #ccc;
   padding-bottom: 0.5rem;
+}
+
+.shelf-row {
+  display: flex;
+  gap: 1 rem;
+  flex-wrap: wrap;
 }

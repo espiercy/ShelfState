@@ -5,6 +5,7 @@ const form = document.querySelector("#new-book-form");
 const bookList = document.querySelector("#book-list");
 
 const STORAGE_KEY = "shelfStateBooks";
+const BOOKS_PER_SHELF = 6;
 const BOOK_FIELDS = [
   "title",
   "author",
@@ -153,27 +154,39 @@ function renderBooks() {
 }
 
 function renderShelf(status) {
-  console.log("Rendering shelf:", status);
-  console.log(
-    "Shelf books:",
-    appState.books.filter((book) => book.status === status),
-  );
-  const shelfBooks = appState.books.filter((book) => book.status === status);
+  let shelfBooks = appState.books.filter((book) => book.status === status);
 
-  const shelf = document.createElement("section");
-  shelf.className = "book-shelf";
+  if (status === "completed") {
+    shelfBooks = shelfBooks.slice(0, BOOKS_PER_SHELF);
+  }
 
-  const heading = document.createElement("h2");
-  heading.textContent = STATUS_LABELS[status];
+  if (shelfBooks.length === 0) return;
 
-  shelf.appendChild(heading);
+  const shelfChunks = chunkBooks(shelfBooks, BOOKS_PER_SHELF);
 
-  shelfBooks.forEach((book) => {
-    const bookCard = createBookCard(book);
-    shelf.appendChild(bookCard);
+  shelfChunks.forEach((booksForShelf, index) => {
+    const shelf = document.createElement("section");
+    shelf.className = "book-shelf";
+    const heading = document.createElement("h2");
+    heading.textContent =
+      index === 0
+        ? STATUS_LABELS[status]
+        : `${STATUS_LABELS[status]} continued`;
+
+    shelf.appendChild(heading);
+
+    const shelfRow = document.createElement("div");
+    shelfRow.className = "shelf-row";
+
+    booksForShelf.forEach((book) => {
+      const bookCard = createBookCard(book);
+      shelfRow.appendChild(bookCard);
+    });
+
+    shelf.appendChild(shelfRow);
+
+    bookList.appendChild(shelf);
   });
-
-  bookList.appendChild(shelf);
 }
 
 function createBookCard(book) {
@@ -272,7 +285,15 @@ function closeForm() {
   appState.editingBookId = null;
   submitBookBtn.textContent = "Save Book";
 }
+function chunkBooks(books, chunkSize) {
+  const chunks = [];
 
+  for (let i = 0; i < books.length; i += chunkSize) {
+    chunks.push(books.slice(i, i + chunkSize));
+  }
+
+  return chunks;
+}
 function saveBooks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.books));
 }
@@ -294,7 +315,6 @@ function loadBooks() {
   } catch {
     appState.books = [];
   }
-
   renderBooks();
 }
 

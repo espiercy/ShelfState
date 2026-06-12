@@ -19,6 +19,20 @@ const BOOK_FIELDS = [
   "status",
 ];
 
+const SHELF_STATUSES = [
+  "currently-reading",
+  "on-hold",
+  "not-started",
+  "completed",
+];
+
+const STATUS_LABELS = {
+  "currently-reading": "Currently Reading",
+  "on-hold": "On Hold",
+  "not-started": "Not Started",
+  completed: "Completed",
+};
+
 const appState = {
   books: [],
   editingBookId: null,
@@ -133,8 +147,33 @@ function renderBooks() {
     return;
   }
 
-  const cards = appState.books.map(createBookCard);
-  bookList.append(...cards);
+  SHELF_STATUSES.forEach((status) => {
+    renderShelf(status);
+  });
+}
+
+function renderShelf(status) {
+  console.log("Rendering shelf:", status);
+  console.log(
+    "Shelf books:",
+    appState.books.filter((book) => book.status === status),
+  );
+  const shelfBooks = appState.books.filter((book) => book.status === status);
+
+  const shelf = document.createElement("section");
+  shelf.className = "book-shelf";
+
+  const heading = document.createElement("h2");
+  heading.textContent = STATUS_LABELS[status];
+
+  shelf.appendChild(heading);
+
+  shelfBooks.forEach((book) => {
+    const bookCard = createBookCard(book);
+    shelf.appendChild(bookCard);
+  });
+
+  bookList.appendChild(shelf);
 }
 
 function createBookCard(book) {

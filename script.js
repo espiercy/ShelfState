@@ -1,38 +1,16 @@
+import {
+  STORAGE_KEY,
+  MAX_BOOKS_PER_SHELF,
+  BOOK_FIELDS,
+  SHELF_STATUSES,
+  STATUS_LABELS,
+} from "./config.js";
+
 const showFormBtn = document.querySelector("#show-form-btn");
 const submitBookBtn = document.querySelector("#submit-book-btn");
 const cancelFormBtn = document.querySelector("#cancel-form-btn");
 const form = document.querySelector("#new-book-form");
 const bookList = document.querySelector("#book-list");
-
-const STORAGE_KEY = "shelfStateBooks";
-const BOOKS_PER_SHELF = 6;
-const BOOK_FIELDS = [
-  "title",
-  "author",
-  "pages",
-  "progress",
-  "startDate",
-  "endDate",
-  "isbn",
-  "notes",
-  "classification",
-  "category",
-  "status",
-];
-
-const SHELF_STATUSES = [
-  "currently-reading",
-  "on-hold",
-  "not-started",
-  "completed",
-];
-
-const STATUS_LABELS = {
-  "currently-reading": "Currently Reading",
-  "on-hold": "On Hold",
-  "not-started": "Not Started",
-  completed: "Completed",
-};
 
 const appState = {
   books: [],
@@ -157,12 +135,12 @@ function renderShelf(status) {
   let shelfBooks = appState.books.filter((book) => book.status === status);
 
   if (status === "completed") {
-    shelfBooks = shelfBooks.slice(0, BOOKS_PER_SHELF);
+    shelfBooks = shelfBooks.slice(0, MAX_BOOKS_PER_SHELF);
   }
 
   if (shelfBooks.length === 0) return;
 
-  const shelfChunks = chunkBooks(shelfBooks, BOOKS_PER_SHELF);
+  const shelfChunks = chunkBooks(shelfBooks, MAX_BOOKS_PER_SHELF);
 
   shelfChunks.forEach((booksForShelf, index) => {
     const shelf = document.createElement("section");
@@ -319,3 +297,11 @@ function loadBooks() {
 }
 
 loadBooks();
+
+function assert(condition, message) {
+  if (!condition) {
+    console.error(`❌ ${message}`);
+  } else {
+    console.log(`✅ ${message}`);
+  }
+}

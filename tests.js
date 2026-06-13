@@ -53,4 +53,42 @@ function testValidateBookData() {
   );
 }
 
-testValidateBookData();
+//more tests
+function testChunkBooks() {
+  const books = [1, 2, 3, 4, 5];
+
+  const chunks = chunkBooks(books, 2);
+
+  assert(chunks.length === 3, "splits books into correct number of chunks");
+  assert(chunks[0].length === 2, "first chunk has max shelf size");
+  assert(chunks[2].length === 1, "last chunk has remainder");
+}
+
+function testBookUpdate() {
+  const book = new Book({
+    title: "Old Title",
+    author: "Old Author",
+    pages: 100,
+    progress: 10,
+    status: "not-started",
+  });
+
+  book.update({
+    title: "New Title",
+    author: "New Author",
+    pages: 200,
+    progress: 50,
+    status: "currently-reading",
+  });
+
+  assert(book.title === "New Title", "updates title");
+  assert(book.author === "New Author", "updates author");
+  assert(book.pages === 200, "updates pages");
+  assert(book.status === "currently-reading", "updates status");
+}
+
+export function unitTests() {
+  testValidateBookData();
+  testChunkBooks();
+  testBookUpdate();
+}

@@ -92,15 +92,15 @@ form.addEventListener("submit", (event) => {
 });
 
 bookList.addEventListener("click", (event) => {
-  const bookCard = event.target.closest(".book-card");
-  if (!bookCard) return;
+  const bookElement = event.target.closest(".book-spine");
+  if (!bookElement) return;
 
   if (event.target.closest(".delete-book-btn")) {
-    deleteBook(bookCard.dataset.bookId);
+    deleteBook(bookElement.dataset.bookId);
     return;
   }
 
-  openEditForm(bookCard.dataset.bookId);
+  openEditForm(bookElement.dataset.bookId);
 });
 
 function getBookData() {
@@ -157,7 +157,7 @@ function renderShelf(status) {
     shelfRow.className = "shelf-row";
 
     booksForShelf.forEach((book) => {
-      const bookCard = createBookCard(book);
+      const bookCard = createBookSpine(book);
       shelfRow.appendChild(bookCard);
     });
 
@@ -165,6 +165,26 @@ function renderShelf(status) {
 
     bookList.appendChild(shelf);
   });
+}
+
+function createBookSpine(book) {
+  const bookSpine = document.createElement("article");
+  bookSpine.classList.add("book-spine", `book-status-${book.status}`);
+  bookSpine.dataset.bookId = book.id;
+
+  const title = document.createElement("span");
+  title.className = "book-spine-title";
+  title.textContent = book.title;
+
+  bookSpine.appendChild(title);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "delete-book-btn";
+  deleteBtn.type = "button";
+  deleteBtn.textContent = "x";
+  bookSpine.appendChild(deleteBtn);
+
+  return bookSpine;
 }
 
 function createBookCard(book) {
@@ -297,11 +317,3 @@ function loadBooks() {
 }
 
 loadBooks();
-
-function assert(condition, message) {
-  if (!condition) {
-    console.error(`❌ ${message}`);
-  } else {
-    console.log(`✅ ${message}`);
-  }
-}

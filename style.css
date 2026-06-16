@@ -1,7 +1,7 @@
 /* General page styling */
 body {
-  font-family: Arial, sans-serif;
-  background-color: #f4f4f4;
+  font-family: Georgia, serif;
+  background-color: #efe7da;
   margin: 0;
   padding: 2rem;
   color: #222;
@@ -11,7 +11,7 @@ body {
 main {
   max-width: 700px;
   margin: 0 auto;
-  background-color: #fafafa;
+  background-color: #fffaf2;
   padding: 2rem;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -110,22 +110,27 @@ button:hover {
 .book-spine {
   width: 80px;
   height: 240px;
-  border: 1px solid #333;
+  border: 1px solid #5b3921;
   border-radius: 4px;
-  background-color: #fafafa;
+  background-color: #d8a15d;
   cursor: pointer;
   padding: 0.5rem;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
 
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
+.book-spine:hover {
+  transform: translateY(-4px);
+}
+
 .book-spine-title {
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  font-weight: bold;
-  font-size: 1rem;
+  font-weight: 700;
+  font-size: 1.05rem;
   line-height: 1.2;
   text-align: center;
 
@@ -149,18 +154,42 @@ button:hover {
 }
 
 .book-shelf {
+  background-color: #f8efe2;
   margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 4px solid #8b5a2b;
+  padding: 0.75rem 1rem 0.75rem;
+  border-bottom: 12px solid #8b5a2b;
+  border-radius: 8px 8px 2px 2px;
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
 }
 
 .book-shelf h2 {
-  border-bottom: 2px solid #ccc;
-  padding-bottom: 0.5rem;
+  margin: 0 0 0 0.75rem;
+  font-size: 1.15rem;
+  letter-spacing: 0.04rem;
+  border-bottom: none;
+  color: #4b2e1e;
+  padding-bottom: 0;
 }
 
 .shelf-row {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.book-status-currently-reading {
+  background-color: #3f7d58;
+}
+
+.book-status-on-hold {
+  background-color: #c27c2c;
+}
+
+.book-status-not-started {
+  background-color: #4a6fa5;
+}
+
+.book-status-completed {
+  background-color: #7b4f9d;
 }

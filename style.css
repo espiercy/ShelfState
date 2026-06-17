@@ -120,10 +120,41 @@ button:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .book-spine:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px);
+  box-shadow: 4px 8px 12px rgbd(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.book-hover-details {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 105%;
+  transform: translate(-50%);
+  width: 180px;
+  padding: 0.75rem;
+  background-color: #fffaf2;
+  border: 1px solid #5b3921;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  z-index: 10;
+  font-size: 0.85rem;
+}
+
+.book-hover-details span {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.book-spine:hover .book-hover-details {
+  display: block;
 }
 
 .book-spine-title {

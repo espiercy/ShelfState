@@ -1,5 +1,5 @@
 export const STORAGE_KEY = "shelfStateBooks";
-export const MAX_BOOKS_PER_SHELF = 8;
+export const MAX_BOOKS_PER_SHELF = 6;
 export const BOOK_FIELDS = [
   "title",
   "author",

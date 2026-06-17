@@ -184,6 +184,17 @@ function createBookSpine(book) {
   deleteBtn.textContent = "x";
   bookSpine.appendChild(deleteBtn);
 
+  const hoverDetails = document.createElement("div");
+  hoverDetails.className = "book-hover-details";
+  hoverDetails.innerHTML = `
+      <strong>${book.title}</strong>
+      <span>${book.author}</span>
+      <span>${book.progress}/${book.pages} pages</span>
+      <span>${STATUS_LABELS[book.status]}</span>
+      `;
+
+  bookSpine.appendChild(hoverDetails);
+
   return bookSpine;
 }
 

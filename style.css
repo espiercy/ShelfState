@@ -127,9 +127,13 @@ button:hover {
 }
 
 .book-spine:hover {
-  transform: translateY(-6px);
+  transform: translateY(-8px) scale(1.06);
   box-shadow: 4px 8px 12px rgbd(0, 0, 0, 0.25);
   position: relative;
+}
+
+.book-spine:active {
+  transform: translate(-8px) scale(1.06);
 }
 
 .book-hover-details {

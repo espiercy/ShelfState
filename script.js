@@ -100,7 +100,12 @@ bookList.addEventListener("click", (event) => {
     return;
   }
 
-  openEditForm(bookElement.dataset.bookId);
+  bookElement.classList.add("book-spine-selected");
+
+  setTimeout(() => {
+    openEditForm(bookElement.dataset.bookId);
+    console.log("form opened");
+  }, 150);
 });
 
 function getBookData() {

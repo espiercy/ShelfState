@@ -122,18 +122,19 @@ button:hover {
   align-items: center;
 
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .book-spine:hover {
-  transform: translateY(-8px) scale(1.06);
-  box-shadow: 4px 8px 12px rgbd(0, 0, 0, 0.25);
+  transform: translateY(-6px) scale(1.03);
+  box-shadow: 4px 8px 12px rgba(0, 0, 0, 0.25);
   position: relative;
 }
 
 .book-spine:active {
-  transform: translate(-8px) scale(1.06);
+  transform: translateY(-10px) scale(1.08);
+  box-shadow: 6px 12px 16px rgba(0, 0, 0, 0.3);
 }
 
 .book-hover-details {
@@ -141,7 +142,7 @@ button:hover {
   position: absolute;
   left: 50%;
   bottom: 105%;
-  transform: translate(-50%);
+  transform: translateX(-50%);
   width: 180px;
   padding: 0.75rem;
   background-color: #fffaf2;
@@ -198,7 +199,7 @@ button:hover {
 }
 
 .book-shelf h2 {
-  margin: 0 0 0 0.75rem;
+  margin: 0 0 0 0.75rem 0;
   font-size: 1.15rem;
   letter-spacing: 0.04rem;
   border-bottom: none;

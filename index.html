@@ -18,52 +18,79 @@
       <!-- This form is for adding a new book to the shelf -->
       <!-- Consider the grid layout for better organization -->
       <form id="new-book-form" class="book-form hidden">
-        <label for="title" class="form-label">Title:</label>
-        <input type="text" id="title" class="form-input" name="title" />
+        <div class="open-book">
+          <div class="book-page book-page-left">
+            <div class="book-page-fields">
+              <label for="title" class="form-label">Title:</label>
+              <input type="text" id="title" class="form-input" name="title" />
 
-        <label for="author" class="form-label">Author:</label>
-        <input type="text" id="author" class="form-input" name="author" />
+              <label for="author" class="form-label">Author:</label>
+              <input type="text" id="author" class="form-input" name="author" />
 
-        <label for="classification" class="form-label"
-          >Fiction or Non-Fiction:</label
-        >
-        <select name="classification" id="classification">
-          <option value="fiction">Fiction</option>
-          <option value="non-fiction">Non-Fiction</option>
-        </select>
+              <label for="classification" class="form-label"
+                >Fiction or Non-Fiction:</label
+              >
+              <select name="classification" id="classification">
+                <option value="fiction">Fiction</option>
+                <option value="non-fiction">Non-Fiction</option>
+              </select>
 
-        <label for="category" class="form-label">Category:</label>
-        <input type="text" id="category" class="form-input" name="category" />
-
-        <label for="pages" class="form-label">Pages:</label>
-        <input type="number" id="pages" class="form-input" name="pages" />
-
-        <label for="status" class="form-label">Status:</label>
-        <select name="status" id="status">
-          <option value="">Select Status</option>
-          <option value="currently-reading">Currently Reading</option>
-          <option value="not-started">Not Started</option>
-          <option value="on-hold">On Hold</option>
-          <option value="completed">Completed</option>
-        </select>
-
-        <label for="progress" class="form-label">Progress:</label>
-        <input type="number" id="progress" class="form-input" name="progress" />
-
-        <label for="startDate" class="form-label">Start Date:</label>
-        <input type="date" id="startDate" class="form-input" name="startDate" />
-
-        <label for="endDate" class="form-label">End Date:</label>
-        <input type="date" id="endDate" class="form-input" name="endDate" />
-
-        <label for="isbn" class="form-label">ISBN:</label>
-        <input type="text" id="isbn" class="form-input" name="isbn" />
-
-        <label for="notes" class="form-label">Notes:</label>
-        <textarea id="notes" class="form-input" name="notes"></textarea>
-
-        <button type="submit" id="submit-book-btn">Submit</button>
-        <button type="button" id="cancel-form-btn">Cancel</button>
+              <label for="category" class="form-label">Category:</label>
+              <input
+                type="text"
+                id="category"
+                class="form-input"
+                name="category"
+              />
+              <label for="status" class="form-label">Status:</label>
+              <select name="status" id="status">
+                <option value="">Select Status</option>
+                <option value="currently-reading">Currently Reading</option>
+                <option value="not-started">Not Started</option>
+                <option value="on-hold">On Hold</option>
+                <option value="completed">Completed</option>
+              </select>
+              <label for="isbn" class="form-label">ISBN:</label>
+              <input type="text" id="isbn" class="form-input" name="isbn" />
+            </div>
+            <div class="book-page-actions">
+              <button type="submit" id="submit-book-btn">Submit</button>
+            </div>
+          </div>
+          <div class="book-spine-center"></div>
+          <div class="book-page book-page-right">
+            <div class="book-page-fields">
+              <label for="pages" class="form-label">Pages:</label>
+              <input type="number" id="pages" class="form-input" name="pages" />
+              <label for="progress" class="form-label">Progress:</label>
+              <input
+                type="number"
+                id="progress"
+                class="form-input"
+                name="progress"
+              />
+              <label for="startDate" class="form-label">Start Date:</label>
+              <input
+                type="date"
+                id="startDate"
+                class="form-input"
+                name="startDate"
+              />
+              <label for="endDate" class="form-label">End Date:</label>
+              <input
+                type="date"
+                id="endDate"
+                class="form-input"
+                name="endDate"
+              />
+              <label for="notes" class="form-label">Notes:</label>
+              <textarea id="notes" class="form-input" name="notes"></textarea>
+            </div>
+            <div class="book-page-actions">
+              <button type="button" id="cancel-form-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
       </form>
       <section id="book-list">
         <!-- This section will display the list of books on the shelf -->

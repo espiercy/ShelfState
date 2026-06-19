@@ -120,6 +120,7 @@ function getBookData() {
 }
 
 function renderBooks() {
+  clearSelectedSpines();
   bookList.replaceChildren();
 
   if (appState.books.length === 0) {
@@ -170,6 +171,12 @@ function renderShelf(status) {
 
     bookList.appendChild(shelf);
   });
+}
+
+function clearSelectedSpines() {
+  document
+    .querySelectorAll(".book-spine-selected")
+    .forEach((spine) => spine.classList.remove("book-spine-selected"));
 }
 
 function createBookSpine(book) {
@@ -289,6 +296,7 @@ function openForm(submitLabel = "Save Book") {
   showFormBtn.classList.add("hidden");
   bookList.classList.add("hidden");
   submitBookBtn.textContent = submitLabel;
+  document.querySelector("main").classList.add("form-mode");
 }
 
 function closeForm() {
@@ -298,7 +306,10 @@ function closeForm() {
   bookList.classList.remove("hidden");
   appState.editingBookId = null;
   submitBookBtn.textContent = "Save Book";
+  document.querySelector("main").classList.remove("form-mode");
+  clearSelectedSpines();
 }
+
 function chunkBooks(books, chunkSize) {
   const chunks = [];
 

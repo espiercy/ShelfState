@@ -12,6 +12,7 @@ export const BOOK_FIELDS = [
   "classification",
   "category",
   "status",
+  "bookshelf",
 ];
 
 export const SHELF_STATUSES = [

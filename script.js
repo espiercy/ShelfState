@@ -31,6 +31,7 @@ class Book {
     classification,
     category,
     status,
+    bookshelf = "",
     createdAt = new Date(),
     updatedAt = new Date(),
   }) {
@@ -46,6 +47,7 @@ class Book {
     this.classification = classification;
     this.category = category;
     this.status = status;
+    this.bookshelf = bookshelf;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -132,13 +134,18 @@ function renderBooks() {
     return;
   }
 
-  SHELF_STATUSES.forEach((status) => {
-    renderShelf(status);
+  const bookshelfNames = getBookshelfNames();
+
+  bookshelfNames.forEach((bookshelfName) => {
+    renderBookshelf(bookshelfName);
   });
 }
 
-function renderShelf(status) {
-  let shelfBooks = appState.books.filter((book) => book.status === status);
+function renderShelf(status, bookshelfName, bookshelfElement) {
+  let shelfBooks = appState.books.filter(
+    (book) =>
+      book.status === status && (book.bookshelf || "") === bookshelfName,
+  );
 
   if (status === "completed") {
     shelfBooks = shelfBooks.slice(0, MAX_BOOKS_PER_SHELF);
@@ -169,7 +176,7 @@ function renderShelf(status) {
 
     shelf.appendChild(shelfRow);
 
-    bookList.appendChild(shelf);
+    bookshelfElement.appendChild(shelf);
   });
 }
 
@@ -208,36 +215,6 @@ function createBookSpine(book) {
   bookSpine.appendChild(hoverDetails);
 
   return bookSpine;
-}
-
-function createBookCard(book) {
-  const bookCard = document.createElement("article");
-  bookCard.classList.add("book-card", `book-status-${book.status}`);
-  bookCard.dataset.bookId = book.id;
-
-  const heading = document.createElement("h2");
-  heading.textContent = book.title;
-  bookCard.appendChild(heading);
-
-  [
-    ["Author", book.author],
-    ["Status", book.status],
-    ["Progress", `${book.progress}/${book.pages} pages`],
-    ["Category", book.category],
-    ["ISBN", book.isbn],
-    ["Notes", book.notes],
-  ].forEach(([label, value]) => {
-    if (value === "" || value === null || value === undefined) return;
-    bookCard.appendChild(createBookDetail(label, value));
-  });
-
-  const deleteBtn = document.createElement("button");
-  deleteBtn.className = "delete-book-btn";
-  deleteBtn.type = "button";
-  deleteBtn.textContent = "Delete";
-  bookCard.appendChild(deleteBtn);
-
-  return bookCard;
 }
 
 function createBookDetail(label, value) {
@@ -341,6 +318,27 @@ function loadBooks() {
     appState.books = [];
   }
   renderBooks();
+}
+
+function getBookshelfNames() {
+  return [...new Set(appState.books.map((book) => book.bookshelf || ""))];
+}
+
+function renderBookshelf(bookshelfName) {
+  const bookshelf = document.createElement("section");
+  bookshelf.className = "bookshelf";
+
+  const heading = document.createElement("h2");
+  heading.className = "bookshelf-title";
+  heading.textContent = bookshelfName || "My Library";
+
+  bookshelf.appendChild(heading);
+
+  SHELF_STATUSES.forEach((status) => {
+    renderShelf(status, bookshelfName, bookshelf);
+  });
+
+  bookList.appendChild(bookshelf);
 }
 
 loadBooks();

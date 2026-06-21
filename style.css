@@ -319,3 +319,12 @@ button:hover {
   flex-direction: column;
   gap: 1rem;
 }
+
+.bookshelf-card,
+.new-bookshelf-btn {
+  width: 100%;
+}
+
+.bookshelf-card-active {
+  outline: 3px solid #8b5a2b;
+}

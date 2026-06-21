@@ -120,6 +120,13 @@ bookList.addEventListener("click", (event) => {
   }, 150);
 });
 
+function saveBookshelves() {
+  localStorage.setItem(
+    "shelfStateBookshelves",
+    JSON.stringify(appState.bookshelves),
+  );
+}
+
 function ensureDefaultBookshelf() {
   if (appState.bookshelves.length > 0) return;
 
@@ -170,19 +177,21 @@ function renderBooks() {
     return;
   }
 
-  const bookshelfNames = getBookshelfNames();
+  const activeBookshelf = appState.bookshelves.find(
+    (bookshelf) => bookshelf.id === appState.activeBookshelfId,
+  );
 
-  bookshelfNames.forEach((bookshelfName) => {
-    renderBookshelf(bookshelfName);
-  });
+  if (activeBookshelf) {
+    renderBookshelf(activeBookshelf);
+  }
 
   renderBookshelfSelector();
 }
 
 function renderShelf(status, bookshelfName, bookshelfElement) {
+  const bookshelfKey = bookshelfName === "My Library" ? "" : bookshelfName;
   let shelfBooks = appState.books.filter(
-    (book) =>
-      book.status === status && (book.bookshelf || "") === bookshelfName,
+    (book) => book.status === status && (book.bookshelf || "") === bookshelfKey,
   );
 
   if (status === "completed") {
@@ -338,6 +347,31 @@ function saveBooks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.books));
 }
 
+function loadBookshelves() {
+  const savedBookshelves = localStorage.getItem("shelfStateBookshelves");
+
+  if (!savedBookshelves) {
+    ensureDefaultBookshelf();
+    return;
+  }
+
+  try {
+    const parsedBookshelves = JSON.parse(savedBookshelves);
+
+    appState.bookshelves = Array.isArray(parsedBookshelves)
+      ? parsedBookshelves.map((bookshelfData) => new Bookshelf(bookshelfData))
+      : [];
+  } catch {
+    appState.bookshelves = [];
+  }
+
+  ensureDefaultBookshelf();
+
+  if (!appState.activeBookshelfId && appState.bookshelves.length > 0) {
+    appState.activeBookshelfId = appState.bookshelves[0].id;
+  }
+}
+
 function loadBooks() {
   const savedBooks = localStorage.getItem(STORAGE_KEY);
 
@@ -357,6 +391,7 @@ function loadBooks() {
   }
 
   ensureDefaultBookshelf();
+  loadBookshelves();
   renderBooks();
 }
 
@@ -364,21 +399,21 @@ function getBookshelfNames() {
   return [...new Set(appState.books.map((book) => book.bookshelf || ""))];
 }
 
-function renderBookshelf(bookshelfName) {
-  const bookshelf = document.createElement("section");
-  bookshelf.className = "bookshelf";
+function renderBookshelf(bookshelf) {
+  const bookshelfSection = document.createElement("section");
+  bookshelfSection.className = "bookshelf";
 
   const heading = document.createElement("h2");
   heading.className = "bookshelf-title";
-  heading.textContent = bookshelfName || "My Library";
+  heading.textContent = bookshelf.name;
 
-  bookshelf.appendChild(heading);
+  bookshelfSection.appendChild(heading);
 
   SHELF_STATUSES.forEach((status) => {
-    renderShelf(status, bookshelfName, bookshelf);
+    renderShelf(status, bookshelf.name, bookshelfSection);
   });
 
-  bookList.appendChild(bookshelf);
+  bookList.appendChild(bookshelfSection);
 }
 
 function renderBookshelfSelector() {
@@ -392,8 +427,35 @@ function renderBookshelfSelector() {
     card.className = "bookshelf-card";
     card.textContent = bookshelf.name;
 
+    if (bookshelf.id === appState.activeBookshelfId) {
+      card.classList.add("bookshelf-card-active");
+    }
+
+    card.addEventListener("click", () => {
+      appState.activeBookshelfId = bookshelf.id;
+      renderBooks();
+    });
+
     selector.appendChild(card);
   });
+
+  const newBookshelfBtn = document.createElement("button");
+  newBookshelfBtn.id = "new-bookshelf-btn";
+  newBookshelfBtn.type = "button";
+  newBookshelfBtn.className = "new-bookshelf-btn";
+  newBookshelfBtn.textContent = "+ New Bookshelf";
+
+  newBookshelfBtn.addEventListener("click", () => {
+    const name = prompt("Bookshelf name: ");
+
+    if (!name) return;
+    console.log(appState.bookshelves);
+    createBookshelf(name);
+    saveBookshelves();
+    renderBooks();
+  });
+
+  selector.appendChild(newBookshelfBtn);
 }
 
 loadBooks();

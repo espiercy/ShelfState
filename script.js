@@ -14,6 +14,8 @@ const bookList = document.querySelector("#book-list");
 
 const appState = {
   books: [],
+  bookshelves: [],
+  activeBookshelfId: null,
   editingBookId: null,
 };
 
@@ -57,6 +59,14 @@ class Book {
       this[field] = bookData[field];
     });
     this.updatedAt = new Date();
+  }
+}
+
+class Bookshelf {
+  constructor({ id = crypto.randomUUID(), name, bookIds = [] }) {
+    this.id = id;
+    this.name = name;
+    this.bookIds = bookIds;
   }
 }
 
@@ -110,6 +120,32 @@ bookList.addEventListener("click", (event) => {
   }, 150);
 });
 
+function ensureDefaultBookshelf() {
+  if (appState.bookshelves.length > 0) return;
+
+  const defaultBookshelf = new Bookshelf({
+    name: "My Library",
+  });
+
+  appState.bookshelves.push(defaultBookshelf);
+  appState.activeBookshelfId = defaultBookshelf.id;
+}
+
+function createBookshelf(name) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) return null;
+
+  const bookshelf = new Bookshelf({
+    name: trimmedName,
+  });
+
+  appState.bookshelves.push(bookshelf);
+  appState.activeBookshelfId = bookshelf.id;
+
+  return bookshelf;
+}
+
 function getBookData() {
   const formData = new FormData(form);
   const bookData = Object.fromEntries(
@@ -139,6 +175,8 @@ function renderBooks() {
   bookshelfNames.forEach((bookshelfName) => {
     renderBookshelf(bookshelfName);
   });
+
+  renderBookshelfSelector();
 }
 
 function renderShelf(status, bookshelfName, bookshelfElement) {
@@ -317,6 +355,8 @@ function loadBooks() {
   } catch {
     appState.books = [];
   }
+
+  ensureDefaultBookshelf();
   renderBooks();
 }
 
@@ -339,6 +379,21 @@ function renderBookshelf(bookshelfName) {
   });
 
   bookList.appendChild(bookshelf);
+}
+
+function renderBookshelfSelector() {
+  const selector = document.querySelector("#bookshelf-selector");
+
+  selector.replaceChildren();
+
+  appState.bookshelves.forEach((bookshelf) => {
+    const card = document.createElement("button");
+
+    card.className = "bookshelf-card";
+    card.textContent = bookshelf.name;
+
+    selector.appendChild(card);
+  });
 }
 
 loadBooks();

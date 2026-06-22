@@ -9,7 +9,7 @@ body {
 
 /* Main content container */
 main {
-  max-width: 700px;
+  max-width: 900px;
   margin: 0 auto;
   background-color: #fffaf2;
   padding: 2rem;
@@ -310,8 +310,12 @@ button:hover {
 
 #library-layout {
   display: grid;
-  grid-template-columns: 1fr 220px;
+  grid-template-columns: minmax(700px, 1fr) 180px;
   gap: 1.5rem;
+}
+
+#library-layout.hidden {
+  display: none;
 }
 
 #bookshelf-selector {
@@ -323,6 +327,7 @@ button:hover {
 .bookshelf-card,
 .new-bookshelf-btn {
   width: 100%;
+  padding: 0.75rem;
 }
 
 .bookshelf-card-active {

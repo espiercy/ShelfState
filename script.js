@@ -1,17 +1,24 @@
+//Imports
 import {
-  STORAGE_KEY,
+  BOOKS_STORAGE_KEY,
+  BOOKSHELVES_STORAGE_KEY,
+  ACTIVE_BOOKSHELF_STORAGE_KEY,
   MAX_BOOKS_PER_SHELF,
   BOOK_FIELDS,
   SHELF_STATUSES,
   STATUS_LABELS,
 } from "./config.js";
 
+//DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");
 const submitBookBtn = document.querySelector("#submit-book-btn");
 const cancelFormBtn = document.querySelector("#cancel-form-btn");
 const form = document.querySelector("#new-book-form");
 const bookList = document.querySelector("#book-list");
+const bookshelfSelector = document.querySelector("#bookshelf-selector");
+const libraryLayout = document.querySelector("#library-layout");
 
+//App State
 const appState = {
   books: [],
   bookshelves: [],
@@ -70,6 +77,7 @@ class Bookshelf {
   }
 }
 
+//Event Listeners
 showFormBtn.addEventListener("click", () => {
   openForm();
 });
@@ -120,39 +128,7 @@ bookList.addEventListener("click", (event) => {
   }, 150);
 });
 
-function saveBookshelves() {
-  localStorage.setItem(
-    "shelfStateBookshelves",
-    JSON.stringify(appState.bookshelves),
-  );
-}
-
-function ensureDefaultBookshelf() {
-  if (appState.bookshelves.length > 0) return;
-
-  const defaultBookshelf = new Bookshelf({
-    name: "My Library",
-  });
-
-  appState.bookshelves.push(defaultBookshelf);
-  appState.activeBookshelfId = defaultBookshelf.id;
-}
-
-function createBookshelf(name) {
-  const trimmedName = name.trim();
-
-  if (!trimmedName) return null;
-
-  const bookshelf = new Bookshelf({
-    name: trimmedName,
-  });
-
-  appState.bookshelves.push(bookshelf);
-  appState.activeBookshelfId = bookshelf.id;
-
-  return bookshelf;
-}
-
+// Form Data
 function getBookData() {
   const formData = new FormData(form);
   const bookData = Object.fromEntries(
@@ -164,6 +140,31 @@ function getBookData() {
   return bookData;
 }
 
+function validateBookData(bookData) {
+  const errors = [];
+
+  if (!bookData.title.trim()) {
+    errors.push("Title is required.");
+  }
+  if (!bookData.author.trim()) {
+    errors.push("Author is required.");
+  }
+  if (!bookData.pages || bookData.pages <= 0) {
+    errors.push("Pages must be greater than zero.");
+  }
+  if (!bookData.status) {
+    errors.push("Status is required.");
+  }
+  if (bookData.progress < 0) {
+    errors.push("Progress cannot be negative.");
+  }
+  if (bookData.progress > bookData.pages) {
+    errors.push("Progress cannot exceed total pages.");
+  }
+  return errors;
+}
+
+// Rendering
 function renderBooks() {
   clearSelectedSpines();
   bookList.replaceChildren();
@@ -186,6 +187,23 @@ function renderBooks() {
   }
 
   renderBookshelfSelector();
+}
+
+function renderBookshelf(bookshelf) {
+  const bookshelfSection = document.createElement("section");
+  bookshelfSection.className = "bookshelf";
+
+  const heading = document.createElement("h2");
+  heading.className = "bookshelf-title";
+  heading.textContent = bookshelf.name;
+
+  bookshelfSection.appendChild(heading);
+
+  SHELF_STATUSES.forEach((status) => {
+    renderShelf(status, bookshelf.name, bookshelfSection);
+  });
+
+  bookList.appendChild(bookshelfSection);
 }
 
 function renderShelf(status, bookshelfName, bookshelfElement) {
@@ -227,10 +245,45 @@ function renderShelf(status, bookshelfName, bookshelfElement) {
   });
 }
 
-function clearSelectedSpines() {
-  document
-    .querySelectorAll(".book-spine-selected")
-    .forEach((spine) => spine.classList.remove("book-spine-selected"));
+function renderBookshelfSelector() {
+  bookshelfSelector.replaceChildren();
+
+  appState.bookshelves.forEach((bookshelf) => {
+    const card = document.createElement("button");
+
+    card.className = "bookshelf-card";
+    card.textContent = bookshelf.name;
+
+    if (bookshelf.id === appState.activeBookshelfId) {
+      card.classList.add("bookshelf-card-active");
+    }
+
+    card.addEventListener("click", () => {
+      appState.activeBookshelfId = bookshelf.id;
+      saveActiveBookshelf();
+      renderBooks();
+    });
+
+    bookshelfSelector.appendChild(card);
+  });
+
+  const newBookshelfBtn = document.createElement("button");
+  newBookshelfBtn.id = "new-bookshelf-btn";
+  newBookshelfBtn.type = "button";
+  newBookshelfBtn.className = "new-bookshelf-btn";
+  newBookshelfBtn.textContent = "+ New Bookshelf";
+
+  newBookshelfBtn.addEventListener("click", () => {
+    const name = prompt("Bookshelf name: ");
+
+    if (!name) return;
+    createBookshelf(name);
+    saveBookshelves();
+    saveActiveBookshelf();
+    renderBooks();
+  });
+
+  bookshelfSelector.appendChild(newBookshelfBtn);
 }
 
 function createBookSpine(book) {
@@ -272,6 +325,13 @@ function createBookDetail(label, value) {
   return detail;
 }
 
+function clearSelectedSpines() {
+  document
+    .querySelectorAll(".book-spine-selected")
+    .forEach((spine) => spine.classList.remove("book-spine-selected"));
+}
+
+// Book Actions
 function deleteBook(bookId) {
   const shouldDelete = confirm("Delete this book?");
   if (!shouldDelete) return;
@@ -280,28 +340,83 @@ function deleteBook(bookId) {
   saveBooks();
 }
 
-function validateBookData(bookData) {
-  const errors = [];
+// Bookshelf Actions
+function createBookshelf(name) {
+  const trimmedName = name.trim();
 
-  if (!bookData.title.trim()) {
-    errors.push("Title is required.");
-  }
-  if (!bookData.author.trim()) {
-    errors.push("Author is required.");
-  }
-  if (!bookData.pages || bookData.pages <= 0) {
-    errors.push("Pages must be greater than zero.");
-  }
-  if (!bookData.status) {
-    errors.push("Status is required.");
-  }
-  if (bookData.progress < 0) {
-    errors.push("Progress cannot be negative.");
-  }
-  if (bookData.progress > bookData.pages) {
-    errors.push("Progress cannot exceed total pages.");
-  }
-  return errors;
+  if (!trimmedName) return null;
+
+  const bookshelf = new Bookshelf({
+    name: trimmedName,
+  });
+
+  appState.bookshelves.push(bookshelf);
+  appState.activeBookshelfId = bookshelf.id;
+
+  return bookshelf;
+}
+
+function ensureDefaultBookshelf() {
+  if (appState.bookshelves.length > 0) return;
+
+  const defaultBookshelf = new Bookshelf({
+    name: "My Library",
+  });
+
+  appState.bookshelves.push(defaultBookshelf);
+  appState.activeBookshelfId = defaultBookshelf.id;
+}
+
+function ensureActiveBookshelf() {
+  const activeExists = appState.bookshelves.some(
+    (bookshelf) => bookshelf.id === appState.activeBookshelfId,
+  );
+
+  if (activeExists) return;
+
+  appState.activeBookshelfId = appState.bookshelves[0]?.id ?? null;
+}
+
+function syncBookshelvesFromBooks() {
+  appState.books.forEach((book) => {
+    const bookshelfName = book.bookshelf?.trim();
+
+    if (!bookshelfName) return;
+
+    const alreadyExists = appState.bookshelves.some(
+      (bookshelf) =>
+        bookshelf.name.toLowerCase() === bookshelfName.toLowerCase(),
+    );
+
+    if (!alreadyExists) {
+      appState.bookshelves.push(
+        new Bookshelf({
+          name: bookshelfName,
+        }),
+      );
+    }
+  });
+}
+
+// Form UI
+
+function openForm(submitLabel = "Save Book") {
+  form.classList.remove("hidden");
+  showFormBtn.classList.add("hidden");
+  libraryLayout.classList.add("hidden");
+  submitBookBtn.textContent = submitLabel;
+  document.querySelector("main").classList.add("form-mode");
+}
+
+function closeForm() {
+  form.reset();
+  form.classList.add("hidden");
+  showFormBtn.classList.remove("hidden");
+  libraryLayout.classList.remove("hidden");
+  appState.editingBookId = null;
+  submitBookBtn.textContent = "Save Book";
+  document.querySelector("main").classList.remove("form-mode");
+  clearSelectedSpines();
 }
 
 function openEditForm(bookId) {
@@ -315,25 +430,7 @@ function openEditForm(bookId) {
   openForm("Update Book");
 }
 
-function openForm(submitLabel = "Save Book") {
-  form.classList.remove("hidden");
-  showFormBtn.classList.add("hidden");
-  bookList.classList.add("hidden");
-  submitBookBtn.textContent = submitLabel;
-  document.querySelector("main").classList.add("form-mode");
-}
-
-function closeForm() {
-  form.reset();
-  form.classList.add("hidden");
-  showFormBtn.classList.remove("hidden");
-  bookList.classList.remove("hidden");
-  appState.editingBookId = null;
-  submitBookBtn.textContent = "Save Book";
-  document.querySelector("main").classList.remove("form-mode");
-  clearSelectedSpines();
-}
-
+//Utilities
 function chunkBooks(books, chunkSize) {
   const chunks = [];
 
@@ -343,12 +440,40 @@ function chunkBooks(books, chunkSize) {
 
   return chunks;
 }
+
+//Persistence
 function saveBooks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.books));
+  localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(appState.books));
+}
+
+function loadBooks() {
+  const savedBooks = localStorage.getItem(BOOKS_STORAGE_KEY);
+
+  if (!savedBooks) {
+    appState.books = [];
+    renderBooks();
+    return;
+  }
+
+  try {
+    const parsedBooks = JSON.parse(savedBooks);
+    appState.books = Array.isArray(parsedBooks)
+      ? parsedBooks.map((bookData) => new Book(bookData))
+      : [];
+  } catch {
+    appState.books = [];
+  }
+}
+
+function saveBookshelves() {
+  localStorage.setItem(
+    BOOKSHELVES_STORAGE_KEY,
+    JSON.stringify(appState.bookshelves),
+  );
 }
 
 function loadBookshelves() {
-  const savedBookshelves = localStorage.getItem("shelfStateBookshelves");
+  const savedBookshelves = localStorage.getItem(BOOKSHELVES_STORAGE_KEY);
 
   if (!savedBookshelves) {
     ensureDefaultBookshelf();
@@ -372,90 +497,28 @@ function loadBookshelves() {
   }
 }
 
-function loadBooks() {
-  const savedBooks = localStorage.getItem(STORAGE_KEY);
+function saveActiveBookshelf() {
+  localStorage.setItem(
+    ACTIVE_BOOKSHELF_STORAGE_KEY,
+    appState.activeBookshelfId,
+  );
+}
 
-  if (!savedBooks) {
-    appState.books = [];
-    renderBooks();
-    return;
-  }
+function loadActiveBookshelf() {
+  appState.activeBookshelfId = localStorage.getItem(
+    ACTIVE_BOOKSHELF_STORAGE_KEY,
+  );
+}
 
-  try {
-    const parsedBooks = JSON.parse(savedBooks);
-    appState.books = Array.isArray(parsedBooks)
-      ? parsedBooks.map((bookData) => new Book(bookData))
-      : [];
-  } catch {
-    appState.books = [];
-  }
-
-  ensureDefaultBookshelf();
+//Initialization
+function initializeApp() {
+  loadBooks();
   loadBookshelves();
+  syncBookshelvesFromBooks();
+  ensureDefaultBookshelf();
+  loadActiveBookshelf();
+  ensureActiveBookshelf();
   renderBooks();
 }
 
-function getBookshelfNames() {
-  return [...new Set(appState.books.map((book) => book.bookshelf || ""))];
-}
-
-function renderBookshelf(bookshelf) {
-  const bookshelfSection = document.createElement("section");
-  bookshelfSection.className = "bookshelf";
-
-  const heading = document.createElement("h2");
-  heading.className = "bookshelf-title";
-  heading.textContent = bookshelf.name;
-
-  bookshelfSection.appendChild(heading);
-
-  SHELF_STATUSES.forEach((status) => {
-    renderShelf(status, bookshelf.name, bookshelfSection);
-  });
-
-  bookList.appendChild(bookshelfSection);
-}
-
-function renderBookshelfSelector() {
-  const selector = document.querySelector("#bookshelf-selector");
-
-  selector.replaceChildren();
-
-  appState.bookshelves.forEach((bookshelf) => {
-    const card = document.createElement("button");
-
-    card.className = "bookshelf-card";
-    card.textContent = bookshelf.name;
-
-    if (bookshelf.id === appState.activeBookshelfId) {
-      card.classList.add("bookshelf-card-active");
-    }
-
-    card.addEventListener("click", () => {
-      appState.activeBookshelfId = bookshelf.id;
-      renderBooks();
-    });
-
-    selector.appendChild(card);
-  });
-
-  const newBookshelfBtn = document.createElement("button");
-  newBookshelfBtn.id = "new-bookshelf-btn";
-  newBookshelfBtn.type = "button";
-  newBookshelfBtn.className = "new-bookshelf-btn";
-  newBookshelfBtn.textContent = "+ New Bookshelf";
-
-  newBookshelfBtn.addEventListener("click", () => {
-    const name = prompt("Bookshelf name: ");
-
-    if (!name) return;
-    console.log(appState.bookshelves);
-    createBookshelf(name);
-    saveBookshelves();
-    renderBooks();
-  });
-
-  selector.appendChild(newBookshelfBtn);
-}
-
-loadBooks();
+initializeApp();

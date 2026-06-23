@@ -26,6 +26,7 @@ const appState = {
   editingBookId: null,
 };
 
+//Classes
 class Book {
   constructor({
     id = crypto.randomUUID(),
@@ -252,7 +253,23 @@ function renderBookshelfSelector() {
     const card = document.createElement("button");
 
     card.className = "bookshelf-card";
-    card.textContent = bookshelf.name;
+    const shelfName = document.createElement("span");
+    shelfName.textContent = bookshelf.name;
+    card.appendChild(shelfName);
+
+    if (bookshelf.name !== "My Library") {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "delete-bookshelf-btn";
+      deleteBtn.textContent = "×";
+
+      deleteBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        deleteBookshelf(bookshelf.id);
+      });
+
+      card.appendChild(deleteBtn);
+    }
 
     if (bookshelf.id === appState.activeBookshelfId) {
       card.classList.add("bookshelf-card-active");
@@ -286,6 +303,20 @@ function renderBookshelfSelector() {
   bookshelfSelector.appendChild(newBookshelfBtn);
 }
 
+function renderBookshelfOptions() {
+  const bookshelfSelect = form.elements.bookshelf;
+
+  bookshelfSelect.replaceChildren();
+
+  appState.bookshelves.forEach((bookshelf) => {
+    const option = document.createElement("option");
+    option.value = bookshelf.name === "My Library" ? "" : bookshelf.name;
+    option.textContent = bookshelf.name;
+
+    bookshelfSelect.appendChild(option);
+  });
+}
+
 function createBookSpine(book) {
   const bookSpine = document.createElement("article");
   bookSpine.classList.add("book-spine", `book-status-${book.status}`);
@@ -300,7 +331,7 @@ function createBookSpine(book) {
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "delete-book-btn";
   deleteBtn.type = "button";
-  deleteBtn.textContent = "x";
+  deleteBtn.textContent = "×";
   bookSpine.appendChild(deleteBtn);
 
   const hoverDetails = document.createElement("div");
@@ -356,6 +387,38 @@ function createBookshelf(name) {
   return bookshelf;
 }
 
+function deleteBookshelf(bookshelfId) {
+  const bookshelf = appState.bookshelves.find(
+    (bookshelf) => bookshelf.id === bookshelfId,
+  );
+
+  if (!bookshelf || bookshelf.name === "My Library") return;
+
+  const shouldDelete = confirm(
+    `Delete "${bookshelf.name}"? Books on this bookshelf will move back to My Library.`,
+  );
+
+  if (!shouldDelete) return;
+
+  appState.books.forEach((book) => {
+    if (book.bookshelf === bookshelf.name) {
+      book.bookshelf = "";
+    }
+  });
+
+  appState.bookshelves = appState.bookshelves.filter(
+    (bookshelf) => bookshelf.id !== bookshelfId,
+  );
+
+  const defaultBookshelf = getDefaultBookshelf();
+  appState.activeBookshelfId = defaultBookshelf?.id ?? null;
+
+  saveBooks();
+  saveBookshelves();
+  saveActiveBookshelf();
+  renderBooks();
+}
+
 function ensureDefaultBookshelf() {
   if (appState.bookshelves.length > 0) return;
 
@@ -365,6 +428,12 @@ function ensureDefaultBookshelf() {
 
   appState.bookshelves.push(defaultBookshelf);
   appState.activeBookshelfId = defaultBookshelf.id;
+}
+
+function getDefaultBookshelf() {
+  return appState.bookshelves.find(
+    (bookshelf) => bookshelf.name === "My Library",
+  );
 }
 
 function ensureActiveBookshelf() {
@@ -399,8 +468,8 @@ function syncBookshelvesFromBooks() {
 }
 
 // Form UI
-
 function openForm(submitLabel = "Save Book") {
+  renderBookshelfOptions();
   form.classList.remove("hidden");
   showFormBtn.classList.add("hidden");
   libraryLayout.classList.add("hidden");

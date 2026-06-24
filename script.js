@@ -281,6 +281,25 @@ function renderBookshelfSelector() {
       renderBooks();
     });
 
+    card.addEventListener("dragover", (event) => {
+      event.preventDefault();
+    });
+
+    card.addEventListener("drop", (event) => {
+      event.preventDefault();
+
+      const bookId = event.dataTransfer.getData("bookId");
+
+      const book = appState.books.find((book) => book.id === bookId);
+
+      if (!book) return;
+
+      book.bookshelf = bookshelf.name === "My Library" ? "" : bookshelf.name;
+
+      saveBooks();
+      renderBooks();
+    });
+
     bookshelfSelector.appendChild(card);
   });
 
@@ -321,6 +340,7 @@ function createBookSpine(book) {
   const bookSpine = document.createElement("article");
   bookSpine.classList.add("book-spine", `book-status-${book.status}`);
   bookSpine.dataset.bookId = book.id;
+  bookSpine.draggable = true;
 
   const title = document.createElement("span");
   title.className = "book-spine-title";
@@ -342,6 +362,10 @@ function createBookSpine(book) {
       <span>${book.progress}/${book.pages} pages</span>
       <span>${STATUS_LABELS[book.status]}</span>
       `;
+
+  bookSpine.addEventListener("dragstart", (event) => {
+    event.dataTransfer.setData("bookId", book.id);
+  });
 
   bookSpine.appendChild(hoverDetails);
 
@@ -492,11 +516,12 @@ function openEditForm(bookId) {
   const book = appState.books.find((book) => book.id === bookId);
   if (!book) return;
 
+  openForm("Update Book");
+
   appState.editingBookId = bookId;
   BOOK_FIELDS.forEach((field) => {
     form.elements[field].value = book[field] ?? "";
   });
-  openForm("Update Book");
 }
 
 //Utilities

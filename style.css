@@ -324,12 +324,40 @@ button:hover {
   gap: 1rem;
 }
 
+.bookshelf-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bookshelf-card:hover,
+.new-bookshelf-btn:hover {
+  background: linear-gradient(to bottom, #fffaf2, #d8c7aa);
+  transform: translateY(-2px);
+}
+
 .bookshelf-card,
 .new-bookshelf-btn {
   width: 100%;
   padding: 0.75rem;
+  border: 1px solid #5b3921;
+  border-bottom: 6px solid #8b5a2b;
+  border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(to bottom, #f8efe2, #d8c7aa);
+  color: #4b2e1e;
+  font-family: Georgia, serif;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 }
 
 .bookshelf-card-active {
   outline: 3px solid #8b5a2b;
+  background: linear-gradient(to bottom, #fff3d8, #cfa66f);
+}
+
+.delete-bookshelf-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
 }

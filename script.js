@@ -24,6 +24,7 @@ const appState = {
   bookshelves: [],
   activeBookshelfId: null,
   editingBookId: null,
+  lastMovedBookId: null,
 };
 
 //Classes
@@ -283,21 +284,30 @@ function renderBookshelfSelector() {
 
     card.addEventListener("dragover", (event) => {
       event.preventDefault();
+      card.classList.add("bookshelf-card-drop-target");
+    });
+
+    card.addEventListener("dragleave", () => {
+      card.classList.remove("bookshelf-card-drop-target");
     });
 
     card.addEventListener("drop", (event) => {
       event.preventDefault();
+      card.classList.remove("bookshelf-card-drop-target");
 
       const bookId = event.dataTransfer.getData("bookId");
-
       const book = appState.books.find((book) => book.id === bookId);
 
       if (!book) return;
 
       book.bookshelf = bookshelf.name === "My Library" ? "" : bookshelf.name;
 
+      appState.activeBookshelfId = bookshelf.id;
+      appState.lastMovedBookId = book.id;
+      saveActiveBookshelf();
       saveBooks();
       renderBooks();
+      appState.lastMovedBookId = null;
     });
 
     bookshelfSelector.appendChild(card);
@@ -365,7 +375,16 @@ function createBookSpine(book) {
 
   bookSpine.addEventListener("dragstart", (event) => {
     event.dataTransfer.setData("bookId", book.id);
+    bookSpine.classList.add("dragging");
   });
+
+  bookSpine.addEventListener("dragend", () => {
+    bookSpine.classList.remove("dragging");
+  });
+
+  if (book.id === appState.lastMovedBookId) {
+    bookSpine.classList.add("book-spine-just-moved");
+  }
 
   bookSpine.appendChild(hoverDetails);
 

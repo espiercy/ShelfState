@@ -201,9 +201,28 @@ function renderBookshelf(bookshelf) {
 
   bookshelfSection.appendChild(heading);
 
+  let renderedShelfCount = 0;
+
   SHELF_STATUSES.forEach((status) => {
-    renderShelf(status, bookshelf.name, bookshelfSection);
+    const didRenderShelf = renderShelf(
+      status,
+      bookshelf.name,
+      bookshelfSection,
+    );
+
+    if (didRenderShelf) {
+      renderedShelfCount++;
+    }
   });
+
+  if (renderedShelfCount === 0) {
+    const emptyBookshelfMessage = document.createElement("p");
+    emptyBookshelfMessage.className = "empty-bookshelf-message";
+    emptyBookshelfMessage.textContent =
+      "This bookshelf is empty. Drag books here or add a new book.";
+
+    bookshelfSection.appendChild(emptyBookshelfMessage);
+  }
 
   bookList.appendChild(bookshelfSection);
 }
@@ -218,7 +237,7 @@ function renderShelf(status, bookshelfName, bookshelfElement) {
     shelfBooks = shelfBooks.slice(0, MAX_BOOKS_PER_SHELF);
   }
 
-  if (shelfBooks.length === 0) return;
+  if (shelfBooks.length === 0) return false;
 
   const shelfChunks = chunkBooks(shelfBooks, MAX_BOOKS_PER_SHELF);
 
@@ -245,6 +264,8 @@ function renderShelf(status, bookshelfName, bookshelfElement) {
 
     bookshelfElement.appendChild(shelf);
   });
+
+  return true;
 }
 
 function renderBookshelfSelector() {
@@ -310,6 +331,11 @@ function renderBookshelfSelector() {
       appState.lastMovedBookId = null;
     });
 
+    card.addEventListener("dblclick", (event) => {
+      event.stopPropagation();
+      renameBookshelf(bookshelf.id);
+    });
+
     bookshelfSelector.appendChild(card);
   });
 
@@ -323,7 +349,10 @@ function renderBookshelfSelector() {
     const name = prompt("Bookshelf name: ");
 
     if (!name) return;
-    createBookshelf(name);
+    const bookshelf = createBookshelf(name);
+
+    if (!bookshelf) return;
+
     saveBookshelves();
     saveActiveBookshelf();
     renderBooks();
@@ -383,6 +412,7 @@ function createBookSpine(book) {
   });
 
   if (book.id === appState.lastMovedBookId) {
+    alert("book spine moving. prepare for animation!");
     bookSpine.classList.add("book-spine-just-moved");
   }
 
@@ -420,6 +450,15 @@ function createBookshelf(name) {
 
   if (!trimmedName) return null;
 
+  const alreadyExists = appState.bookshelves.some(
+    (bookshelf) => bookshelf.name.toLowerCase() === trimmedName.toLowerCase(),
+  );
+
+  if (alreadyExists) {
+    alert(`A bookshelf named "${trimmedName}" already exists.`);
+    return null;
+  }
+
   const bookshelf = new Bookshelf({
     name: trimmedName,
   });
@@ -437,8 +476,12 @@ function deleteBookshelf(bookshelfId) {
 
   if (!bookshelf || bookshelf.name === "My Library") return;
 
+  const booksOnShelf = appState.books.filter(
+    (book) => book.bookshelf === bookshelf.name,
+  ).length;
+
   const shouldDelete = confirm(
-    `Delete "${bookshelf.name}"? Books on this bookshelf will move back to My Library.`,
+    `Delete "${bookshelf.name}"?\n\n${booksOnShelf} book${booksOnShelf === 1 ? "" : "s"} will move back to My Library.`,
   );
 
   if (!shouldDelete) return;
@@ -508,6 +551,46 @@ function syncBookshelvesFromBooks() {
       );
     }
   });
+}
+
+function renameBookshelf(bookshelfId) {
+  const bookshelf = appState.bookshelves.find(
+    (bookshelf) => bookshelf.id === bookshelfId,
+  );
+
+  if (!bookshelf || bookshelf.name === "My Library") return;
+
+  const newName = prompt("New bookshelf name:", bookshelf.name);
+
+  if (!newName) return;
+
+  const trimmedName = newName.trim();
+
+  if (!trimmedName || trimmedName === bookshelf.name) return;
+
+  const alreadyExists = appState.bookshelves.some(
+    (existingBookshelf) =>
+      existingBookshelf.id !== bookshelfId &&
+      existingBookshelf.name.toLowerCase() === trimmedName.toLowerCase(),
+  );
+
+  if (alreadyExists) {
+    alert(`A bookshelf named "${trimmedName}" already exists.`);
+  }
+
+  const oldName = bookshelf.name;
+
+  appState.books.forEach((book) => {
+    if (book.bookshelf === oldName) {
+      book.bookshelf = trimmedName;
+    }
+  });
+
+  bookshelf.name = trimmedName;
+
+  saveBooks();
+  saveBookshelves();
+  renderBooks();
 }
 
 // Form UI
@@ -621,6 +704,12 @@ function loadActiveBookshelf() {
   appState.activeBookshelfId = localStorage.getItem(
     ACTIVE_BOOKSHELF_STORAGE_KEY,
   );
+}
+
+function saveLibraryAndRender() {
+  saveBooks();
+  saveActiveBookshelf();
+  renderBooks();
 }
 
 //Initialization

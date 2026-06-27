@@ -89,6 +89,7 @@ button:hover {
   margin-top: 2rem;
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 #book-list.hidden {
@@ -336,7 +337,7 @@ button:hover {
 
 #library-layout {
   display: grid;
-  grid-template-columns: minmax(700px, 1fr) 180px;
+  grid-template-columns: minmax(0, 1fr) 180px;
   gap: 1.5rem;
 }
 
@@ -395,10 +396,20 @@ button:hover {
 }
 
 .empty-bookshelf-message {
-  text-align: center;
-  padding: 2rem;
-  color: #6b4a2f;
+  width: 100%;
+  min-height: 80px;
+  padding: 1.5rem;
+  color: #4b2e1e;
   border: 1px dashed #8b5a2b;
   border-radius: 8px;
   background-color: #f8efe2;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-style: italic;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }

@@ -17,6 +17,8 @@ const form = document.querySelector("#new-book-form");
 const bookList = document.querySelector("#book-list");
 const bookshelfSelector = document.querySelector("#bookshelf-selector");
 const libraryLayout = document.querySelector("#library-layout");
+const bookSearchInput = document.querySelector("#book-search");
+const bookSearchField = document.querySelector("#search-field");
 
 //App State
 const appState = {
@@ -25,6 +27,8 @@ const appState = {
   activeBookshelfId: null,
   editingBookId: null,
   lastMovedBookId: null,
+  searchQuery: "",
+  searchField: "",
 };
 
 //Classes
@@ -129,6 +133,16 @@ bookList.addEventListener("click", (event) => {
   }, 150);
 });
 
+bookSearchInput.addEventListener("input", (event) => {
+  appState.searchQuery = event.target.value;
+  renderBooks();
+});
+
+bookSearchField.addEventListener("change", (event) => {
+  appState.searchField = event.target.value;
+  renderBooks();
+});
+
 // Form Data
 function getBookData() {
   const formData = new FormData(form);
@@ -229,7 +243,10 @@ function renderBookshelf(bookshelf) {
 function renderStatusShelf(status, bookshelfName, bookshelfElement) {
   const bookshelfKey = bookshelfName === "My Library" ? "" : bookshelfName;
   let shelfBooks = appState.books.filter(
-    (book) => book.status === status && (book.bookshelf || "") === bookshelfKey,
+    (book) =>
+      book.status === status &&
+      (book.bookshelf || "") === bookshelfKey &&
+      bookMatchesSearch(book),
   );
 
   if (status === "completed") {
@@ -646,6 +663,28 @@ function moveBookToBookshelf(bookId, bookshelf) {
   renderBooks();
 
   appState.lastMovedBookId = null;
+}
+
+function bookMatchesSearch(book) {
+  const query = appState.searchQuery.trim().toLowerCase();
+
+  if (!query) return true;
+
+  const searchableFields = {
+    title: book.title,
+    author: book.author,
+    category: book.category,
+    notes: book.notes,
+    isbn: book.isbn,
+  };
+
+  if (appState.searchField === "all") {
+    return Object.values(searchableFields).some((value) =>
+      value?.toLowerCase().includes(query),
+    );
+  }
+
+  return searchableFields[appState.searchField]?.toLowerCase().includes(query);
 }
 
 // Form UI

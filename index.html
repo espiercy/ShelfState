@@ -12,8 +12,25 @@
       <!-- This is the main page for ShelfState documentation -->
       <h1>ShelfState</h1>
       <p>Welcome to ShelfState!</p>
+      <div class="library-controls">
+        <button id="show-form-btn">Add Book</button>
 
-      <button id="show-form-btn">Add Book</button>
+        <input
+          type="search"
+          id="book-search"
+          class="form-input"
+          placeholder="Search books..."
+        />
+
+        <select id="search-field" class-form="form-input">
+          <option value="all">All</option>
+          <option value="title">Title</option>
+          <option value="author">Author</option>
+          <option value="category">Category</option>
+          <option value="notes">Notes</option>
+          <option value="isbn">ISBN</option>
+        </select>
+      </div>
 
       <!-- This form is for adding a new book to the shelf -->
       <!-- Consider the grid layout for better organization -->

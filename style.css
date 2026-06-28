@@ -345,6 +345,20 @@ button:hover {
   display: none;
 }
 
+.library-controls {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.library-controls #show-form-btn {
+  justify-self: start;
+}
+
+.library-controls #book-search {
+  max-width: 100%;
+}
+
 #bookshelf-selector {
   display: flex;
   flex-direction: column;

@@ -108,8 +108,8 @@ form.addEventListener("submit", (event) => {
     appState.books.push(book);
   }
 
-  renderBooks();
   saveBooks();
+  renderBooks();
   closeForm();
 });
 
@@ -203,7 +203,7 @@ function renderBookshelf(bookshelf) {
   let renderedShelfCount = 0;
 
   SHELF_STATUSES.forEach((status) => {
-    const didRenderShelf = renderShelf(
+    const didRenderShelf = renderStatusShelf(
       status,
       bookshelf.name,
       bookshelfSection,
@@ -226,7 +226,7 @@ function renderBookshelf(bookshelf) {
   bookList.appendChild(bookshelfSection);
 }
 
-function renderShelf(status, bookshelfName, bookshelfElement) {
+function renderStatusShelf(status, bookshelfName, bookshelfElement) {
   const bookshelfKey = bookshelfName === "My Library" ? "" : bookshelfName;
   let shelfBooks = appState.books.filter(
     (book) => book.status === status && (book.bookshelf || "") === bookshelfKey,
@@ -291,10 +291,12 @@ function renderBookshelfOptions() {
   });
 }
 
+//UI Factories
 function createBookshelfCard(bookshelf) {
   const card = document.createElement("button");
 
-  card.className = "bookshelf-card";
+  initializeBookshelfCard(card);
+
   card.appendChild(createBookshelfCardName(bookshelf));
 
   if (bookshelf.name !== "My Library") {
@@ -305,6 +307,10 @@ function createBookshelfCard(bookshelf) {
   attachBookshelfCardEvents(card, bookshelf);
 
   return card;
+}
+
+function initializeBookshelfCard(card) {
+  card.className = "bookshelf-card";
 }
 
 function attachBookshelfCardEvents(card, bookshelf) {
@@ -336,12 +342,6 @@ function attachBookshelfCardEvents(card, bookshelf) {
     event.stopPropagation();
     renameBookshelf(bookshelf.id);
   });
-}
-
-function markActiveBookshelfCard(card, bookshelf) {
-  if (bookshelf.id === appState.activeBookshelfId) {
-    card.classList.add("bookshelf-card-active");
-  }
 }
 
 function createBookshelfCardName(bookshelf) {
@@ -388,31 +388,53 @@ function createNewBookshelfButton() {
 
 function createBookSpine(book) {
   const bookSpine = document.createElement("article");
+
+  initializeBookSpine(bookSpine, book);
+  bookSpine.appendChild(createBookSpineTitle(book));
+  bookSpine.appendChild(createDeleteBookButton());
+  bookSpine.appendChild(createBookHoverDetails(book));
+
+  attachBookSpineDragEvents(bookSpine, book);
+  markRecentlyMovedBook(bookSpine, book);
+
+  return bookSpine;
+}
+
+function initializeBookSpine(bookSpine, book) {
   bookSpine.classList.add("book-spine", `book-status-${book.status}`);
   bookSpine.dataset.bookId = book.id;
   bookSpine.draggable = true;
+}
 
+function createBookSpineTitle(book) {
   const title = document.createElement("span");
   title.className = "book-spine-title";
   title.textContent = book.title;
+  return title;
+}
 
-  bookSpine.appendChild(title);
-
+function createDeleteBookButton() {
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "delete-book-btn";
   deleteBtn.type = "button";
   deleteBtn.textContent = "×";
-  bookSpine.appendChild(deleteBtn);
+  return deleteBtn;
+}
 
+function createBookHoverDetails(book) {
   const hoverDetails = document.createElement("div");
   hoverDetails.className = "book-hover-details";
   hoverDetails.innerHTML = `
-      <strong>${book.title}</strong>
-      <span>${book.author}</span>
-      <span>${book.progress}/${book.pages} pages</span>
-      <span>${STATUS_LABELS[book.status]}</span>
-      `;
+    <strong>${book.title}</strong>
+    <span>${book.author}</span>
+    <span>${book.progress}/${book.pages} pages</span>
+    <span>${STATUS_LABELS[book.status]}</span>
+  `;
 
+  return hoverDetails;
+}
+
+function attachBookSpineDragEvents(bookSpine, book) {
   bookSpine.addEventListener("dragstart", (event) => {
     event.dataTransfer.setData("bookId", book.id);
     bookSpine.classList.add("dragging");
@@ -421,14 +443,18 @@ function createBookSpine(book) {
   bookSpine.addEventListener("dragend", () => {
     bookSpine.classList.remove("dragging");
   });
+}
 
+function markActiveBookshelfCard(card, bookshelf) {
+  if (bookshelf.id === appState.activeBookshelfId) {
+    card.classList.add("bookshelf-card-active");
+  }
+}
+
+function markRecentlyMovedBook(bookSpine, book) {
   if (book.id === appState.lastMovedBookId) {
     bookSpine.classList.add("book-spine-just-moved");
   }
-
-  bookSpine.appendChild(hoverDetails);
-
-  return bookSpine;
 }
 
 function createBookDetail(label, value) {
@@ -439,6 +465,7 @@ function createBookDetail(label, value) {
   return detail;
 }
 
+//UI Helpers
 function clearSelectedSpines() {
   document
     .querySelectorAll(".book-spine-selected")
@@ -450,8 +477,8 @@ function deleteBook(bookId) {
   const shouldDelete = confirm("Delete this book?");
   if (!shouldDelete) return;
   appState.books = appState.books.filter((book) => book.id !== bookId);
-  renderBooks();
   saveBooks();
+  renderBooks();
 }
 
 // Bookshelf Actions
@@ -586,6 +613,7 @@ function renameBookshelf(bookshelfId) {
 
   if (alreadyExists) {
     alert(`A bookshelf named "${trimmedName}" already exists.`);
+    return;
   }
 
   const oldName = bookshelf.name;
@@ -731,12 +759,6 @@ function loadActiveBookshelf() {
   appState.activeBookshelfId = localStorage.getItem(
     ACTIVE_BOOKSHELF_STORAGE_KEY,
   );
-}
-
-function saveLibraryAndRender() {
-  saveBooks();
-  saveActiveBookshelf();
-  renderBooks();
 }
 
 //Initialization

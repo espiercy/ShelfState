@@ -22,6 +22,15 @@
           placeholder="Search books..."
         />
 
+        <button
+          id="clear-search-btn"
+          class="icon-button"
+          type="button"
+          title="Clear Search"
+        >
+          ✕
+        </button>
+
         <select id="search-field" class-form="form-input">
           <option value="all">All</option>
           <option value="title">Title</option>
@@ -30,6 +39,8 @@
           <option value="notes">Notes</option>
           <option value="isbn">ISBN</option>
         </select>
+
+        <div id="search-summary" class="search-summary"></div>
       </div>
 
       <!-- This form is for adding a new book to the shelf -->

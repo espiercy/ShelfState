@@ -19,6 +19,8 @@ const bookshelfSelector = document.querySelector("#bookshelf-selector");
 const libraryLayout = document.querySelector("#library-layout");
 const bookSearchInput = document.querySelector("#book-search");
 const bookSearchField = document.querySelector("#search-field");
+const searchSummary = document.querySelector("#search-summary");
+const clearSearchBtn = document.querySelector("#clear-search-btn");
 
 //App State
 const appState = {
@@ -28,7 +30,12 @@ const appState = {
   editingBookId: null,
   lastMovedBookId: null,
   searchQuery: "",
-  searchField: "",
+  searchField: "all",
+
+  lastAnimatedBookId: null,
+  lastBookAnimation: null,
+  lastAnimatedBookshelfId: null,
+  lastBookshelfAnimation: null,
 };
 
 //Classes
@@ -110,11 +117,12 @@ form.addEventListener("submit", (event) => {
   } else {
     const book = new Book(bookData);
     appState.books.push(book);
+    setBookAnimation(book.id, "created");
   }
 
   saveBooks();
-  renderBooks();
   closeForm();
+  renderBooks();
 });
 
 bookList.addEventListener("click", (event) => {
@@ -122,7 +130,7 @@ bookList.addEventListener("click", (event) => {
   if (!bookElement) return;
 
   if (event.target.closest(".delete-book-btn")) {
-    deleteBook(bookElement.dataset.bookId);
+    animateBookDelete(bookElement, bookElement.dataset.bookId);
     return;
   }
 
@@ -142,6 +150,26 @@ bookSearchField.addEventListener("change", (event) => {
   appState.searchField = event.target.value;
   renderBooks();
 });
+
+clearSearchBtn.addEventListener("click", clearSearch);
+
+bookSearchInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+
+  clearSearch();
+});
+
+function clearSearch() {
+  appState.searchQuery = "";
+  appState.searchField = "all";
+
+  bookSearchInput.value = "";
+  bookSearchField.value = "all";
+
+  renderBooks();
+
+  bookSearchInput.focus();
+}
 
 // Form Data
 function getBookData() {
@@ -201,7 +229,10 @@ function renderBooks() {
     renderBookshelf(activeBookshelf);
   }
 
+  clearSearchBtn.hidden = !isSearchActive();
+
   renderBookshelfSelector();
+  renderSearchSummary();
 }
 
 function renderBookshelf(bookshelf) {
@@ -231,8 +262,9 @@ function renderBookshelf(bookshelf) {
   if (renderedShelfCount === 0) {
     const emptyBookshelfMessage = document.createElement("div");
     emptyBookshelfMessage.className = "empty-bookshelf-message";
-    emptyBookshelfMessage.textContent =
-      "This bookshelf is empty. Drag books here or add a new book.";
+    emptyBookshelfMessage.textContent = isSearchActive()
+      ? "No books matched your search. Try another title, author, category, note, or ISBN."
+      : "This bookshelf is empty. Drag books here or add a new book.";
 
     bookshelfSection.appendChild(emptyBookshelfMessage);
   }
@@ -321,9 +353,26 @@ function createBookshelfCard(bookshelf) {
   }
 
   markActiveBookshelfCard(card, bookshelf);
+  applyBookshelfAnimation(card, bookshelf);
   attachBookshelfCardEvents(card, bookshelf);
 
   return card;
+}
+
+function applyBookshelfAnimation(card, bookshelf) {
+  if (bookshelf.id !== appState.lastAnimatedBookshelfId) return;
+
+  switch (appState.lastBookshelfAnimation) {
+    case "created":
+      card.classList.add("bookshelf-created");
+      break;
+
+    case "deleted":
+      break;
+
+    default:
+      break;
+  }
 }
 
 function initializeBookshelfCard(card) {
@@ -375,7 +424,10 @@ function createDeleteBookshelfButton(bookshelf) {
 
   deleteBtn.addEventListener("click", (event) => {
     event.stopPropagation();
-    deleteBookshelf(bookshelf.id);
+    animateBookshelfDelete(
+      event.currentTarget.closest(".bookshelf-card"),
+      bookshelf.id,
+    );
   });
 
   return deleteBtn;
@@ -393,6 +445,8 @@ function createNewBookshelfButton() {
 
     if (!name) return;
     const bookshelf = createBookshelf(name);
+
+    setBookshelfAnimation(bookshelf.id, "created");
 
     if (!bookshelf) return;
 
@@ -412,9 +466,35 @@ function createBookSpine(book) {
   bookSpine.appendChild(createBookHoverDetails(book));
 
   attachBookSpineDragEvents(bookSpine, book);
-  markRecentlyMovedBook(bookSpine, book);
+  applyBookAnimation(bookSpine, book);
+
+  bookSpine.addEventListener("animationend", () => {
+    if (book.id === appState.lastAnimatedBookId) {
+      appState.lastAnimatedBookId = null;
+      appState.lastBookAnimation = null;
+    }
+  });
 
   return bookSpine;
+}
+
+function applyBookAnimation(bookSpine, book) {
+  if (book.id !== appState.lastAnimatedBookId) return;
+
+  switch (appState.lastBookAnimation) {
+    case "created":
+      bookSpine.classList.add("book-created");
+      break;
+    case "moved":
+      bookSpine.classList.add("book-moved");
+      break;
+    case "edited":
+      break;
+    case "deleted":
+      break;
+    default:
+      break;
+  }
 }
 
 function initializeBookSpine(bookSpine, book) {
@@ -468,12 +548,6 @@ function markActiveBookshelfCard(card, bookshelf) {
   }
 }
 
-function markRecentlyMovedBook(bookSpine, book) {
-  if (book.id === appState.lastMovedBookId) {
-    bookSpine.classList.add("book-spine-just-moved");
-  }
-}
-
 function createBookDetail(label, value) {
   const detail = document.createElement("p");
   const labelElement = document.createElement("strong");
@@ -489,10 +563,106 @@ function clearSelectedSpines() {
     .forEach((spine) => spine.classList.remove("book-spine-selected"));
 }
 
+function getVisibleBooks() {
+  const activeBookshelf = appState.bookshelves.find(
+    (bookshelf) => bookshelf.id === appState.activeBookshelfId,
+  );
+
+  if (!activeBookshelf) return [];
+
+  const bookshelfKey =
+    activeBookshelf.name === "My Library" ? "" : activeBookshelf.name;
+
+  return appState.books.filter(
+    (book) =>
+      (book.bookshelf || "") === bookshelfKey && bookMatchesSearch(book),
+  );
+}
+
+function renderSearchSummary() {
+  const query = appState.searchQuery.trim();
+
+  if (!query) {
+    searchSummary.textContent = "";
+    return;
+  }
+
+  const count = getVisibleBooks().length;
+
+  searchSummary.textContent =
+    count === 0
+      ? "No books matched your search."
+      : `Showing ${count} matching book${count === 1 ? "" : "s"}.`;
+}
+
+function isSearchActive() {
+  return appState.searchQuery.trim().length > 0;
+}
+
+function setBookAnimation(bookId, animation) {
+  appState.lastAnimatedBookId = bookId;
+  appState.lastBookAnimation = animation;
+}
+
+function setBookshelfAnimation(bookShelfId, animation) {
+  appState.lastAnimatedBookshelfId = bookShelfId;
+  appState.lastBookshelfAnimation = animation;
+}
+
+function animateBookshelfDelete(card, bookshelfId) {
+  const bookshelf = appState.bookshelves.find(
+    (bookshelf) => bookshelf.id === bookshelfId,
+  );
+
+  if (!bookshelf || bookshelf.name === "My Library") return;
+
+  const shouldDelete = confirmDeleteBookshelf(bookshelf);
+
+  if (!shouldDelete) return;
+
+  if (!card) {
+    deleteBookshelf(bookshelfId);
+    return;
+  }
+
+  card.classList.add("bookshelf-deleted");
+
+  card.addEventListener(
+    "animationend",
+    () => {
+      deleteBookshelf(bookshelfId);
+    },
+    { once: true },
+  );
+}
+
+function confirmDeleteBookshelf(bookshelf) {
+  const booksOnShelf = appState.books.filter(
+    (book) => book.bookshelf === bookshelf.name,
+  ).length;
+
+  return confirm(
+    `Delete "${bookshelf.name}"?\n\n${booksOnShelf} book${booksOnShelf === 1 ? "" : "s"} will move back to My Library.`,
+  );
+}
+
+function animateBookDelete(bookElement, bookId) {
+  const shouldDelete = confirm("Delete this book?");
+
+  if (!shouldDelete) returh;
+
+  bookElement.classList.add("book-deleted");
+
+  bookElement.addEventListener(
+    "animationend",
+    () => {
+      deleteBook(bookId);
+    },
+    { once: true },
+  );
+}
 // Book Actions
 function deleteBook(bookId) {
-  const shouldDelete = confirm("Delete this book?");
-  if (!shouldDelete) return;
   appState.books = appState.books.filter((book) => book.id !== bookId);
   saveBooks();
   renderBooks();
@@ -529,16 +699,6 @@ function deleteBookshelf(bookshelfId) {
   );
 
   if (!bookshelf || bookshelf.name === "My Library") return;
-
-  const booksOnShelf = appState.books.filter(
-    (book) => book.bookshelf === bookshelf.name,
-  ).length;
-
-  const shouldDelete = confirm(
-    `Delete "${bookshelf.name}"?\n\n${booksOnShelf} book${booksOnShelf === 1 ? "" : "s"} will move back to My Library.`,
-  );
-
-  if (!shouldDelete) return;
 
   appState.books.forEach((book) => {
     if (book.bookshelf === bookshelf.name) {
@@ -656,7 +816,8 @@ function moveBookToBookshelf(bookId, bookshelf) {
   book.bookshelf = bookshelf.name === "My Library" ? "" : bookshelf.name;
 
   appState.activeBookshelfId = bookshelf.id;
-  appState.lastMovedBookId = book.id;
+  //appState.lastMovedBookId = book.id;
+  setBookAnimation(book.id, "moved");
 
   saveActiveBookshelf();
   saveBooks();

@@ -138,7 +138,7 @@ bookList.addEventListener("click", (event) => {
 
   setTimeout(() => {
     openEditForm(bookElement.dataset.bookId);
-  }, 150);
+  }, 275);
 });
 
 bookSearchInput.addEventListener("input", (event) => {

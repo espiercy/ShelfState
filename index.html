@@ -13,34 +13,47 @@
       <h1>ShelfState</h1>
       <p>Welcome to ShelfState!</p>
       <div class="library-controls">
-        <button id="show-form-btn">Add Book</button>
+        <div class="library-actions">
+          <button id="show-form-btn">Add Book</button>
+          <button
+            id="toggle-search-btn"
+            class="secondary-action-btn"
+            type="button"
+          >
+            Search
+          </button>
+        </div>
 
-        <input
-          type="search"
-          id="book-search"
-          class="form-input"
-          placeholder="Search books..."
-        />
+        <div id="search-panel" class="search-panel hidden">
+          <div class="search-row">
+            <input
+              type="search"
+              id="book-search"
+              class="form-input"
+              placeholder="Search books..."
+            />
 
-        <button
-          id="clear-search-btn"
-          class="icon-button"
-          type="button"
-          title="Clear Search"
-        >
-          ✕
-        </button>
+            <button
+              id="clear-search-btn"
+              class="icon-button"
+              type="button"
+              title="Clear Search"
+            >
+              ✕
+            </button>
+          </div>
 
-        <select id="search-field" class-form="form-input">
-          <option value="all">All</option>
-          <option value="title">Title</option>
-          <option value="author">Author</option>
-          <option value="category">Category</option>
-          <option value="notes">Notes</option>
-          <option value="isbn">ISBN</option>
-        </select>
+          <select id="search-field" class-form="form-input">
+            <option value="all">All</option>
+            <option value="title">Title</option>
+            <option value="author">Author</option>
+            <option value="category">Category</option>
+            <option value="notes">Notes</option>
+            <option value="isbn">ISBN</option>
+          </select>
 
-        <div id="search-summary" class="search-summary"></div>
+          <div id="search-summary" class="search-summary"></div>
+        </div>
       </div>
 
       <!-- This form is for adding a new book to the shelf -->

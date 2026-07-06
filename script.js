@@ -21,6 +21,8 @@ const bookSearchInput = document.querySelector("#book-search");
 const bookSearchField = document.querySelector("#search-field");
 const searchSummary = document.querySelector("#search-summary");
 const clearSearchBtn = document.querySelector("#clear-search-btn");
+const toggleSearchBtn = document.querySelector("#toggle-search-btn");
+const searchPanel = document.querySelector("#search-panel");
 
 //App State
 const appState = {
@@ -31,6 +33,7 @@ const appState = {
   lastMovedBookId: null,
   searchQuery: "",
   searchField: "all",
+  isSearchVisible: false,
 
   lastAnimatedBookId: null,
   lastBookAnimation: null,
@@ -169,6 +172,17 @@ function clearSearch() {
   renderBooks();
 
   bookSearchInput.focus();
+}
+
+toggleSearchBtn.addEventListener("click", toggleSearchPanel);
+
+function toggleSearchPanel() {
+  appState.isSearchVisible = !appState.isSearchVisible;
+  console.log(appState.isSearchVisible);
+  searchPanel.classList.toggle("hidden", !appState.isSearchVisible);
+  toggleSearchBtn.textContent = appState.isSearchVisible
+    ? "Hide Search"
+    : "Search";
 }
 
 // Form Data

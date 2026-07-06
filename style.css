@@ -81,7 +81,7 @@ button:hover {
 
 /* Hidden class for toggling form visibility */
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 /* Book list styling */
@@ -262,6 +262,19 @@ button:hover {
   margin: 0 auto;
   perspective: 1000px;
   filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.2));
+
+  animation: open-book-enter 260ms ease-out both;
+}
+
+@keyframes open-book-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .book-page {
@@ -370,12 +383,55 @@ library-layout.library-exiting {
   margin-bottom: 1.5rem;
 }
 
+.library-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .library-controls #show-form-btn {
   justify-self: start;
 }
 
+.secondary-action-btn {
+  justify-self: start;
+  width: auto;
+}
+
 .library-controls #book-search {
   max-width: 100%;
+}
+
+.library-background {
+  opacity: 0.25;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.search-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #d8c7aa;
+  border-radius: 8px;
+  background-color: #f8efe2;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.icon-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+.secondary-action-btn {
+  width: auto;
 }
 
 #bookshelf-selector {

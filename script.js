@@ -9,6 +9,8 @@ import {
   STATUS_LABELS,
 } from "./config.js";
 
+import { getReadingInsights } from "./insights.js";
+
 //DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");
 const submitBookBtn = document.querySelector("#submit-book-btn");
@@ -23,6 +25,7 @@ const searchSummary = document.querySelector("#search-summary");
 const clearSearchBtn = document.querySelector("#clear-search-btn");
 const toggleSearchBtn = document.querySelector("#toggle-search-btn");
 const searchPanel = document.querySelector("#search-panel");
+const readingInsights = document.querySelector("#reading-insights");
 
 //App State
 const appState = {
@@ -247,6 +250,7 @@ function renderBooks() {
 
   renderBookshelfSelector();
   renderSearchSummary();
+  renderReadingInsights();
 }
 
 function renderBookshelf(bookshelf) {
@@ -352,6 +356,36 @@ function renderBookshelfOptions() {
 
     bookshelfSelect.appendChild(option);
   });
+}
+
+function renderReadingInsights() {
+  const insights = getReadingInsights(appState.books);
+
+  readingInsights.innerHTML = `<h2>Reading Insights</h2>
+  
+<div class="insight-grid">
+	<div class="insight-card">
+		<span class="insight-value">${insights.totalBooks}</span>
+		<span class="insight-label">Books</span>
+	</div>
+	<div class="insight-card">
+		<span class="insight-value">${insights.completedBooks}</span>
+		<span class="insight-label">Completed</span>
+	</div>	
+	<div class="insight-card">
+		<span class="insight-value">${insights.currentlyReadingBooks}</span>
+		<span class="insight-label">Currently Reading</span>
+	</div>		
+	<div class="insight-card">
+		<span class="insight-value">${insights.pagesRead}</span>
+		<span class="insight-label">Pages Read</span>
+	</div>		
+	<div class="insight-card">
+		<span class="insight-value">${insights.pagesRemaining}</span>
+		<span class="insight-label">Pages Remaining</span>
+	</div>
+</div>
+  `;
 }
 
 //UI Factories

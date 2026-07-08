@@ -86,7 +86,6 @@ button:hover {
 
 /* Book list styling */
 #book-list {
-  margin-top: 2rem;
   display: grid;
   gap: 1rem;
   min-width: 0;
@@ -477,6 +476,11 @@ library-layout.library-exiting {
   background: linear-gradient(to bottom, #fff3d8, #cfa66f);
 }
 
+.bookshelf-title {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
 .delete-bookshelf-btn {
   width: 28px;
   height: 28px;
@@ -606,4 +610,44 @@ library-layout.library-exiting {
     opacity: 0;
     transform: translateY(80px) scale(0.35) rotate(4deg);
   }
+}
+
+.reading-insights {
+  margin: 1.5rem 0 3rem;
+  padding: 1rem;
+  border: 1px solid #d8c7aa;
+  border-radius: 10px;
+  background: #fffaf2;
+}
+
+.reading-insights h2 {
+  margin-top: 0;
+  color: #4b2e1e;
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+}
+
+.insight-card {
+  padding: 1rem;
+  border: 1px solid #d8c7aa;
+  border-radius: 8px;
+  background-color: #f8efe2;
+  text-align: center;
+  background: linear-gradient(to bottom, #f8efe2, #ead9bd);
+  border-bottom: 5px solid #8b5a2b;
+}
+
+.insight-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #4b2e1e;
+}
+
+.insight-label {
+  font-size: 0.9rem;
 }

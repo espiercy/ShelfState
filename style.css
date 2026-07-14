@@ -586,7 +586,7 @@ library-layout.library-exiting {
   }
 
   100% {
-    opcaity: 0;
+    opacity: 0;
     transform: scale(0) rotate(-2deg);
   }
 }

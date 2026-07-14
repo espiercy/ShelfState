@@ -28,3 +28,30 @@ export function getReadingInsights(books) {
     pagesRemaining: Math.max(totalPages - pagesRead, 0),
   };
 }
+
+export function getBooksByStatus(books) {
+  return books.reduce((counts, book) => {
+    counts[book.status] = (count[book.status] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+export function getBooksByCategory(books) {
+  return books.reduce((counts, book) => {
+    const category = book.category || "Uncategorized";
+
+    counts[category] = (counts[category] ?? 0) + 1;
+
+    return counts;
+  }, {});
+}
+
+export function getBooksByBookshelf(books) {
+  return books.reduce((counts, book) => {
+    const shelf = book.bookshelf || "My Library";
+
+    counts[shelf] = (counts[shelf] ?? 0) + 1;
+
+    return counts;
+  }, {});
+}

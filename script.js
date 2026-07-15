@@ -26,6 +26,7 @@ import {
   loadBookshelves as loadStoredBookshelves,
   saveActiveBookshelfId as persistActiveBookshelfId,
   loadActiveBookshelfId as loadStoredActiveBookshelfId,
+  createLibraryExportData,
 } from "./storage.js";
 
 //DOM Selectors
@@ -43,6 +44,7 @@ const clearSearchBtn = document.querySelector("#clear-search-btn");
 const toggleSearchBtn = document.querySelector("#toggle-search-btn");
 const searchPanel = document.querySelector("#search-panel");
 const readingInsights = document.querySelector("#reading-insights");
+const exportDataBtn = document.querySelector("#export-data-btn");
 
 //App State
 const appState = {
@@ -154,6 +156,35 @@ function toggleSearchPanel() {
     : "Search";
 }
 
+exportDataBtn.addEventListener("click", () => {
+  if (appState.booksLoadFailed) {
+    console.error("Library export blocked because books failed to load.");
+    return;
+  }
+
+  const exportData = createLibraryExportData(
+    appState.books,
+    appState.bookshelves,
+    appState.activeBookshelfId,
+  );
+
+  const exportJson = JSON.stringify(exportData, null, 2);
+  const exportBlob = new Blob([exportJson], {
+    type: "application/json",
+  });
+
+  const downloadUrl = URL.createObjectURL(exportBlob);
+  const downloadLink = document.createElement("a");
+
+  downloadLink.href = downloadUrl;
+  downloadLink.download = `shelfstate-backup-${exportData.exportedAt.slice(0, 10)}.json`;
+
+  document.body.append(downloadLink);
+  downloadLink.click();
+  downloadLink.remove();
+
+  URL.revokeObjectURL(downloadUrl);
+});
 // Form Data
 function getBookData() {
   const formData = new FormData(form);

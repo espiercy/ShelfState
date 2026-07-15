@@ -4,6 +4,7 @@ import {
   ACTIVE_BOOKSHELF_STORAGE_KEY,
   BOOKS_MIGRATION_BACKUP_KEY,
   BOOKS_ROLLING_BACKUP_KEY,
+  EXPORT_SCHEMA_VERSION,
 } from "./config.js";
 
 export function backupBooksBeforeMigration() {
@@ -93,4 +94,20 @@ export function saveActiveBookshelfId(bookshelfId) {
 
 export function loadActiveBookshelfId() {
   return localStorage.getItem(ACTIVE_BOOKSHELF_STORAGE_KEY);
+}
+
+export function createLibraryExportData(books, bookshelves, activeBookshelfId) {
+  if (!Array.isArray(books) || !Array.isArray(bookshelves)) {
+    throw new TypeError(
+      "Library export requires valid book and bookshelf arrays.",
+    );
+  }
+
+  return {
+    schemaVersion: EXPORT_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    books,
+    bookshelves,
+    activeBookshelfId,
+  };
 }

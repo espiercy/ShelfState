@@ -42,6 +42,11 @@ export class Book {
     BOOK_FIELDS.forEach((field) => {
       this[field] = bookData[field];
     });
+
+    if (Object.hasOwn(bookData, "bookshelfId")) {
+      this.bookshelfId = bookData.bookshelfId;
+    }
+
     this.updatedAt = new Date();
   }
 }

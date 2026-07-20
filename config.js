@@ -33,7 +33,14 @@ export const BOOK_STATUS = {
 export const BOOK_CLASSIFICATION = {
   FICTION: "fiction",
   NON_FICTION: "non-fiction",
-  POETRY: "Poetry",
+  POETRY: "poetry",
+};
+
+export const CLASSIFICATION_LABELS = {
+  [BOOK_CLASSIFICATION.FICTION]: "Fiction",
+  [BOOK_CLASSIFICATION.NON_FICTION]: "Non-Fiction",
+  [BOOK_CLASSIFICATION.POETRY]: "Poetry",
+  unclassified: "Unclassified",
 };
 
 export const SHELF_STATUSES = [

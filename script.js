@@ -46,9 +46,12 @@ const toggleSearchBtn = document.querySelector("#toggle-search-btn");
 const searchPanel = document.querySelector("#search-panel");
 const readingInsights = document.querySelector("#reading-insights");
 const exportDataBtn = document.querySelector("#export-data-btn");
+const toggleInsightsBtn = document.querySelector("#toggle-insights-btn");
+const insightsLayout = document.querySelector("#insights-layout");
 
 //App State
 const appState = {
+  activeView: "library",
   books: [],
   bookshelves: [],
   booksLoadFailed: false,
@@ -186,6 +189,18 @@ exportDataBtn.addEventListener("click", () => {
 
   URL.revokeObjectURL(downloadUrl);
 });
+
+toggleInsightsBtn.addEventListener("click", () => {
+  const nextView = appState.activeView === "insights" ? "library" : "insights";
+
+  if (nextView === "insights") {
+    closeForm();
+  }
+
+  appState.activeView = nextView;
+  renderActiveView();
+});
+
 // Form Data
 function getBookData() {
   const formData = new FormData(form);
@@ -232,6 +247,26 @@ function validateBookData(bookData) {
 }
 
 // Rendering
+function renderActiveView() {
+  const isLibraryView = appState.activeView === "library";
+  const isInsightsView = appState.activeView === "insights";
+
+  libraryLayout.classList.toggle("hidden", !isLibraryView);
+  insightsLayout.classList.toggle("hidden", !isInsightsView);
+
+  toggleInsightsBtn.textContent = isInsightsView
+    ? "Back to Library"
+    : "Reading Insights";
+
+  showFormBtn.classList.toggle("hidden", isInsightsView);
+  toggleSearchBtn.classList.toggle("hidden", isInsightsView);
+
+  searchPanel.classList.toggle(
+    "hidden",
+    isInsightsView || !appState.isSearchVisible,
+  );
+}
+
 function renderBooks() {
   clearSelectedSpines();
   bookList.replaceChildren();
@@ -1066,6 +1101,7 @@ function initializeApp() {
   );
 
   renderBooks();
+  renderActiveView();
 }
 
 initializeApp();

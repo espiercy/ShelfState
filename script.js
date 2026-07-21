@@ -29,6 +29,11 @@ import {
   loadActiveBookshelfId as loadStoredActiveBookshelfId,
   createLibraryExportData,
 } from "./storage.js";
+import {
+  bookMatchesSearch as matchesBookSearch,
+  isSearchActive as hasActiveSearch,
+  getSearchSummaryText,
+} from "./search.js";
 
 //DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");
@@ -153,7 +158,6 @@ toggleSearchBtn.addEventListener("click", toggleSearchPanel);
 
 function toggleSearchPanel() {
   appState.isSearchVisible = !appState.isSearchVisible;
-  console.log(appState.isSearchVisible);
   searchPanel.classList.toggle("hidden", !appState.isSearchVisible);
   toggleSearchBtn.textContent = appState.isSearchVisible
     ? "Hide Search"
@@ -746,23 +750,16 @@ function getVisibleBooks() {
 }
 
 function renderSearchSummary() {
-  const query = appState.searchQuery.trim();
+  const matchCount = isSearchActive() ? getVisibleBooks().length : 0;
 
-  if (!query) {
-    searchSummary.textContent = "";
-    return;
-  }
-
-  const count = getVisibleBooks().length;
-
-  searchSummary.textContent =
-    count === 0
-      ? "No books matched your search."
-      : `Showing ${count} matching book${count === 1 ? "" : "s"}.`;
+  searchSummary.textContent = getSearchSummaryText(
+    appState.searchQuery,
+    matchCount,
+  );
 }
 
 function isSearchActive() {
-  return appState.searchQuery.trim().length > 0;
+  return hasActiveSearch(appState.searchQuery);
 }
 
 function setBookAnimation(bookId, animation) {
@@ -952,25 +949,7 @@ function moveBookToBookshelf(bookId, bookshelf) {
 }
 
 function bookMatchesSearch(book) {
-  const query = appState.searchQuery.trim().toLowerCase();
-
-  if (!query) return true;
-
-  const searchableFields = {
-    title: book.title,
-    author: book.author,
-    category: book.category,
-    notes: book.notes,
-    isbn: book.isbn,
-  };
-
-  if (appState.searchField === "all") {
-    return Object.values(searchableFields).some((value) =>
-      value?.toLowerCase().includes(query),
-    );
-  }
-
-  return searchableFields[appState.searchField]?.toLowerCase().includes(query);
+  return matchesBookSearch(book, appState.searchQuery, appState.searchField);
 }
 
 // Form UI

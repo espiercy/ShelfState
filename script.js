@@ -11,14 +11,18 @@ import {
 } from "./config.js";
 
 import { Bookshelf, Book } from "./models.js";
+
 import { getReadingInsights } from "./insights.js";
+
 import {
   ensureDefaultBookshelf,
   syncBookshelvesFromBooks,
   ensureActiveBookshelfId,
   getDefaultBookshelf,
 } from "./bookshelves.js";
+
 import { migrateBooksToBookshelfIds } from "./migrations.js";
+
 import {
   backupBooksBeforeMigration,
   saveBooks as persistBooks,
@@ -29,11 +33,21 @@ import {
   loadActiveBookshelfId as loadStoredActiveBookshelfId,
   createLibraryExportData,
 } from "./storage.js";
+
 import {
   bookMatchesSearch as matchesBookSearch,
   isSearchActive as hasActiveSearch,
   getSearchSummaryText,
 } from "./search.js";
+
+import {
+  setBookAnimation,
+  getBookAnimation as getPendingBookAnimation,
+  clearBookAnimation as clearPendingBookAnimation,
+  setBookshelfAnimation,
+  clearBookshelfAnimation as clearPendingBookshelfAnimation,
+  getBookshelfAnimation as getPendingBookshelfAnimation,
+} from "./animations.js";
 
 //DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");
@@ -66,11 +80,6 @@ const appState = {
   searchQuery: "",
   searchField: "all",
   isSearchVisible: false,
-
-  lastAnimatedBookId: null,
-  lastBookAnimation: null,
-  lastAnimatedBookshelfId: null,
-  lastBookshelfAnimation: null,
 };
 
 //Event Listeners
@@ -524,11 +533,25 @@ function createBookshelfCard(bookshelf) {
 }
 
 function applyBookshelfAnimation(card, bookshelf) {
-  if (bookshelf.id !== appState.lastAnimatedBookshelfId) return;
+  const animation = getPendingBookshelfAnimation(bookshelf.id);
 
-  switch (appState.lastBookshelfAnimation) {
+  if (!animation) return;
+
+  switch (animation) {
     case "created":
       card.classList.add("bookshelf-created");
+
+      card.addEventListener(
+        "animationend",
+        (event) => {
+          if (event.animationName !== "bookshelf-expand") return;
+
+          card.classList.remove("bookshelf-created");
+
+          clearPendingBookshelfAnimation(bookshelf.id);
+        },
+        { once: true },
+      );
       break;
 
     case "deleted":
@@ -610,9 +633,9 @@ function createNewBookshelfButton() {
     if (!name) return;
     const bookshelf = createBookshelf(name);
 
-    setBookshelfAnimation(bookshelf.id, "created");
-
     if (!bookshelf) return;
+
+    setBookshelfAnimation(bookshelf.id, "created");
 
     saveBookshelves();
     saveActiveBookshelf();
@@ -632,26 +655,26 @@ function createBookSpine(book) {
   attachBookSpineDragEvents(bookSpine, book);
   applyBookAnimation(bookSpine, book);
 
-  bookSpine.addEventListener("animationend", () => {
+  bookSpine.addEventListener("animationend", (event) => {
     if (event.animationName === "book-slide-in-right") {
       bookSpine.classList.remove("book-created");
     }
     if (event.animationName === "book-slide-in-left") {
       bookSpine.classList.remove("book-moved");
     }
-    if (book.id === appState.lastAnimatedBookId) {
-      appState.lastAnimatedBookId = null;
-      appState.lastBookAnimation = null;
-    }
+
+    clearPendingBookAnimation(book.id);
   });
 
   return bookSpine;
 }
 
 function applyBookAnimation(bookSpine, book) {
-  if (book.id !== appState.lastAnimatedBookId) return;
+  const animation = getPendingBookAnimation(book.id);
 
-  switch (appState.lastBookAnimation) {
+  if (!animation) return;
+
+  switch (animation) {
     case "created":
       bookSpine.classList.add("book-created");
       break;
@@ -760,16 +783,6 @@ function renderSearchSummary() {
 
 function isSearchActive() {
   return hasActiveSearch(appState.searchQuery);
-}
-
-function setBookAnimation(bookId, animation) {
-  appState.lastAnimatedBookId = bookId;
-  appState.lastBookAnimation = animation;
-}
-
-function setBookshelfAnimation(bookShelfId, animation) {
-  appState.lastAnimatedBookshelfId = bookShelfId;
-  appState.lastBookshelfAnimation = animation;
 }
 
 function animateBookshelfDelete(card, bookshelfId) {

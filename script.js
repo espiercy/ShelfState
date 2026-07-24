@@ -47,6 +47,7 @@ import {
   completeBookAnimation,
   applyBookshelfAnimation,
   startBookDeleteAnimation,
+  startBookshelfDeleteAnimation,
 } from "./animations.js";
 
 //DOM Selectors
@@ -743,15 +744,9 @@ function animateBookshelfDelete(card, bookshelfId) {
     return;
   }
 
-  card.classList.add("bookshelf-deleted");
-
-  card.addEventListener(
-    "animationend",
-    () => {
-      deleteBookshelf(bookshelfId);
-    },
-    { once: true },
-  );
+  startBookshelfDeleteAnimation(card, () => {
+    deleteBookshelf(bookshelfId);
+  });
 }
 
 function confirmDeleteBookshelf(bookshelf) {

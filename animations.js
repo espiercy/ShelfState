@@ -99,6 +99,25 @@ export function startBookDeleteAnimation(bookElement, onComplete) {
   bookElement.addEventListener("animationend", handleAnimationEnd);
 }
 
+export function startBookshelfDeleteAnimation(bookshelfElement, onComplete) {
+  bookshelfElement.classList.add("bookshelf-deleted");
+
+  function handleAnimationEnd(event) {
+    if (
+      event.target !== bookshelfElement ||
+      event.animationName !== "bookshelf-collapse"
+    ) {
+      return;
+    }
+
+    bookshelfElement.removeEventListener("animationend", handleAnimationEnd);
+
+    onComplete();
+  }
+
+  bookshelfElement.addEventListener("animationend", handleAnimationEnd);
+}
+
 function getBookAnimation(bookId) {
   if (bookAnimationState.bookId !== bookId) return null;
 

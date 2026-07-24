@@ -84,6 +84,21 @@ export function applyBookshelfAnimation(bookshelfElement, bookshelfId) {
   return true;
 }
 
+export function startBookDeleteAnimation(bookElement, onComplete) {
+  bookElement.classList.add("book-deleted");
+
+  function handleAnimationEnd(event) {
+    if (event.target !== bookElement || event.animationName !== "book-delete") {
+      return;
+    }
+
+    bookElement.removeEventListener("animationend", handleAnimationEnd);
+    onComplete();
+  }
+
+  bookElement.addEventListener("animationend", handleAnimationEnd);
+}
+
 function getBookAnimation(bookId) {
   if (bookAnimationState.bookId !== bookId) return null;
 

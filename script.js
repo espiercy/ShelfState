@@ -46,6 +46,7 @@ import {
   applyBookAnimation,
   completeBookAnimation,
   applyBookshelfAnimation,
+  startBookDeleteAnimation,
 } from "./animations.js";
 
 //DOM Selectors
@@ -768,15 +769,9 @@ function animateBookDelete(bookElement, bookId) {
 
   if (!shouldDelete) return;
 
-  bookElement.classList.add("book-deleted");
-
-  bookElement.addEventListener(
-    "animationend",
-    () => {
-      deleteBook(bookId);
-    },
-    { once: true },
-  );
+  startBookDeleteAnimation(bookElement, () => {
+    deleteBook(bookId);
+  });
 }
 // Book Actions
 function deleteBook(bookId) {

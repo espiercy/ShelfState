@@ -42,11 +42,10 @@ import {
 
 import {
   setBookAnimation,
-  getBookAnimation as getPendingBookAnimation,
-  clearBookAnimation as clearPendingBookAnimation,
   setBookshelfAnimation,
-  clearBookshelfAnimation as clearPendingBookshelfAnimation,
-  getBookshelfAnimation as getPendingBookshelfAnimation,
+  applyBookAnimation,
+  completeBookAnimation,
+  applyBookshelfAnimation,
 } from "./animations.js";
 
 //DOM Selectors
@@ -526,40 +525,10 @@ function createBookshelfCard(bookshelf) {
   }
 
   markActiveBookshelfCard(card, bookshelf);
-  applyBookshelfAnimation(card, bookshelf);
+  applyBookshelfAnimation(card, bookshelf.id);
   attachBookshelfCardEvents(card, bookshelf);
 
   return card;
-}
-
-function applyBookshelfAnimation(card, bookshelf) {
-  const animation = getPendingBookshelfAnimation(bookshelf.id);
-
-  if (!animation) return;
-
-  switch (animation) {
-    case "created":
-      card.classList.add("bookshelf-created");
-
-      card.addEventListener(
-        "animationend",
-        (event) => {
-          if (event.animationName !== "bookshelf-expand") return;
-
-          card.classList.remove("bookshelf-created");
-
-          clearPendingBookshelfAnimation(bookshelf.id);
-        },
-        { once: true },
-      );
-      break;
-
-    case "deleted":
-      break;
-
-    default:
-      break;
-  }
 }
 
 function initializeBookshelfCard(card) {
@@ -653,41 +622,13 @@ function createBookSpine(book) {
   bookSpine.appendChild(createBookHoverDetails(book));
 
   attachBookSpineDragEvents(bookSpine, book);
-  applyBookAnimation(bookSpine, book);
+  applyBookAnimation(bookSpine, book.id);
 
   bookSpine.addEventListener("animationend", (event) => {
-    if (event.animationName === "book-slide-in-right") {
-      bookSpine.classList.remove("book-created");
-    }
-    if (event.animationName === "book-slide-in-left") {
-      bookSpine.classList.remove("book-moved");
-    }
-
-    clearPendingBookAnimation(book.id);
+    completeBookAnimation(bookSpine, book.id, event.animationName);
   });
 
   return bookSpine;
-}
-
-function applyBookAnimation(bookSpine, book) {
-  const animation = getPendingBookAnimation(book.id);
-
-  if (!animation) return;
-
-  switch (animation) {
-    case "created":
-      bookSpine.classList.add("book-created");
-      break;
-    case "moved":
-      bookSpine.classList.add("book-moved");
-      break;
-    case "edited":
-      break;
-    case "deleted":
-      break;
-    default:
-      break;
-  }
 }
 
 function initializeBookSpine(bookSpine, book) {

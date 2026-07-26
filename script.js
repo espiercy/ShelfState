@@ -51,6 +51,7 @@ import {
 } from "./animations.js";
 
 import { validateBookData } from "./validation.js";
+import { chunkBooks } from "./layout.js";
 
 //DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");
@@ -905,17 +906,6 @@ function openEditForm(bookId) {
   BOOK_FIELDS.forEach((field) => {
     form.elements[field].value = book[field] ?? "";
   });
-}
-
-//Utilities
-function chunkBooks(books, chunkSize) {
-  const chunks = [];
-
-  for (let i = 0; i < books.length; i += chunkSize) {
-    chunks.push(books.slice(i, i + chunkSize));
-  }
-
-  return chunks;
 }
 
 //Persistence

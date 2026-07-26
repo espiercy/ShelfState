@@ -6,7 +6,7 @@ export const BOOKS_MIGRATION_BACKUP_KEY =
 export const BOOKS_ROLLING_BACKUP_KEY = "shelfStateBooksPrevious";
 export const EXPORT_SCHEMA_VERSION = 1;
 export const DEFAULT_BOOKSHELF_NAME = "My Library";
-export const MAX_BOOKS_PER_SHELF = 6;
+export const MAX_BOOKS_PER_SHELF = 5;
 export const BOOK_FIELDS = [
   "title",
   "author",

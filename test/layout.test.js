@@ -7,7 +7,7 @@ test("returns no chunks for an empty book list", () => {
   assert.deepEqual(chunkBooks([], 5), []);
 });
 
-test("keep books together when they fit on one shelf", () => {
+test("keeps books together when they fit on one shelf", () => {
   assert.deepEqual(chunkBooks([1, 2, 3, 4, 5], 5), [[1, 2, 3, 4, 5]]);
 });
 

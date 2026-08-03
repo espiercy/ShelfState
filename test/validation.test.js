@@ -48,3 +48,46 @@ test("enforces page and progress bounds", () => {
     }).includes("Progress cannot exceed total pages."),
   );
 });
+
+test("requires a reading status", () => {
+  const errors = validateBookData({
+    ...validBook,
+    status: "",
+  });
+
+  assert.ok(errors.includes("Status is required."));
+});
+
+test("accepts progress at both valid boundaries", () => {
+  assert.deepEqual(
+    validateBookData({
+      ...validBook,
+      progress: 0,
+    }),
+    [],
+  );
+
+  assert.deepEqual(
+    validateBookData({
+      ...validBook,
+      progress: validBook.pages,
+    }),
+    [],
+  );
+});
+
+test("rejects negative and nonnumeric page totals", () => {
+  assert.ok(
+    validateBookData({
+      ...validBook,
+      pages: -1,
+    }).includes("Pages must be greater than zero."),
+  );
+
+  assert.ok(
+    validateBookData({
+      ...validBook,
+      pages: Number.NaN,
+    }).includes("Pages must be greater than zero."),
+  );
+});

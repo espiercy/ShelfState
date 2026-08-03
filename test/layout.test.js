@@ -31,3 +31,15 @@ test("rejects invalid shelf capacities", () => {
     new RangeError("Chunk size must be a positive integer."),
   );
 });
+
+test("returns independent chunks without mutating the source list", () => {
+  const books = ["a", "b", "c"];
+  const chunks = chunkBooks(books, 2);
+
+  assert.deepEqual(chunks, [["a", "b"], ["c"]]);
+  assert.deepEqual(books, ["a", "b", "c"]);
+
+  chunks[0].push("new");
+
+  assert.deepEqual(books, ["a", "b", "c"]);
+});

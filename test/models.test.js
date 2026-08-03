@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Book } from "../models.js";
+import { Book, Bookshelf } from "../models.js";
 
 test("updates a book and its modification timestamp", () => {
   const originalUpdatedAt = new Date("2020-01-01T00:00:00.000Z");
@@ -33,4 +33,67 @@ test("updates a book and its modification timestamp", () => {
   assert.equal(book.status, "currently-reading");
   assert.equal(book.bookshelfId, "shelf-2");
   assert.notEqual(book.updatedAt, originalUpdatedAt);
+});
+
+test("supplies safe defaults for a new book", () => {
+  const book = new Book({
+    title: "Book",
+  });
+
+  assert.equal(typeof book.id, "string");
+  assert.notEqual(book.id, "");
+  assert.equal(book.bookshelf, "");
+  assert.equal(book.bookshelfId, null);
+  assert.equal(book.createdAt instanceof Date, true);
+  assert.equal(book.updatedAt instanceof Date, true);
+});
+
+test("preserves the bookshelf ID when an update omits it", () => {
+  const book = new Book({
+    id: "book-1",
+    title: "Old Title",
+    bookshelfId: "shelf-1",
+  });
+
+  book.update({
+    title: "New Title",
+    author: "Author",
+    pages: 100,
+    progress: 25,
+    status: "currently-reading",
+  });
+
+  assert.equal(book.bookshelfId, "shelf-1");
+});
+
+test("creates bookshelves with independent defaults", () => {
+  const first = new Bookshelf({
+    name: "First",
+  });
+
+  const second = new Bookshelf({
+    name: "Second",
+  });
+
+  assert.equal(typeof first.id, "string");
+  assert.equal(typeof second.id, "string");
+  assert.notEqual(first.id, second.id);
+  assert.deepEqual(first.bookIds, []);
+  assert.deepEqual(second.bookIds, []);
+
+  first.bookIds.push("book-1");
+
+  assert.deepEqual(first.bookIds, ["book-1"]);
+  assert.deepEqual(second.bookIds, []);
+
+  const providedBookIds = ["book-2"];
+  const provided = new Bookshelf({
+    id: "shelf-3",
+    name: "Provided",
+    bookIds: providedBookIds,
+  });
+
+  assert.equal(provided.id, "shelf-3");
+  assert.equal(provided.name, "Provided");
+  assert.equal(provided.bookIds, providedBookIds);
 });

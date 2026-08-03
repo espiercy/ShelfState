@@ -6,6 +6,8 @@ import {
   ensureDefaultBookshelf,
   ensureActiveBookshelfId,
   syncBookshelvesFromBooks,
+  normalizeBookshelfName,
+  hasBookshelfName,
 } from "../bookshelves.js";
 
 test("finds the default bookshelf by name", () => {
@@ -59,4 +61,20 @@ test("synchronizes unique legacy bookshelf names without mutation", () => {
     ["My Library", "Fantasy"],
   );
   assert.equal(bookshelves.length, 1);
+});
+
+test("normalizes bookshelf names by trimming whitespace", () => {
+  assert.equal(normalizeBookshelfName("  Science Fiction "), "Science Fiction");
+  assert.equal(normalizeBookshelfName("   "), "");
+});
+
+test("detects duplicate names case-insensitively with exclusions", () => {
+  const bookshelves = [
+    { id: "shelf-1", name: "Fantasy" },
+    { id: "shelf-2", name: "History" },
+  ];
+
+  assert.equal(hasBookshelfName(bookshelves, " fantasy "), true);
+  assert.equal(hasBookshelfName(bookshelves, "Science"), false);
+  assert.equal(hasBookshelfName(bookshelves, "Fantasy", "shelf-1"), false);
 });

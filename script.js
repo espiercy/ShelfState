@@ -19,6 +19,8 @@ import {
   syncBookshelvesFromBooks,
   ensureActiveBookshelfId,
   getDefaultBookshelf,
+  normalizeBookshelfName,
+  hasBookshelfName,
 } from "./bookshelves.js";
 
 import { migrateBooksToBookshelfIds } from "./migrations.js";
@@ -741,13 +743,11 @@ function deleteBook(bookId) {
 
 // Bookshelf Actions
 function createBookshelf(name) {
-  const trimmedName = name.trim();
+  const trimmedName = normalizeBookshelfName(name);
 
   if (!trimmedName) return null;
 
-  const alreadyExists = appState.bookshelves.some(
-    (bookshelf) => bookshelf.name.toLowerCase() === trimmedName.toLowerCase(),
-  );
+  const alreadyExists = hasBookshelfName(appState.bookshelves, trimmedName);
 
   if (alreadyExists) {
     alert(`A bookshelf named "${trimmedName}" already exists.`);
@@ -806,14 +806,14 @@ function renameBookshelf(bookshelfId) {
 
   if (!newName) return;
 
-  const trimmedName = newName.trim();
+  const trimmedName = normalizeBookshelfName(newName);
 
   if (!trimmedName || trimmedName === bookshelf.name) return;
 
-  const alreadyExists = appState.bookshelves.some(
-    (existingBookshelf) =>
-      existingBookshelf.id !== bookshelfId &&
-      existingBookshelf.name.toLowerCase() === trimmedName.toLowerCase(),
+  const alreadyExists = hasBookshelfName(
+    appState.bookshelves,
+    trimmedName,
+    bookshelfId,
   );
 
   if (alreadyExists) {

@@ -31,14 +31,11 @@ export function syncBookshelvesFromBooks(bookshelves, books) {
   const updatedBookshelves = [...bookshelves];
 
   books.forEach((book) => {
-    const bookshelfName = book.bookshelf?.trim();
+    const bookshelfName = normalizeBookshelfName(book.bookshelf ?? "");
 
     if (!bookshelfName) return;
 
-    const alreadyExists = updatedBookshelves.some(
-      (bookshelf) =>
-        bookshelf.name.toLowerCase() === bookshelfName.toLowerCase(),
-    );
+    const alreadyExists = hasBookshelfName(updatedBookshelves, bookshelfName);
 
     if (!alreadyExists) {
       updatedBookshelves.push(
@@ -50,4 +47,22 @@ export function syncBookshelvesFromBooks(bookshelves, books) {
   });
 
   return updatedBookshelves;
+}
+
+export function normalizeBookshelfName(name) {
+  return name.trim();
+}
+
+export function hasBookshelfName(
+  bookshelves,
+  name,
+  excludedBookshelfId = null,
+) {
+  const normalizedName = normalizeBookshelfName(name).toLowerCase();
+
+  return bookshelves.some(
+    (bookshelf) =>
+      bookshelf.id !== excludedBookshelfId &&
+      bookshelf.name.toLowerCase() === normalizedName,
+  );
 }

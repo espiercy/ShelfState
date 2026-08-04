@@ -9,6 +9,7 @@ import {
   normalizeBookshelfName,
   hasBookshelfName,
   removeBookshelfFromLibrary,
+  renameBookshelfInLibrary,
 } from "../bookshelves.js";
 
 test("finds the default bookshelf by name", () => {
@@ -158,4 +159,47 @@ test("uses null when no default bookshelf exists", () => {
   assert.equal(result.activeBookshelfId, null);
   assert.equal(books[0].bookshelf, "");
   assert.equal(books[0].bookshelfId, null);
+});
+
+test("renames a bookshelf and its legacy book references", () => {
+  const bookshelf = {
+    id: "fantasy",
+    name: "Fantasy",
+  };
+
+  const books = [
+    {
+      id: "book-1",
+      bookshelf: "Fantasy",
+      bookshelfId: "fantasy",
+    },
+    {
+      id: "book-2",
+      bookshelf: "History",
+      bookshelfId: "history",
+    },
+    {
+      id: "book-3",
+      bookshelf: "",
+      bookshelfId: "fantasy",
+    },
+  ];
+
+  const result = renameBookshelfInLibrary(
+    bookshelf,
+    books,
+    "Speculative Fiction",
+  );
+
+  assert.equal(result, bookshelf);
+  assert.equal(bookshelf.name, "Speculative Fiction");
+
+  assert.equal(books[0].bookshelf, "Speculative Fiction");
+  assert.equal(books[0].bookshelfId, "fantasy");
+
+  assert.equal(books[1].bookshelf, "History");
+  assert.equal(books[1].bookshelfId, "history");
+
+  assert.equal(books[2].bookshelf, "");
+  assert.equal(books[2].bookshelfId, "fantasy");
 });

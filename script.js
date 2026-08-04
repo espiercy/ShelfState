@@ -22,6 +22,7 @@ import {
   normalizeBookshelfName,
   hasBookshelfName,
   removeBookshelfFromLibrary,
+  renameBookshelfInLibrary,
 } from "./bookshelves.js";
 
 import { migrateBooksToBookshelfIds } from "./migrations.js";
@@ -809,15 +810,7 @@ function renameBookshelf(bookshelfId) {
     return;
   }
 
-  const oldName = bookshelf.name;
-
-  appState.books.forEach((book) => {
-    if (book.bookshelf === oldName) {
-      book.bookshelf = trimmedName;
-    }
-  });
-
-  bookshelf.name = trimmedName;
+  renameBookshelfInLibrary(bookshelf, appState.books, trimmedName);
 
   saveBooks();
   saveBookshelves();

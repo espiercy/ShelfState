@@ -23,6 +23,7 @@ import {
   hasBookshelfName,
   removeBookshelfFromLibrary,
   renameBookshelfInLibrary,
+  assignBookToBookshelf,
 } from "./bookshelves.js";
 
 import { migrateBooksToBookshelfIds } from "./migrations.js";
@@ -822,10 +823,7 @@ function moveBookToBookshelf(bookId, bookshelf) {
 
   if (!book) return;
 
-  book.bookshelf =
-    bookshelf.name === DEFAULT_BOOKSHELF_NAME ? "" : bookshelf.name;
-
-  book.bookshelfId = bookshelf.id;
+  assignBookToBookshelf(book, bookshelf);
 
   appState.activeBookshelfId = bookshelf.id;
   setBookAnimation(book.id, "moved");

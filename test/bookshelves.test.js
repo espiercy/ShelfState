@@ -10,6 +10,7 @@ import {
   hasBookshelfName,
   removeBookshelfFromLibrary,
   renameBookshelfInLibrary,
+  assignBookToBookshelf,
 } from "../bookshelves.js";
 
 test("finds the default bookshelf by name", () => {
@@ -202,4 +203,39 @@ test("renames a bookshelf and its legacy book references", () => {
 
   assert.equal(books[2].bookshelf, "");
   assert.equal(books[2].bookshelfId, "fantasy");
+});
+
+test("assigns a book to a named bookshelf", () => {
+  const book = {
+    bookshelf: "",
+    bookshelfId: "default",
+  };
+
+  const bookshelf = {
+    id: "fantasy",
+    name: "Fantasy",
+  };
+
+  const result = assignBookToBookshelf(book, bookshelf);
+
+  assert.equal(result, book);
+  assert.equal(book.bookshelf, "Fantasy");
+  assert.equal(book.bookshelfId, "fantasy");
+});
+
+test("clears the legacy bookshelf name when assigning to the default shelf", () => {
+  const book = {
+    bookshelf: "Fantasy",
+    bookshelfId: "fantasy",
+  };
+
+  const defaultBookshelf = {
+    id: "default",
+    name: "My Library",
+  };
+
+  assignBookToBookshelf(book, defaultBookshelf);
+
+  assert.equal(book.bookshelf, "");
+  assert.equal(book.bookshelfId, "default");
 });

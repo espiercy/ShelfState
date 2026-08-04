@@ -8,6 +8,7 @@ import {
   syncBookshelvesFromBooks,
   normalizeBookshelfName,
   hasBookshelfName,
+  removeBookshelfFromLibrary,
 } from "../bookshelves.js";
 
 test("finds the default bookshelf by name", () => {
@@ -77,4 +78,84 @@ test("detects duplicate names case-insensitively with exclusions", () => {
   assert.equal(hasBookshelfName(bookshelves, " fantasy "), true);
   assert.equal(hasBookshelfName(bookshelves, "Science"), false);
   assert.equal(hasBookshelfName(bookshelves, "Fantasy", "shelf-1"), false);
+});
+
+test("removes a bookshelf and returns its books to the default shelf", () => {
+  const bookshelves = [
+    { id: "default", name: "My Library" },
+    { id: "fantasy", name: "Fantasy" },
+    { id: "history", name: "History" },
+  ];
+
+  const books = [
+    {
+      id: "book-1",
+      bookshelf: "Fantasy",
+      bookshelfId: "fantasy",
+    },
+    {
+      id: "book-2",
+      bookshelf: "Fantasy",
+      bookshelfId: null,
+    },
+    {
+      id: "book-3",
+      bookshelf: "History",
+      bookshelfId: "history",
+    },
+  ];
+
+  const result = removeBookshelfFromLibrary(bookshelves, books, "fantasy");
+
+  assert.deepEqual(
+    result.bookshelves.map((bookshelf) => bookshelf.id),
+    ["default", "history"],
+  );
+  assert.equal(result.activeBookshelfId, "default");
+
+  assert.equal(books[0].bookshelf, "");
+  assert.equal(books[0].bookshelfId, "default");
+  assert.equal(books[1].bookshelf, "");
+  assert.equal(books[1].bookshelfId, "default");
+
+  assert.equal(books[2].bookshelf, "History");
+  assert.equal(books[2].bookshelfId, "history");
+
+  assert.equal(bookshelves.length, 3);
+});
+
+test("refuses to remove the default or missing bookshelf", () => {
+  const bookshelves = [
+    { id: "default", name: "My Library" },
+    { id: "fantasy", name: "Fantasy" },
+  ];
+
+  const books = [
+    {
+      bookshelf: "Fantasy",
+      bookshelfId: "fantasy",
+    },
+  ];
+
+  assert.equal(removeBookshelfFromLibrary(bookshelves, books, "default"), null);
+  assert.equal(removeBookshelfFromLibrary(bookshelves, books, "missing"), null);
+  assert.equal(books[0].bookshelf, "Fantasy");
+  assert.equal(books[0].bookshelfId, "fantasy");
+});
+
+test("uses null when no default bookshelf exists", () => {
+  const bookshelves = [{ id: "fantasy", name: "Fantasy" }];
+  const books = [
+    {
+      bookshelf: "Fantasy",
+      bookshelfId: "fantasy",
+    },
+  ];
+
+  const result = removeBookshelfFromLibrary(bookshelves, books, "fantasy");
+
+  assert.deepEqual(result.bookshelves, []);
+  assert.equal(result.activeBookshelfId, null);
+  assert.equal(books[0].bookshelf, "");
+  assert.equal(books[0].bookshelfId, null);
 });

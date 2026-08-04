@@ -21,6 +21,7 @@ import {
   getDefaultBookshelf,
   normalizeBookshelfName,
   hasBookshelfName,
+  removeBookshelfFromLibrary,
 } from "./bookshelves.js";
 
 import { migrateBooksToBookshelfIds } from "./migrations.js";
@@ -765,29 +766,16 @@ function createBookshelf(name) {
 }
 
 function deleteBookshelf(bookshelfId) {
-  const bookshelf = appState.bookshelves.find(
-    (bookshelf) => bookshelf.id === bookshelfId,
+  const result = removeBookshelfFromLibrary(
+    appState.bookshelves,
+    appState.books,
+    bookshelfId,
   );
 
-  if (!bookshelf || bookshelf.name === DEFAULT_BOOKSHELF_NAME) return;
+  if (!result) return;
 
-  const defaultBookshelf = getDefaultBookshelf(appState.bookshelves);
-
-  appState.books.forEach((book) => {
-    const belongsToDeletedBookshelf =
-      book.bookshelfId === bookshelfId || book.bookshelf === bookshelf.name;
-
-    if (!belongsToDeletedBookshelf) return;
-
-    book.bookshelf = "";
-    book.bookshelfId = defaultBookshelf?.id ?? null;
-  });
-
-  appState.bookshelves = appState.bookshelves.filter(
-    (bookshelf) => bookshelf.id !== bookshelfId,
-  );
-
-  appState.activeBookshelfId = defaultBookshelf?.id ?? null;
+  appState.bookshelves = result.bookshelves;
+  appState.activeBookshelfId = result.activeBookshelfId;
 
   saveBooks();
   saveBookshelves();

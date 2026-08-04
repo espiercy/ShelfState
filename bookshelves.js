@@ -66,3 +66,32 @@ export function hasBookshelfName(
       bookshelf.name.toLowerCase() === normalizedName,
   );
 }
+
+export function removeBookshelfFromLibrary(bookshelves, books, bookshelfId) {
+  const bookshelf = bookshelves.find(
+    (bookshelf) => bookshelf.id === bookshelfId,
+  );
+
+  if (!bookshelf || bookshelf.name === DEFAULT_BOOKSHELF_NAME) {
+    return null;
+  }
+
+  const defaultBookshelf = getDefaultBookshelf(bookshelves);
+
+  books.forEach((book) => {
+    const belongsToRemovedBookshelf =
+      book.bookshelfId === bookshelfId || book.bookshelf === bookshelf.name;
+
+    if (!belongsToRemovedBookshelf) return;
+
+    book.bookshelf = "";
+    book.bookshelfId = defaultBookshelf?.id ?? null;
+  });
+
+  return {
+    bookshelves: bookshelves.filter(
+      (bookshelf) => bookshelf.id !== bookshelfId,
+    ),
+    activeBookshelfId: defaultBookshelf?.id ?? null,
+  };
+}

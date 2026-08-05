@@ -58,6 +58,7 @@ import {
 import { validateBookData } from "./validation.js";
 import { chunkBooks } from "./layout.js";
 import { createBookData } from "./book-data.js";
+import { removeBookFromLibrary } from "./books.js";
 
 //DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");
@@ -739,7 +740,7 @@ function animateBookDelete(bookElement, bookId) {
 }
 // Book Actions
 function deleteBook(bookId) {
-  appState.books = appState.books.filter((book) => book.id !== bookId);
+  appState.books = removeBookFromLibrary(appState.books, bookId);
   saveBooks();
   renderBooks();
 }

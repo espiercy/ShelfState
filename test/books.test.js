@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { removeBookFromLibrary } from "../books.js";
+import { addBookToLibrary, removeBookFromLibrary } from "../books.js";
 
 test("removes the identified book without mutating the collection", () => {
   const books = [
@@ -23,4 +23,19 @@ test("preserves the collection when the book is not found", () => {
 
   assert.deepEqual(result, books);
   assert.notEqual(result, books);
+});
+
+test("creates and adds a book to the library", () => {
+  const books = [];
+
+  const result = addBookToLibrary(books, {
+    title: "Dune",
+    author: "Frank Herbert",
+  });
+
+  assert.equal(books.length, 1);
+  assert.equal(result, books[0]);
+  assert.equal(result.title, "Dune");
+  assert.equal(result.author, "Frank Herbert");
+  assert.equal(typeof result.id, "string");
 });

@@ -10,7 +10,7 @@ import {
   CLASSIFICATION_LABELS,
 } from "./config.js";
 
-import { Book } from "./models.js";
+import { Book, Bookshelf } from "./models.js";
 
 import { getReadingInsights } from "./insights.js";
 

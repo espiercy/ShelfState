@@ -12,6 +12,7 @@ import {
   renameBookshelfInLibrary,
   assignBookToBookshelf,
   addBookshelfToLibrary,
+  getBooksForBookshelf,
 } from "../bookshelves.js";
 
 test("finds the default bookshelf by name", () => {
@@ -261,4 +262,52 @@ test("refuses empty and duplicate bookshelf names", () => {
   assert.equal(addBookshelfToLibrary(bookshelves, "   "), null);
   assert.equal(addBookshelfToLibrary(bookshelves, " fantasy "), null);
   assert.equal(bookshelves.length, 2);
+});
+
+test("finds books assigned to a bookshelf by ID", () => {
+  const bookshelf = { id: "fantasy", name: "Fantasy" };
+  const books = [
+    { title: "Assigned", bookshelfId: "fantasy", bookshelf: "" },
+    { title: "Elsewhere", bookshelfId: "history", bookshelf: "History" },
+  ];
+
+  const matchingBooks = getBooksForBookshelf(books, bookshelf);
+
+  assert.deepEqual(
+    matchingBooks.map((book) => book.title),
+    ["Assigned"],
+  );
+});
+
+test("falls back to legacy bookshelf names when IDs are missing", () => {
+  const bookshelf = { id: "fantasy", name: "Fantasy" };
+  const books = [
+    { title: "Legacy", bookshelfId: null, bookshelf: "Fantasy" },
+    { title: "Default", bookshelfId: null, bookshelf: "" },
+  ];
+
+  const matchingBooks = getBooksForBookshelf(books, bookshelf);
+
+  assert.deepEqual(
+    matchingBooks.map((book) => book.title),
+    ["Legacy"],
+  );
+});
+
+test("falls back to a legacy bookshelf name when the stored ID is stale", () => {
+  const bookshelf = { id: "fantasy", name: "Fantasy" };
+  const books = [
+    {
+      title: "Recovered",
+      bookshelfId: "stale-fantasy-id",
+      bookshelf: "Fantasy",
+    },
+  ];
+
+  const matchingBooks = getBooksForBookshelf(books, bookshelf);
+
+  assert.deepEqual(
+    matchingBooks.map((book) => book.title),
+    ["Recovered"],
+  );
 });

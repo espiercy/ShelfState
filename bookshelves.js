@@ -134,3 +134,14 @@ export function addBookshelfToLibrary(bookshelves, name) {
 
   return bookshelf;
 }
+
+export function getBooksForBookshelf(books, bookshelf) {
+  const legacyBookshelfName =
+    bookshelf.name === DEFAULT_BOOKSHELF_NAME ? "" : bookshelf.name;
+
+  return books.filter(
+    (book) =>
+      book.bookshelfId === bookshelf.id ||
+      (book.bookshelf || "") === legacyBookshelfName,
+  );
+}

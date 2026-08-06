@@ -25,6 +25,7 @@ import {
   renameBookshelfInLibrary,
   assignBookToBookshelf,
   addBookshelfToLibrary,
+  getBooksForBookshelf,
 } from "./bookshelves.js";
 
 import { migrateBooksToBookshelfIds } from "./migrations.js";
@@ -316,12 +317,14 @@ function renderBookshelf(bookshelf) {
 }
 
 function renderStatusShelf(status, bookshelfName, bookshelfElement) {
-  const bookshelfKey = bookshelfName === "My Library" ? "" : bookshelfName;
-  let shelfBooks = appState.books.filter(
-    (book) =>
-      book.status === status &&
-      (book.bookshelf || "") === bookshelfKey &&
-      bookMatchesSearch(book),
+  const bookshelf = appState.bookshelves.find(
+    (bookshelf) => bookshelf.name === bookshelfName,
+  );
+
+  if (!bookshelf) return false;
+
+  let shelfBooks = getBooksForBookshelf(appState.books, bookshelf).filter(
+    (book) => book.status === status && bookMatchesSearch(book),
   );
 
   if (status === "completed") {
@@ -675,12 +678,8 @@ function getVisibleBooks() {
 
   if (!activeBookshelf) return [];
 
-  const bookshelfKey =
-    activeBookshelf.name === DEFAULT_BOOKSHELF_NAME ? "" : activeBookshelf.name;
-
-  return appState.books.filter(
-    (book) =>
-      (book.bookshelf || "") === bookshelfKey && bookMatchesSearch(book),
+  return getBooksForBookshelf(appState.books, activeBookshelf).filter(
+    bookMatchesSearch,
   );
 }
 
@@ -719,9 +718,7 @@ function animateBookshelfDelete(card, bookshelfId) {
 }
 
 function confirmDeleteBookshelf(bookshelf) {
-  const booksOnShelf = appState.books.filter(
-    (book) => book.bookshelf === bookshelf.name,
-  ).length;
+  const booksOnShelf = getBooksForBookshelf(appState.books, bookshelf).length;
 
   return confirm(
     `Delete "${bookshelf.name}"?\n\n${booksOnShelf} book${booksOnShelf === 1 ? "" : "s"} will move back to My Library.`,

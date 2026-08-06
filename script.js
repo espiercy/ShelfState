@@ -10,7 +10,7 @@ import {
   CLASSIFICATION_LABELS,
 } from "./config.js";
 
-import { Bookshelf, Book } from "./models.js";
+import { Book } from "./models.js";
 
 import { getReadingInsights } from "./insights.js";
 
@@ -24,6 +24,7 @@ import {
   removeBookshelfFromLibrary,
   renameBookshelfInLibrary,
   assignBookToBookshelf,
+  addBookshelfToLibrary,
 } from "./bookshelves.js";
 
 import { migrateBooksToBookshelfIds } from "./migrations.js";
@@ -749,18 +750,13 @@ function createBookshelf(name) {
 
   if (!trimmedName) return null;
 
-  const alreadyExists = hasBookshelfName(appState.bookshelves, trimmedName);
+  const bookshelf = addBookshelfToLibrary(appState.bookshelves, trimmedName);
 
-  if (alreadyExists) {
+  if (!bookshelf) {
     alert(`A bookshelf named "${trimmedName}" already exists.`);
     return null;
   }
 
-  const bookshelf = new Bookshelf({
-    name: trimmedName,
-  });
-
-  appState.bookshelves.push(bookshelf);
   appState.activeBookshelfId = bookshelf.id;
 
   return bookshelf;

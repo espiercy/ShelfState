@@ -11,6 +11,7 @@ import {
   removeBookshelfFromLibrary,
   renameBookshelfInLibrary,
   assignBookToBookshelf,
+  addBookshelfToLibrary,
 } from "../bookshelves.js";
 
 test("finds the default bookshelf by name", () => {
@@ -238,4 +239,26 @@ test("clears the legacy bookshelf name when assigning to the default shelf", () 
 
   assert.equal(book.bookshelf, "");
   assert.equal(book.bookshelfId, "default");
+});
+
+test("adds a normalized bookshelf to the library", () => {
+  const bookshelves = [{ id: "default", name: "My Library" }];
+
+  const bookshelf = addBookshelfToLibrary(bookshelves, " Science Fiction ");
+
+  assert.equal(bookshelf.name, "Science Fiction");
+  assert.equal(typeof bookshelf.id, "string");
+  assert.equal(bookshelves.length, 2);
+  assert.equal(bookshelves[1], bookshelf);
+});
+
+test("refuses empty and duplicate bookshelf names", () => {
+  const bookshelves = [
+    { id: "default", name: "My Library" },
+    { id: "fantasy", name: "Fantasy" },
+  ];
+
+  assert.equal(addBookshelfToLibrary(bookshelves, "   "), null);
+  assert.equal(addBookshelfToLibrary(bookshelves, " fantasy "), null);
+  assert.equal(bookshelves.length, 2);
 });

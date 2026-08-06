@@ -118,3 +118,19 @@ export function assignBookToBookshelf(book, bookshelf) {
 
   return book;
 }
+
+export function addBookshelfToLibrary(bookshelves, name) {
+  const normalizedName = normalizeBookshelfName(name);
+
+  if (!normalizedName || hasBookshelfName(bookshelves, normalizedName)) {
+    return null;
+  }
+
+  const bookshelf = new Bookshelf({
+    name: normalizedName,
+  });
+
+  bookshelves.push(bookshelf);
+
+  return bookshelf;
+}

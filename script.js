@@ -58,7 +58,11 @@ import {
 import { validateBookData } from "./validation.js";
 import { chunkBooks } from "./layout.js";
 import { createBookData } from "./book-data.js";
-import { addBookToLibrary, removeBookFromLibrary } from "./books.js";
+import {
+  addBookToLibrary,
+  removeBookFromLibrary,
+  updateBookInLibrary,
+} from "./books.js";
 
 //DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");
@@ -111,12 +115,7 @@ form.addEventListener("submit", (event) => {
   }
 
   if (appState.editingBookId) {
-    const existingBook = appState.books.find(
-      (book) => book.id === appState.editingBookId,
-    );
-    if (existingBook) {
-      existingBook.update(bookData);
-    }
+    updateBookInLibrary(appState.books, appState.editingBookId, bookData);
   } else {
     const book = addBookToLibrary(appState.books, bookData);
     setBookAnimation(book.id, "created");

@@ -10,3 +10,13 @@ export function addBookToLibrary(books, bookData) {
 export function removeBookFromLibrary(books, bookId) {
   return books.filter((book) => book.id !== bookId);
 }
+
+export function updateBookInLibrary(books, bookId, bookData) {
+  const book = books.find((book) => book.id === bookId);
+
+  if (!book) return null;
+
+  book.update(bookData);
+
+  return book;
+}

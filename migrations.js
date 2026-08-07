@@ -7,7 +7,11 @@ export function migrateBooksToBookshelfIds(books, bookshelves) {
   let didMigrate = false;
 
   books.forEach((book) => {
-    if (book.bookshelfId) return;
+    const currentBookshelfExists = bookshelves.some(
+      (bookshelf) => bookshelf.id === book.bookshelfId,
+    );
+
+    if (currentBookshelfExists) return;
 
     const bookshelfName = book.bookshelf || DEFAULT_BOOKSHELF_NAME;
 
@@ -15,11 +19,13 @@ export function migrateBooksToBookshelfIds(books, bookshelves) {
       (bookshelf) => bookshelf.name === bookshelfName,
     );
 
-    book.bookshelfId = matchingBookshelf?.id ?? defaultBookshelf?.id ?? null;
+    const replacementBookshelfId =
+      matchingBookshelf?.id ?? defaultBookshelf?.id ?? null;
 
-    if (book.bookshelfId) {
-      didMigrate = true;
-    }
+    if (!replacementBookshelfId) return;
+
+    book.bookshelfId = replacementBookshelfId;
+    didMigrate = true;
   });
 
   return didMigrate;

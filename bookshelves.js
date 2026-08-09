@@ -79,10 +79,7 @@ export function removeBookshelfFromLibrary(bookshelves, books, bookshelfId) {
   const defaultBookshelf = getDefaultBookshelf(bookshelves);
 
   books.forEach((book) => {
-    const belongsToRemovedBookshelf =
-      book.bookshelfId === bookshelfId || book.bookshelf === bookshelf.name;
-
-    if (!belongsToRemovedBookshelf) return;
+    if (book.bookshelfId !== bookshelfId) return;
 
     book.bookshelf = "";
     book.bookshelfId = defaultBookshelf?.id ?? null;
@@ -136,12 +133,5 @@ export function addBookshelfToLibrary(bookshelves, name) {
 }
 
 export function getBooksForBookshelf(books, bookshelf) {
-  const legacyBookshelfName =
-    bookshelf.name === DEFAULT_BOOKSHELF_NAME ? "" : bookshelf.name;
-
-  return books.filter(
-    (book) =>
-      book.bookshelfId === bookshelf.id ||
-      (book.bookshelf || "") === legacyBookshelfName,
-  );
+  return books.filter((book) => book.bookshelfId === bookshelf.id);
 }

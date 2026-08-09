@@ -84,7 +84,7 @@ test("detects duplicate names case-insensitively with exclusions", () => {
   assert.equal(hasBookshelfName(bookshelves, "Fantasy", "shelf-1"), false);
 });
 
-test("removes a bookshelf and returns its books to the default shelf", () => {
+test("removes a bookshelf and reassigns only books matched by ID", () => {
   const bookshelves = [
     { id: "default", name: "My Library" },
     { id: "fantasy", name: "Fantasy" },
@@ -119,8 +119,8 @@ test("removes a bookshelf and returns its books to the default shelf", () => {
 
   assert.equal(books[0].bookshelf, "");
   assert.equal(books[0].bookshelfId, "default");
-  assert.equal(books[1].bookshelf, "");
-  assert.equal(books[1].bookshelfId, "default");
+  assert.equal(books[1].bookshelf, "Fantasy");
+  assert.equal(books[1].bookshelfId, null);
 
   assert.equal(books[2].bookshelf, "History");
   assert.equal(books[2].bookshelfId, "history");
@@ -279,7 +279,7 @@ test("finds books assigned to a bookshelf by ID", () => {
   );
 });
 
-test("falls back to legacy bookshelf names when IDs are missing", () => {
+test("ignores legacy bookshelf names when IDs are missing", () => {
   const bookshelf = { id: "fantasy", name: "Fantasy" };
   const books = [
     { title: "Legacy", bookshelfId: null, bookshelf: "Fantasy" },
@@ -288,17 +288,14 @@ test("falls back to legacy bookshelf names when IDs are missing", () => {
 
   const matchingBooks = getBooksForBookshelf(books, bookshelf);
 
-  assert.deepEqual(
-    matchingBooks.map((book) => book.title),
-    ["Legacy"],
-  );
+  assert.deepEqual(matchingBooks, []);
 });
 
-test("falls back to a legacy bookshelf name when the stored ID is stale", () => {
+test("ignores legacy bookshelf names when stored IDs are stale", () => {
   const bookshelf = { id: "fantasy", name: "Fantasy" };
   const books = [
     {
-      title: "Recovered",
+      title: "Legacy",
       bookshelfId: "stale-fantasy-id",
       bookshelf: "Fantasy",
     },
@@ -306,8 +303,5 @@ test("falls back to a legacy bookshelf name when the stored ID is stale", () => 
 
   const matchingBooks = getBooksForBookshelf(books, bookshelf);
 
-  assert.deepEqual(
-    matchingBooks.map((book) => book.title),
-    ["Recovered"],
-  );
+  assert.deepEqual(matchingBooks, []);
 });

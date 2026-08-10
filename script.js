@@ -379,8 +379,7 @@ function renderBookshelfOptions() {
 
   appState.bookshelves.forEach((bookshelf) => {
     const option = document.createElement("option");
-    option.value =
-      bookshelf.name === DEFAULT_BOOKSHELF_NAME ? "" : bookshelf.name;
+    option.value = bookshelf.id;
     option.textContent = bookshelf.name;
 
     bookshelfSelect.appendChild(option);
@@ -862,6 +861,8 @@ function openEditForm(bookId) {
   BOOK_FIELDS.forEach((field) => {
     form.elements[field].value = book[field] ?? "";
   });
+
+  form.elements.bookshelf.value = book.bookshelfId ?? "";
 }
 
 //Persistence

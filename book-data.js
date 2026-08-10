@@ -8,12 +8,18 @@ export function createBookData(formData, bookshelves) {
   bookData.pages = Number(bookData.pages);
   bookData.progress = Number(bookData.progress);
 
-  const selectedBookshelfName = bookData.bookshelf || DEFAULT_BOOKSHELF_NAME;
-
-  const selectedBookshelf = bookshelves.find(
-    (bookshelf) => bookshelf.name === selectedBookshelfName,
+  const defaultBookshelf = bookshelves.find(
+    (bookshelf) => bookshelf.name === DEFAULT_BOOKSHELF_NAME,
   );
 
+  const selectedBookshelfId =
+    bookData.bookshelf || defaultBookshelf?.id || null;
+
+  const selectedBookshelf = bookshelves.find(
+    (bookshelf) => bookshelf.id === selectedBookshelfId,
+  );
+
+  bookData.bookshelf = "";
   bookData.bookshelfId = selectedBookshelf?.id ?? null;
 
   return bookData;

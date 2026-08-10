@@ -207,10 +207,10 @@ test("renames a bookshelf and its legacy book references", () => {
   assert.equal(books[2].bookshelfId, "fantasy");
 });
 
-test("assigns a book to a named bookshelf", () => {
+test("assigns a book to a named bookshelf by ID", () => {
   const book = {
-    bookshelf: "",
-    bookshelfId: "default",
+    bookshelf: "Old Shelf",
+    bookshelfId: "old-shelf",
   };
 
   const bookshelf = {
@@ -221,7 +221,7 @@ test("assigns a book to a named bookshelf", () => {
   const result = assignBookToBookshelf(book, bookshelf);
 
   assert.equal(result, book);
-  assert.equal(book.bookshelf, "Fantasy");
+  assert.equal(book.bookshelf, "");
   assert.equal(book.bookshelfId, "fantasy");
 });
 

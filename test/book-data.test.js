@@ -18,7 +18,7 @@ test("creates normalized book data from values", () => {
     pages: "300",
     progress: "25",
     status: "currently-reading",
-    bookshelf: "Favorites",
+    bookshelf: "shelf-2",
   });
 
   const bookData = createBookData(formData, [
@@ -32,7 +32,7 @@ test("creates normalized book data from values", () => {
   assert.equal(bookData.progress, 25);
   assert.equal(bookData.status, "currently-reading");
   assert.equal(bookData.notes, "");
-  assert.equal(bookData.bookshelf, "Favorites");
+  assert.equal(bookData.bookshelf, "");
   assert.equal(bookData.bookshelfId, "shelf-2");
 });
 
@@ -53,10 +53,10 @@ test("resolves an empty shelf selection to the default bookshelf", () => {
   assert.equal(bookData.bookshelfId, "default");
 });
 
-test("uses a null bookshelf ID when no shelf matches", () => {
+test("uses a null bookshelf ID when no shelf ID matches", () => {
   const bookData = createBookData(
     createFormData({
-      bookshelf: "Missing",
+      bookshelf: "missing-id",
     }),
     [{ id: "default", name: "My Library" }],
   );

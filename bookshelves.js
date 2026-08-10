@@ -108,9 +108,7 @@ export function renameBookshelfInLibrary(bookshelf, books, newName) {
 }
 
 export function assignBookToBookshelf(book, bookshelf) {
-  book.bookshelf =
-    bookshelf.name === DEFAULT_BOOKSHELF_NAME ? "" : bookshelf.name;
-
+  book.bookshelf = "";
   book.bookshelfId = bookshelf.id;
 
   return book;

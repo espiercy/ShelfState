@@ -93,15 +93,7 @@ export function removeBookshelfFromLibrary(bookshelves, books, bookshelfId) {
   };
 }
 
-export function renameBookshelfInLibrary(bookshelf, books, newName) {
-  const oldName = bookshelf.name;
-
-  books.forEach((book) => {
-    if (book.bookshelf === oldName) {
-      book.bookshelf = newName;
-    }
-  });
-
+export function renameBookshelfInLibrary(bookshelf, newName) {
   bookshelf.name = newName;
 
   return bookshelf;

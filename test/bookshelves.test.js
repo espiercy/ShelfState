@@ -164,47 +164,16 @@ test("uses null when no default bookshelf exists", () => {
   assert.equal(books[0].bookshelfId, null);
 });
 
-test("renames a bookshelf and its legacy book references", () => {
+test("renames a bookshelf", () => {
   const bookshelf = {
     id: "fantasy",
     name: "Fantasy",
   };
 
-  const books = [
-    {
-      id: "book-1",
-      bookshelf: "Fantasy",
-      bookshelfId: "fantasy",
-    },
-    {
-      id: "book-2",
-      bookshelf: "History",
-      bookshelfId: "history",
-    },
-    {
-      id: "book-3",
-      bookshelf: "",
-      bookshelfId: "fantasy",
-    },
-  ];
-
-  const result = renameBookshelfInLibrary(
-    bookshelf,
-    books,
-    "Speculative Fiction",
-  );
+  const result = renameBookshelfInLibrary(bookshelf, "Speculative Fiction");
 
   assert.equal(result, bookshelf);
   assert.equal(bookshelf.name, "Speculative Fiction");
-
-  assert.equal(books[0].bookshelf, "Speculative Fiction");
-  assert.equal(books[0].bookshelfId, "fantasy");
-
-  assert.equal(books[1].bookshelf, "History");
-  assert.equal(books[1].bookshelfId, "history");
-
-  assert.equal(books[2].bookshelf, "");
-  assert.equal(books[2].bookshelfId, "fantasy");
 });
 
 test("assigns a book to a named bookshelf by ID", () => {

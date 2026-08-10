@@ -802,9 +802,8 @@ function renameBookshelf(bookshelfId) {
     return;
   }
 
-  renameBookshelfInLibrary(bookshelf, appState.books, trimmedName);
+  renameBookshelfInLibrary(bookshelf, trimmedName);
 
-  saveBooks();
   saveBookshelves();
   renderBooks();
 }

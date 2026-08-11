@@ -16,7 +16,6 @@ import { getReadingInsights } from "./insights.js";
 
 import {
   ensureDefaultBookshelf,
-  syncBookshelvesFromBooks,
   ensureActiveBookshelfId,
   getDefaultBookshelf,
   normalizeBookshelfName,
@@ -28,7 +27,10 @@ import {
   getBooksForBookshelf,
 } from "./bookshelves.js";
 
-import { migrateBooksToBookshelfIds } from "./migrations.js";
+import {
+  migrateBooksToBookshelfIds,
+  migrateBookshelvesFromLegacyNames,
+} from "./migrations.js";
 
 import {
   backupBooksBeforeMigration,
@@ -924,7 +926,7 @@ function initializeApp() {
   loadBooks();
   loadBookshelves();
 
-  appState.bookshelves = syncBookshelvesFromBooks(
+  appState.bookshelves = migrateBookshelvesFromLegacyNames(
     appState.bookshelves,
     appState.books,
   );

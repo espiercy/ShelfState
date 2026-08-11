@@ -1,5 +1,10 @@
 import { DEFAULT_BOOKSHELF_NAME } from "./config.js";
-import { getDefaultBookshelf } from "./bookshelves.js";
+import { Bookshelf } from "./models.js";
+import {
+  getDefaultBookshelf,
+  normalizeBookshelfName,
+  hasBookshelfName,
+} from "./bookshelves.js";
 
 export function migrateBooksToBookshelfIds(books, bookshelves) {
   const defaultBookshelf = getDefaultBookshelf(bookshelves);
@@ -29,4 +34,26 @@ export function migrateBooksToBookshelfIds(books, bookshelves) {
   });
 
   return didMigrate;
+}
+
+export function migrateBookshelvesFromLegacyNames(bookshelves, books) {
+  const migratedBookshelves = [...bookshelves];
+
+  books.forEach((book) => {
+    const bookshelfName = normalizeBookshelfName(book.bookshelf ?? "");
+
+    if (!bookshelfName) return;
+
+    const alreadyExists = hasBookshelfName(migratedBookshelves, bookshelfName);
+
+    if (!alreadyExists) {
+      migratedBookshelves.push(
+        new Bookshelf({
+          name: bookshelfName,
+        }),
+      );
+    }
+  });
+
+  return migratedBookshelves;
 }

@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { migrateBooksToBookshelfIds } from "../migrations.js";
+import {
+  migrateBooksToBookshelfIds,
+  migrateBookshelvesFromLegacyNames,
+} from "../migrations.js";
 
 const bookshelves = [
   { id: "default", name: "My Library" },
@@ -110,4 +113,21 @@ test("preserves an existing valid bookshelf ID", () => {
 
   assert.equal(didMigrate, false);
   assert.equal(books[0].bookshelfId, "fantasy");
+});
+
+test("migrates unique legacy bookshelf names without mutation", () => {
+  const bookshelves = [{ id: "default", name: "My Library" }];
+
+  const migratedBookshelves = migrateBookshelvesFromLegacyNames(bookshelves, [
+    { bookshelf: " Fantasy " },
+    { bookshelf: "fantasy" },
+    { bookshelf: "  " },
+    {},
+  ]);
+
+  assert.deepEqual(
+    migratedBookshelves.map((bookshelf) => bookshelf.name),
+    ["My Library", "Fantasy"],
+  );
+  assert.equal(bookshelves.length, 1);
 });

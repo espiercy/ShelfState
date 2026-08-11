@@ -5,7 +5,6 @@ import {
   getDefaultBookshelf,
   ensureDefaultBookshelf,
   ensureActiveBookshelfId,
-  syncBookshelvesFromBooks,
   normalizeBookshelfName,
   hasBookshelfName,
   removeBookshelfFromLibrary,
@@ -49,23 +48,6 @@ test("preserves a valid active bookshelf and falls back safely", () => {
   assert.equal(ensureActiveBookshelfId(bookshelves, "shelf-2"), "shelf-2");
   assert.equal(ensureActiveBookshelfId(bookshelves, "missing"), "shelf-1");
   assert.equal(ensureActiveBookshelfId([], "missing"), null);
-});
-
-test("synchronizes unique legacy bookshelf names without mutation", () => {
-  const bookshelves = [{ id: "default", name: "My Library" }];
-
-  const synchronized = syncBookshelvesFromBooks(bookshelves, [
-    { bookshelf: " Fantasy " },
-    { bookshelf: "fantasy" },
-    { bookshelf: "   " },
-    {},
-  ]);
-
-  assert.deepEqual(
-    synchronized.map((bookshelf) => bookshelf.name),
-    ["My Library", "Fantasy"],
-  );
-  assert.equal(bookshelves.length, 1);
 });
 
 test("normalizes bookshelf names by trimming whitespace", () => {

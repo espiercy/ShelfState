@@ -27,28 +27,6 @@ export function ensureActiveBookshelfId(bookshelves, activeBookshelfId) {
   return bookshelves[0]?.id ?? null;
 }
 
-export function syncBookshelvesFromBooks(bookshelves, books) {
-  const updatedBookshelves = [...bookshelves];
-
-  books.forEach((book) => {
-    const bookshelfName = normalizeBookshelfName(book.bookshelf ?? "");
-
-    if (!bookshelfName) return;
-
-    const alreadyExists = hasBookshelfName(updatedBookshelves, bookshelfName);
-
-    if (!alreadyExists) {
-      updatedBookshelves.push(
-        new Bookshelf({
-          name: bookshelfName,
-        }),
-      );
-    }
-  });
-
-  return updatedBookshelves;
-}
-
 export function normalizeBookshelfName(name) {
   return name.trim();
 }

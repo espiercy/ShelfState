@@ -926,12 +926,21 @@ function initializeApp() {
   loadBooks();
   loadBookshelves();
 
+  const bookshelfCountBeforeMigration = appState.bookshelves.length;
+
   appState.bookshelves = migrateBookshelvesFromLegacyNames(
     appState.bookshelves,
     appState.books,
   );
 
+  const didMigrateBookshelves =
+    appState.bookshelves.length > bookshelfCountBeforeMigration;
+
   appState.bookshelves = ensureDefaultBookshelf(appState.bookshelves);
+
+  if (didMigrateBookshelves) {
+    saveBookshelves();
+  }
 
   const didMigrate = migrateBooksToBookshelfIds(
     appState.books,

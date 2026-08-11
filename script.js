@@ -881,7 +881,7 @@ function loadBooks() {
   try {
     const storedBooks = loadStoredBooks();
 
-    appState.books = storedBooks.map((bookData) => new Book(bookData));
+    appState.books = storedBooks;
     appState.booksLoadFailed = false;
   } catch (error) {
     console.error("Failed to load books:", error);
@@ -946,6 +946,8 @@ function initializeApp() {
     appState.books,
     appState.bookshelves,
   );
+
+  appState.books = appState.books.map((bookData) => new Book(bookData));
 
   if (didMigrate && backupBooksBeforeMigration()) {
     saveBooks();

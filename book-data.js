@@ -13,13 +13,12 @@ export function createBookData(formData, bookshelves) {
   );
 
   const selectedBookshelfId =
-    bookData.bookshelf || defaultBookshelf?.id || null;
+    formData.get("bookshelf") || defaultBookshelf?.id || null;
 
   const selectedBookshelf = bookshelves.find(
     (bookshelf) => bookshelf.id === selectedBookshelfId,
   );
 
-  bookData.bookshelf = "";
   bookData.bookshelfId = selectedBookshelf?.id ?? null;
 
   return bookData;

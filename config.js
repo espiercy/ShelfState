@@ -4,7 +4,7 @@ export const ACTIVE_BOOKSHELF_STORAGE_KEY = "shelfStateActiveBookshelfId";
 export const BOOKS_MIGRATION_BACKUP_KEY =
   "shelfStateBooksBeforeBookshelfIdMigration";
 export const BOOKS_ROLLING_BACKUP_KEY = "shelfStateBooksPrevious";
-export const EXPORT_SCHEMA_VERSION = 1;
+export const EXPORT_SCHEMA_VERSION = 2;
 export const DEFAULT_BOOKSHELF_NAME = "My Library";
 export const MAX_BOOKS_PER_SHELF = 5;
 export const BOOK_FIELDS = [
@@ -19,7 +19,6 @@ export const BOOK_FIELDS = [
   "classification",
   "category",
   "status",
-  "bookshelf",
 ];
 
 export const BOOK_STATUS = {

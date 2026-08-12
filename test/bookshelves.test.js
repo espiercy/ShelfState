@@ -76,17 +76,14 @@ test("removes a bookshelf and reassigns only books matched by ID", () => {
   const books = [
     {
       id: "book-1",
-      bookshelf: "Fantasy",
       bookshelfId: "fantasy",
     },
     {
       id: "book-2",
-      bookshelf: "Fantasy",
       bookshelfId: null,
     },
     {
       id: "book-3",
-      bookshelf: "History",
       bookshelfId: "history",
     },
   ];
@@ -99,12 +96,8 @@ test("removes a bookshelf and reassigns only books matched by ID", () => {
   );
   assert.equal(result.activeBookshelfId, "default");
 
-  assert.equal(books[0].bookshelf, "");
   assert.equal(books[0].bookshelfId, "default");
-  assert.equal(books[1].bookshelf, "Fantasy");
   assert.equal(books[1].bookshelfId, null);
-
-  assert.equal(books[2].bookshelf, "History");
   assert.equal(books[2].bookshelfId, "history");
 
   assert.equal(bookshelves.length, 3);
@@ -118,14 +111,12 @@ test("refuses to remove the default or missing bookshelf", () => {
 
   const books = [
     {
-      bookshelf: "Fantasy",
       bookshelfId: "fantasy",
     },
   ];
 
   assert.equal(removeBookshelfFromLibrary(bookshelves, books, "default"), null);
   assert.equal(removeBookshelfFromLibrary(bookshelves, books, "missing"), null);
-  assert.equal(books[0].bookshelf, "Fantasy");
   assert.equal(books[0].bookshelfId, "fantasy");
 });
 
@@ -133,7 +124,6 @@ test("uses null when no default bookshelf exists", () => {
   const bookshelves = [{ id: "fantasy", name: "Fantasy" }];
   const books = [
     {
-      bookshelf: "Fantasy",
       bookshelfId: "fantasy",
     },
   ];
@@ -142,7 +132,6 @@ test("uses null when no default bookshelf exists", () => {
 
   assert.deepEqual(result.bookshelves, []);
   assert.equal(result.activeBookshelfId, null);
-  assert.equal(books[0].bookshelf, "");
   assert.equal(books[0].bookshelfId, null);
 });
 
@@ -160,7 +149,6 @@ test("renames a bookshelf", () => {
 
 test("assigns a book to a named bookshelf by ID", () => {
   const book = {
-    bookshelf: "Old Shelf",
     bookshelfId: "old-shelf",
   };
 
@@ -172,13 +160,12 @@ test("assigns a book to a named bookshelf by ID", () => {
   const result = assignBookToBookshelf(book, bookshelf);
 
   assert.equal(result, book);
-  assert.equal(book.bookshelf, "");
+  assert.equal(Object.hasOwn(book, "bookshelf"), false);
   assert.equal(book.bookshelfId, "fantasy");
 });
 
-test("clears the legacy bookshelf name when assigning to the default shelf", () => {
+test("assigns a book to the default shelf by ID", () => {
   const book = {
-    bookshelf: "Fantasy",
     bookshelfId: "fantasy",
   };
 
@@ -189,7 +176,7 @@ test("clears the legacy bookshelf name when assigning to the default shelf", () 
 
   assignBookToBookshelf(book, defaultBookshelf);
 
-  assert.equal(book.bookshelf, "");
+  assert.equal(Object.hasOwn(book, "bookshelf"), false);
   assert.equal(book.bookshelfId, "default");
 });
 
@@ -218,8 +205,8 @@ test("refuses empty and duplicate bookshelf names", () => {
 test("finds books assigned to a bookshelf by ID", () => {
   const bookshelf = { id: "fantasy", name: "Fantasy" };
   const books = [
-    { title: "Assigned", bookshelfId: "fantasy", bookshelf: "" },
-    { title: "Elsewhere", bookshelfId: "history", bookshelf: "History" },
+    { title: "Assigned", bookshelfId: "fantasy" },
+    { title: "Elsewhere", bookshelfId: "history" },
   ];
 
   const matchingBooks = getBooksForBookshelf(books, bookshelf);

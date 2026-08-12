@@ -59,7 +59,6 @@ export function removeBookshelfFromLibrary(bookshelves, books, bookshelfId) {
   books.forEach((book) => {
     if (book.bookshelfId !== bookshelfId) return;
 
-    book.bookshelf = "";
     book.bookshelfId = defaultBookshelf?.id ?? null;
   });
 
@@ -78,7 +77,6 @@ export function renameBookshelfInLibrary(bookshelf, newName) {
 }
 
 export function assignBookToBookshelf(book, bookshelf) {
-  book.bookshelf = "";
   book.bookshelfId = bookshelf.id;
 
   return book;

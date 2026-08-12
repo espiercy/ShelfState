@@ -32,7 +32,7 @@ test("creates normalized book data from values", () => {
   assert.equal(bookData.progress, 25);
   assert.equal(bookData.status, "currently-reading");
   assert.equal(bookData.notes, "");
-  assert.equal(bookData.bookshelf, "");
+  assert.equal(Object.hasOwn(bookData, "bookshelf"), false);
   assert.equal(bookData.bookshelfId, "shelf-2");
 });
 
@@ -49,7 +49,7 @@ test("resolves an empty shelf selection to the default bookshelf", () => {
 
   assert.equal(bookData.pages, 0);
   assert.equal(bookData.progress, 0);
-  assert.equal(bookData.bookshelf, "");
+  assert.equal(Object.hasOwn(bookData, "bookshelf"), false);
   assert.equal(bookData.bookshelfId, "default");
 });
 

@@ -15,7 +15,6 @@ export class Book {
     classification,
     category,
     status,
-    bookshelf = "",
     bookshelfId = null,
     createdAt = new Date(),
     updatedAt = new Date(),
@@ -32,7 +31,6 @@ export class Book {
     this.classification = classification;
     this.category = category;
     this.status = status;
-    this.bookshelf = bookshelf;
     this.bookshelfId = bookshelfId;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;

@@ -35,14 +35,15 @@ test("updates a book and its modification timestamp", () => {
   assert.notEqual(book.updatedAt, originalUpdatedAt);
 });
 
-test("supplies safe defaults for a new book", () => {
+test("supplies safe defaults without the legacy bookshelf field", () => {
   const book = new Book({
     title: "Book",
+    bookshelf: "Legacy Shelf",
   });
 
   assert.equal(typeof book.id, "string");
   assert.notEqual(book.id, "");
-  assert.equal(book.bookshelf, "");
+  assert.equal(Object.hasOwn(book, "bookshelf"), false);
   assert.equal(book.bookshelfId, null);
   assert.equal(book.createdAt instanceof Date, true);
   assert.equal(book.updatedAt instanceof Date, true);

@@ -178,6 +178,7 @@ test("creates versioned library export data", () => {
 
   const exportData = createLibraryExportData(books, bookshelves, "shelf-1");
 
+  assert.equal(EXPORT_SCHEMA_VERSION, 2);
   assert.equal(exportData.schemaVersion, EXPORT_SCHEMA_VERSION);
   assert.equal(Number.isNaN(Date.parse(exportData.exportedAt)), false);
   assert.equal(exportData.books, books);

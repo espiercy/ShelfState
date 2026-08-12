@@ -59,7 +59,7 @@ import {
   startBookshelfDeleteAnimation,
 } from "./animations.js";
 
-import { validateBookData } from "./validation.js";
+import { validateBookData } from "./src/domain/validation.js";
 import { chunkBooks } from "./layout.js";
 import { createBookData } from "./book-data.js";
 import {

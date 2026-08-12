@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { validateBookData } from "../validation.js";
+import { validateBookData } from "../../src/domain/validation.js";
 
 const validBook = {
   title: "Book",

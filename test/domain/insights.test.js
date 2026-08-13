@@ -7,7 +7,7 @@ import {
   getBooksByCategory,
   getBooksByClassification,
   getBooksByBookshelf,
-} from "../insights.js";
+} from "../../src/domain/insights.js";
 
 const books = [
   {

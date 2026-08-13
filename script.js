@@ -12,7 +12,7 @@ import {
 
 import { Book, Bookshelf } from "./models.js";
 
-import { getReadingInsights } from "./insights.js";
+import { getReadingInsights } from "./src/domain/insights.js";
 
 import {
   ensureDefaultBookshelf,

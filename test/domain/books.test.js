@@ -5,7 +5,7 @@ import {
   addBookToLibrary,
   removeBookFromLibrary,
   updateBookInLibrary,
-} from "../books.js";
+} from "../../src/domain/books.js";
 
 test("removes the identified book without mutating the collection", () => {
   const books = [

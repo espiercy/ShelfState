@@ -66,7 +66,7 @@ import {
   addBookToLibrary,
   removeBookFromLibrary,
   updateBookInLibrary,
-} from "./books.js";
+} from "./src/domain/books.js";
 
 //DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");

@@ -4,7 +4,7 @@ import {
   getDefaultBookshelf,
   normalizeBookshelfName,
   hasBookshelfName,
-} from "./bookshelves.js";
+} from "./src/domain/bookshelves.js";
 
 export function migrateBooksToBookshelfIds(books, bookshelves) {
   const defaultBookshelf = getDefaultBookshelf(bookshelves);

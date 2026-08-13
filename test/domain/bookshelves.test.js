@@ -12,7 +12,7 @@ import {
   assignBookToBookshelf,
   addBookshelfToLibrary,
   getBooksForBookshelf,
-} from "../bookshelves.js";
+} from "../../src/domain/bookshelves.js";
 
 test("finds the default bookshelf by name", () => {
   const bookshelves = [

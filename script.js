@@ -25,7 +25,7 @@ import {
   assignBookToBookshelf,
   addBookshelfToLibrary,
   getBooksForBookshelf,
-} from "./bookshelves.js";
+} from "./src/domain/bookshelves.js";
 
 import {
   migrateBooksToBookshelfIds,

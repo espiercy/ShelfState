@@ -5,7 +5,7 @@ import {
   bookMatchesSearch,
   isSearchActive,
   getSearchSummaryText,
-} from "../search.js";
+} from "../../src/domain/search.js";
 
 const book = {
   title: "The Left Hand of Darkness",

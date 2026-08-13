@@ -47,7 +47,7 @@ import {
   bookMatchesSearch as matchesBookSearch,
   isSearchActive as hasActiveSearch,
   getSearchSummaryText,
-} from "./search.js";
+} from "./src/domain/search.js";
 
 import {
   setBookAnimation,

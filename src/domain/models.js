@@ -1,4 +1,4 @@
-import { BOOK_FIELDS } from "./config.js";
+import { BOOK_FIELDS } from "../../config.js";
 
 //Classes
 export class Book {

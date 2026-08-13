@@ -1,5 +1,5 @@
 import { DEFAULT_BOOKSHELF_NAME } from "./config.js";
-import { Bookshelf } from "./models.js";
+import { Bookshelf } from "./src/domain/models.js";
 
 export function getDefaultBookshelf(bookshelves) {
   return bookshelves.find(

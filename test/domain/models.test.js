@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Book, Bookshelf } from "../models.js";
+import { Book, Bookshelf } from "../../src/domain/models.js";
 
 test("updates a book and its modification timestamp", () => {
   const originalUpdatedAt = new Date("2020-01-01T00:00:00.000Z");

@@ -1,4 +1,4 @@
-import { Book } from "./models.js";
+import { Book } from "./src/domain/models.js";
 
 export function addBookToLibrary(books, bookData) {
   const book = new Book(bookData);

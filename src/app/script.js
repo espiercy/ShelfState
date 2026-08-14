@@ -8,11 +8,11 @@ import {
   BOOK_FIELDS,
   DEFAULT_BOOKSHELF_NAME,
   CLASSIFICATION_LABELS,
-} from "./config.js";
+} from "../../config.js";
 
-import { Book, Bookshelf } from "./src/domain/models.js";
+import { Book, Bookshelf } from "../domain/models.js";
 
-import { getReadingInsights } from "./src/domain/insights.js";
+import { getReadingInsights } from "../domain/insights.js";
 
 import {
   ensureDefaultBookshelf,
@@ -25,12 +25,12 @@ import {
   assignBookToBookshelf,
   addBookshelfToLibrary,
   getBooksForBookshelf,
-} from "./src/domain/bookshelves.js";
+} from "../domain/bookshelves.js";
 
 import {
   migrateBooksToBookshelfIds,
   migrateBookshelvesFromLegacyNames,
-} from "./src/persistence/migrations.js";
+} from "../persistence/migrations.js";
 
 import {
   backupBooksBeforeMigration,
@@ -41,13 +41,13 @@ import {
   saveActiveBookshelfId as persistActiveBookshelfId,
   loadActiveBookshelfId as loadStoredActiveBookshelfId,
   createLibraryExportData,
-} from "./src/persistence/storage.js";
+} from "../persistence/storage.js";
 
 import {
   bookMatchesSearch as matchesBookSearch,
   isSearchActive as hasActiveSearch,
   getSearchSummaryText,
-} from "./src/domain/search.js";
+} from "../domain/search.js";
 
 import {
   setBookAnimation,
@@ -57,16 +57,16 @@ import {
   applyBookshelfAnimation,
   startBookDeleteAnimation,
   startBookshelfDeleteAnimation,
-} from "./src/ui/animations.js";
+} from "../ui/animations.js";
 
-import { validateBookData } from "./src/domain/validation.js";
-import { chunkBooks } from "./src/ui/layout.js";
-import { createBookData } from "./src/app/book-data.js";
+import { validateBookData } from "../domain/validation.js";
+import { chunkBooks } from "../ui/layout.js";
+import { createBookData } from "./book-data.js";
 import {
   addBookToLibrary,
   removeBookFromLibrary,
   updateBookInLibrary,
-} from "./src/domain/books.js";
+} from "../domain/books.js";
 
 //DOM Selectors
 const showFormBtn = document.querySelector("#show-form-btn");

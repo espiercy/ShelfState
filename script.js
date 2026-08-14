@@ -57,7 +57,7 @@ import {
   applyBookshelfAnimation,
   startBookDeleteAnimation,
   startBookshelfDeleteAnimation,
-} from "./animations.js";
+} from "./src/ui/animations.js";
 
 import { validateBookData } from "./src/domain/validation.js";
 import { chunkBooks } from "./layout.js";

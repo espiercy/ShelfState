@@ -9,7 +9,7 @@ import {
   applyBookshelfAnimation,
   startBookDeleteAnimation,
   startBookshelfDeleteAnimation,
-} from "../animations.js";
+} from "../../src/ui/animations.js";
 
 class FakeElement {
   constructor() {

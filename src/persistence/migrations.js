@@ -1,10 +1,10 @@
-import { DEFAULT_BOOKSHELF_NAME } from "./config.js";
-import { Bookshelf } from "./src/domain/models.js";
+import { DEFAULT_BOOKSHELF_NAME } from "../../config.js";
+import { Bookshelf } from "../domain/models.js";
 import {
   getDefaultBookshelf,
   normalizeBookshelfName,
   hasBookshelfName,
-} from "./src/domain/bookshelves.js";
+} from "../domain/bookshelves.js";
 
 export function migrateBooksToBookshelfIds(books, bookshelves) {
   const defaultBookshelf = getDefaultBookshelf(bookshelves);

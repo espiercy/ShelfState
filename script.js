@@ -30,7 +30,7 @@ import {
 import {
   migrateBooksToBookshelfIds,
   migrateBookshelvesFromLegacyNames,
-} from "./migrations.js";
+} from "./src/persistence/migrations.js";
 
 import {
   backupBooksBeforeMigration,

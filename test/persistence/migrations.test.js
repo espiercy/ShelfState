@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   migrateBooksToBookshelfIds,
   migrateBookshelvesFromLegacyNames,
-} from "../migrations.js";
+} from "../../src/persistence/migrations.js";
 
 const bookshelves = [
   { id: "default", name: "My Library" },

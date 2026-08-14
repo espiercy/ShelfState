@@ -41,7 +41,7 @@ import {
   saveActiveBookshelfId as persistActiveBookshelfId,
   loadActiveBookshelfId as loadStoredActiveBookshelfId,
   createLibraryExportData,
-} from "./storage.js";
+} from "./src/persistence/storage.js";
 
 import {
   bookMatchesSearch as matchesBookSearch,

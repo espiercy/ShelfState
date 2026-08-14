@@ -5,7 +5,7 @@ import {
   BOOKS_MIGRATION_BACKUP_KEY,
   BOOKS_ROLLING_BACKUP_KEY,
   EXPORT_SCHEMA_VERSION,
-} from "./config.js";
+} from "../../config.js";
 
 export function backupBooksBeforeMigration() {
   const existingBackup = localStorage.getItem(BOOKS_MIGRATION_BACKUP_KEY);

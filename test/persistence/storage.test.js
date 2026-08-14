@@ -11,7 +11,7 @@ import {
   backupBooksBeforeMigration,
   backupBooksBeforeSave,
   createLibraryExportData,
-} from "../storage.js";
+} from "../../src/persistence/storage.js";
 
 import {
   BOOKS_STORAGE_KEY,
@@ -20,7 +20,7 @@ import {
   BOOKS_ROLLING_BACKUP_KEY,
   BOOKS_MIGRATION_BACKUP_KEY,
   EXPORT_SCHEMA_VERSION,
-} from "../config.js";
+} from "../../config.js";
 
 class MemoryStorage {
   constructor() {

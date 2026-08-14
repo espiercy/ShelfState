@@ -1,4 +1,4 @@
-import { BOOK_FIELDS, DEFAULT_BOOKSHELF_NAME } from "../../config.js";
+import { BOOK_FIELDS, DEFAULT_BOOKSHELF_NAME } from "../config.js";
 
 export function createBookData(formData, bookshelves) {
   const bookData = Object.fromEntries(

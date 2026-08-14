@@ -20,7 +20,7 @@ import {
   BOOKS_ROLLING_BACKUP_KEY,
   BOOKS_MIGRATION_BACKUP_KEY,
   EXPORT_SCHEMA_VERSION,
-} from "../../config.js";
+} from "../../src/config.js";
 
 class MemoryStorage {
   constructor() {

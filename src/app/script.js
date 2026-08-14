@@ -8,7 +8,7 @@ import {
   BOOK_FIELDS,
   DEFAULT_BOOKSHELF_NAME,
   CLASSIFICATION_LABELS,
-} from "../../config.js";
+} from "../config.js";
 
 import { Book, Bookshelf } from "../domain/models.js";
 

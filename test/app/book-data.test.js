@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createBookData } from "../book-data.js";
+import { createBookData } from "../../src/app/book-data.js";
 
 function createFormData(values) {
   return {

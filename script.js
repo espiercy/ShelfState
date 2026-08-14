@@ -61,7 +61,7 @@ import {
 
 import { validateBookData } from "./src/domain/validation.js";
 import { chunkBooks } from "./src/ui/layout.js";
-import { createBookData } from "./book-data.js";
+import { createBookData } from "./src/app/book-data.js";
 import {
   addBookToLibrary,
   removeBookFromLibrary,

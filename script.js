@@ -60,7 +60,7 @@ import {
 } from "./src/ui/animations.js";
 
 import { validateBookData } from "./src/domain/validation.js";
-import { chunkBooks } from "./layout.js";
+import { chunkBooks } from "./src/ui/layout.js";
 import { createBookData } from "./book-data.js";
 import {
   addBookToLibrary,

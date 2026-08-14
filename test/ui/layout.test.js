@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { chunkBooks } from "../layout.js";
+import { chunkBooks } from "../../src/ui/layout.js";
 
 test("returns no chunks for an empty book list", () => {
   assert.deepEqual(chunkBooks([], 5), []);

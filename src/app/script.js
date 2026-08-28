@@ -1,18 +1,12 @@
 //Imports
 import {
-  MAX_BOOKS_PER_SHELF,
-  SHELF_STATUSES,
-  STATUS_LABELS,
   BOOK_STATUS,
   BOOK_CLASSIFICATION,
   BOOK_FIELDS,
   DEFAULT_BOOKSHELF_NAME,
 } from "../config.js";
-
 import { Book, Bookshelf } from "../domain/models.js";
-
 import { getReadingInsights } from "../domain/insights.js";
-
 import {
   ensureDefaultBookshelf,
   ensureActiveBookshelfId,
@@ -25,12 +19,10 @@ import {
   addBookshelfToLibrary,
   getBooksForBookshelf,
 } from "../domain/bookshelves.js";
-
 import {
   migrateBooksToBookshelfIds,
   migrateBookshelvesFromLegacyNames,
 } from "../persistence/migrations.js";
-
 import {
   backupBooksBeforeMigration,
   saveBooks as persistBooks,
@@ -41,32 +33,22 @@ import {
   loadActiveBookshelfId as loadStoredActiveBookshelfId,
   createLibraryExportData,
 } from "../persistence/storage.js";
-
 import {
   bookMatchesSearch as matchesBookSearch,
   isSearchActive as hasActiveSearch,
   getSearchSummaryText,
 } from "../domain/search.js";
-
 import {
   setBookAnimation,
   setBookshelfAnimation,
   startBookDeleteAnimation,
   startBookshelfDeleteAnimation,
 } from "../ui/animations.js";
-
 import { validateBookData } from "../domain/validation.js";
-
-import { chunkBooks } from "../ui/layout.js";
-
 import { renderReadingInsights } from "../ui/insights-view.js";
-
-import { createBookSpine } from "../ui/book-spine-view.js";
-
 import { renderBookshelfSelector as renderBookshelfSelectorView } from "../ui/bookshelf-selector-view.js";
-
+import { renderBookshelf as renderBookshelfView } from "../ui/bookshelf-view.js";
 import { createBookData } from "./book-data.js";
-
 import {
   addBookToLibrary,
   removeBookFromLibrary,
@@ -283,93 +265,20 @@ function renderBooks() {
   );
 
   if (activeBookshelf) {
-    renderBookshelf(activeBookshelf);
+    const visibleBooks = getBooksForBookshelf(
+      appState.books,
+      activeBookshelf,
+    ).filter(bookMatchesSearch);
+
+    renderBookshelfView(
+      bookList,
+      activeBookshelf,
+      visibleBooks,
+      isSearchActive(),
+    );
   }
 
   clearSearchBtn.hidden = !isSearchActive();
-}
-
-function renderBookshelf(bookshelf) {
-  const bookshelfSection = document.createElement("section");
-  bookshelfSection.className = "bookshelf";
-
-  const heading = document.createElement("h2");
-  heading.className = "bookshelf-title";
-  heading.textContent = bookshelf.name;
-
-  bookshelfSection.appendChild(heading);
-
-  let renderedShelfCount = 0;
-
-  SHELF_STATUSES.forEach((status) => {
-    const didRenderShelf = renderStatusShelf(
-      status,
-      bookshelf.name,
-      bookshelfSection,
-    );
-
-    if (didRenderShelf) {
-      renderedShelfCount++;
-    }
-  });
-
-  if (renderedShelfCount === 0) {
-    const emptyBookshelfMessage = document.createElement("div");
-    emptyBookshelfMessage.className = "empty-bookshelf-message";
-    emptyBookshelfMessage.textContent = isSearchActive()
-      ? "No books matched your search. Try another title, author, category, note, or ISBN."
-      : "This bookshelf is empty. Drag books here or add a new book.";
-
-    bookshelfSection.appendChild(emptyBookshelfMessage);
-  }
-
-  bookList.appendChild(bookshelfSection);
-}
-
-function renderStatusShelf(status, bookshelfName, bookshelfElement) {
-  const bookshelf = appState.bookshelves.find(
-    (bookshelf) => bookshelf.name === bookshelfName,
-  );
-
-  if (!bookshelf) return false;
-
-  let shelfBooks = getBooksForBookshelf(appState.books, bookshelf).filter(
-    (book) => book.status === status && bookMatchesSearch(book),
-  );
-
-  if (status === "completed") {
-    shelfBooks = shelfBooks.slice(0, MAX_BOOKS_PER_SHELF);
-  }
-
-  if (shelfBooks.length === 0) return false;
-
-  const shelfChunks = chunkBooks(shelfBooks, MAX_BOOKS_PER_SHELF);
-
-  shelfChunks.forEach((booksForShelf, index) => {
-    const shelf = document.createElement("section");
-    shelf.className = "book-shelf";
-    const heading = document.createElement("h2");
-    heading.textContent =
-      index === 0
-        ? STATUS_LABELS[status]
-        : `${STATUS_LABELS[status]} continued`;
-
-    shelf.appendChild(heading);
-
-    const shelfRow = document.createElement("div");
-    shelfRow.className = "shelf-row";
-
-    booksForShelf.forEach((book) => {
-      const bookCard = createBookSpine(book);
-      shelfRow.appendChild(bookCard);
-    });
-
-    shelf.appendChild(shelfRow);
-
-    bookshelfElement.appendChild(shelf);
-  });
-
-  return true;
 }
 
 function renderBookshelfSelector() {

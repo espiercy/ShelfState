@@ -2,7 +2,6 @@
 import {
   BOOK_STATUS,
   BOOK_CLASSIFICATION,
-  BOOK_FIELDS,
   DEFAULT_BOOKSHELF_NAME,
 } from "../config.js";
 import { Book, Bookshelf } from "../domain/models.js";
@@ -48,6 +47,11 @@ import { validateBookData } from "../domain/validation.js";
 import { renderReadingInsights } from "../ui/insights-view.js";
 import { renderBookshelfSelector as renderBookshelfSelectorView } from "../ui/bookshelf-selector-view.js";
 import { renderBookshelf as renderBookshelfView } from "../ui/bookshelf-view.js";
+import {
+  openBookForm,
+  closeBookForm,
+  populateBookForm,
+} from "../ui/book-form-view.js";
 import { createBookData } from "./book-data.js";
 import {
   addBookToLibrary,
@@ -316,20 +320,6 @@ function renderBookshelfSelector() {
   );
 }
 
-function renderBookshelfOptions() {
-  const bookshelfSelect = form.elements.bookshelf;
-
-  bookshelfSelect.replaceChildren();
-
-  appState.bookshelves.forEach((bookshelf) => {
-    const option = document.createElement("option");
-    option.value = bookshelf.id;
-    option.textContent = bookshelf.name;
-
-    bookshelfSelect.appendChild(option);
-  });
-}
-
 //UI Factories
 
 function createBookDetail(label, value) {
@@ -508,22 +498,27 @@ function bookMatchesSearch(book) {
 
 // Form UI
 function openForm(submitLabel = "Save Book") {
-  renderBookshelfOptions();
-  form.classList.remove("hidden");
-  showFormBtn.classList.add("hidden");
-  libraryLayout.classList.add("hidden");
-  submitBookBtn.textContent = submitLabel;
-  document.querySelector("main").classList.add("form-mode");
+  openBookForm({
+    form,
+    showFormButton: showFormBtn,
+    libraryLayout,
+    submitButton: submitBookBtn,
+    mainElement: document.querySelector("main"),
+    bookshelves: appState.bookshelves,
+    submitLabel,
+  });
 }
 
 function closeForm() {
-  form.reset();
-  form.classList.add("hidden");
-  showFormBtn.classList.remove("hidden");
-  libraryLayout.classList.remove("hidden");
+  closeBookForm({
+    form,
+    showFormButton: showFormBtn,
+    libraryLayout,
+    submitButton: submitBookBtn,
+    mainElement: document.querySelector("main"),
+  });
+
   appState.editingBookId = null;
-  submitBookBtn.textContent = "Save Book";
-  document.querySelector("main").classList.remove("form-mode");
   clearSelectedSpines();
 }
 
@@ -534,11 +529,7 @@ function openEditForm(bookId) {
   openForm("Update Book");
 
   appState.editingBookId = bookId;
-  BOOK_FIELDS.forEach((field) => {
-    form.elements[field].value = book[field] ?? "";
-  });
-
-  form.elements.bookshelf.value = book.bookshelfId ?? "";
+  populateBookForm(form, book);
 }
 
 //Persistence

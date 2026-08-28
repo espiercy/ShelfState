@@ -52,6 +52,7 @@ import {
   closeBookForm,
   populateBookForm,
 } from "../ui/book-form-view.js";
+import { renderActiveView as renderActiveViewPresentation } from "../ui/active-view.js";
 import { createBookData } from "./book-data.js";
 import {
   addBookToLibrary,
@@ -225,23 +226,16 @@ function getBookData() {
 
 // Rendering
 function renderActiveView() {
-  const isLibraryView = appState.activeView === "library";
-  const isInsightsView = appState.activeView === "insights";
-
-  libraryLayout.classList.toggle("hidden", !isLibraryView);
-  insightsLayout.classList.toggle("hidden", !isInsightsView);
-
-  toggleInsightsBtn.textContent = isInsightsView
-    ? "Back to Library"
-    : "Reading Insights";
-
-  showFormBtn.classList.toggle("hidden", isInsightsView);
-  toggleSearchBtn.classList.toggle("hidden", isInsightsView);
-
-  searchPanel.classList.toggle(
-    "hidden",
-    isInsightsView || !appState.isSearchVisible,
-  );
+  renderActiveViewPresentation({
+    activeView: appState.activeView,
+    isSearchVisible: appState.isSearchVisible,
+    libraryLayout,
+    insightsLayout,
+    toggleInsightsButton: toggleInsightsBtn,
+    showFormButton: showFormBtn,
+    toggleSearchButton: toggleSearchBtn,
+    searchPanel,
+  });
 }
 
 function renderBooks() {

@@ -53,6 +53,7 @@ import {
   populateBookForm,
 } from "../ui/book-form-view.js";
 import { renderActiveView as renderActiveViewPresentation } from "../ui/active-view.js";
+import { downloadLibraryExport } from "../ui/library-export.js";
 import { createBookData } from "./book-data.js";
 import {
   addBookToLibrary,
@@ -190,22 +191,7 @@ exportDataBtn.addEventListener("click", () => {
     appState.activeBookshelfId,
   );
 
-  const exportJson = JSON.stringify(exportData, null, 2);
-  const exportBlob = new Blob([exportJson], {
-    type: "application/json",
-  });
-
-  const downloadUrl = URL.createObjectURL(exportBlob);
-  const downloadLink = document.createElement("a");
-
-  downloadLink.href = downloadUrl;
-  downloadLink.download = `shelfstate-backup-${exportData.exportedAt.slice(0, 10)}.json`;
-
-  document.body.append(downloadLink);
-  downloadLink.click();
-  downloadLink.remove();
-
-  URL.revokeObjectURL(downloadUrl);
+  downloadLibraryExport(exportData);
 });
 
 toggleInsightsBtn.addEventListener("click", () => {

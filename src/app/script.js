@@ -51,16 +51,22 @@ import {
 import {
   setBookAnimation,
   setBookshelfAnimation,
-  applyBookshelfAnimation,
   startBookDeleteAnimation,
   startBookshelfDeleteAnimation,
 } from "../ui/animations.js";
 
 import { validateBookData } from "../domain/validation.js";
+
 import { chunkBooks } from "../ui/layout.js";
+
 import { renderReadingInsights } from "../ui/insights-view.js";
+
 import { createBookSpine } from "../ui/book-spine-view.js";
+
+import { renderBookshelfSelector as renderBookshelfSelectorView } from "../ui/bookshelf-selector-view.js";
+
 import { createBookData } from "./book-data.js";
+
 import {
   addBookToLibrary,
   removeBookFromLibrary,
@@ -367,13 +373,38 @@ function renderStatusShelf(status, bookshelfName, bookshelfElement) {
 }
 
 function renderBookshelfSelector() {
-  bookshelfSelector.replaceChildren();
+  renderBookshelfSelectorView(
+    bookshelfSelector,
+    appState.bookshelves,
+    appState.activeBookshelfId,
+    {
+      onSelect(bookshelf) {
+        appState.activeBookshelfId = bookshelf.id;
+        saveActiveBookshelf();
+        renderBooks();
+      },
+      onDropBook(bookId, bookshelf) {
+        moveBookToBookshelf(bookId, bookshelf);
+      },
+      onRename(bookshelf) {
+        renameBookshelf(bookshelf.id);
+      },
+      onDelete(card, bookshelf) {
+        animateBookshelfDelete(card, bookshelf.id);
+      },
+      onCreate(name) {
+        const bookshelf = createBookshelf(name);
 
-  appState.bookshelves.forEach((bookshelf) => {
-    bookshelfSelector.appendChild(createBookshelfCard(bookshelf));
-  });
+        if (!bookshelf) return;
 
-  bookshelfSelector.appendChild(createNewBookshelfButton());
+        setBookshelfAnimation(bookshelf.id, "created");
+
+        saveBookshelves();
+        saveActiveBookshelf();
+        renderBooks();
+      },
+    },
+  );
 }
 
 function renderBookshelfOptions() {
@@ -391,112 +422,6 @@ function renderBookshelfOptions() {
 }
 
 //UI Factories
-
-function createBookshelfCard(bookshelf) {
-  const card = document.createElement("button");
-
-  initializeBookshelfCard(card);
-
-  card.appendChild(createBookshelfCardName(bookshelf));
-
-  if (bookshelf.name !== "My Library") {
-    card.appendChild(createDeleteBookshelfButton(bookshelf));
-  }
-
-  markActiveBookshelfCard(card, bookshelf);
-  applyBookshelfAnimation(card, bookshelf.id);
-  attachBookshelfCardEvents(card, bookshelf);
-
-  return card;
-}
-
-function initializeBookshelfCard(card) {
-  card.className = "bookshelf-card";
-}
-
-function attachBookshelfCardEvents(card, bookshelf) {
-  card.addEventListener("click", () => {
-    appState.activeBookshelfId = bookshelf.id;
-    saveActiveBookshelf();
-    renderBooks();
-  });
-
-  card.addEventListener("dragover", (event) => {
-    event.preventDefault();
-    card.classList.add("bookshelf-card-drop-target");
-  });
-
-  card.addEventListener("dragleave", () => {
-    card.classList.remove("bookshelf-card-drop-target");
-  });
-
-  card.addEventListener("drop", (event) => {
-    event.preventDefault();
-    card.classList.remove("bookshelf-card-drop-target");
-
-    const bookId = event.dataTransfer.getData("bookId");
-
-    moveBookToBookshelf(bookId, bookshelf);
-  });
-
-  card.addEventListener("dblclick", (event) => {
-    event.stopPropagation();
-    renameBookshelf(bookshelf.id);
-  });
-}
-
-function createBookshelfCardName(bookshelf) {
-  const shelfName = document.createElement("span");
-  shelfName.textContent = bookshelf.name;
-  return shelfName;
-}
-
-function createDeleteBookshelfButton(bookshelf) {
-  const deleteBtn = document.createElement("button");
-  deleteBtn.type = "button";
-  deleteBtn.className = "delete-bookshelf-btn";
-  deleteBtn.textContent = "×";
-
-  deleteBtn.addEventListener("click", (event) => {
-    event.stopPropagation();
-    animateBookshelfDelete(
-      event.currentTarget.closest(".bookshelf-card"),
-      bookshelf.id,
-    );
-  });
-
-  return deleteBtn;
-}
-
-function createNewBookshelfButton() {
-  const newBookshelfBtn = document.createElement("button");
-  newBookshelfBtn.id = "new-bookshelf-btn";
-  newBookshelfBtn.type = "button";
-  newBookshelfBtn.className = "new-bookshelf-btn";
-  newBookshelfBtn.textContent = "+ New Bookshelf";
-
-  newBookshelfBtn.addEventListener("click", () => {
-    const name = prompt("Bookshelf name: ");
-
-    if (!name) return;
-    const bookshelf = createBookshelf(name);
-
-    if (!bookshelf) return;
-
-    setBookshelfAnimation(bookshelf.id, "created");
-
-    saveBookshelves();
-    saveActiveBookshelf();
-    renderBooks();
-  });
-  return newBookshelfBtn;
-}
-
-function markActiveBookshelfCard(card, bookshelf) {
-  if (bookshelf.id === appState.activeBookshelfId) {
-    card.classList.add("bookshelf-card-active");
-  }
-}
 
 function createBookDetail(label, value) {
   const detail = document.createElement("p");

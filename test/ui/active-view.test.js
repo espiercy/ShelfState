@@ -30,17 +30,15 @@ function createViewElements() {
     toggleInsightsButton: new FakeElement(),
     showFormButton: new FakeElement(),
     toggleSearchButton: new FakeElement(),
-    searchPanel: new FakeElement(),
   };
 }
 
-test("renders library mode and respects search visibility", () => {
+test("renders library mode and shows library controls", () => {
   const view = createViewElements();
 
   renderActiveView({
     ...view,
     activeView: "library",
-    isSearchVisible: true,
   });
 
   assert.equal(view.libraryLayout.classList.contains("hidden"), false);
@@ -48,15 +46,6 @@ test("renders library mode and respects search visibility", () => {
   assert.equal(view.toggleInsightsButton.textContent, "Reading Insights");
   assert.equal(view.showFormButton.classList.contains("hidden"), false);
   assert.equal(view.toggleSearchButton.classList.contains("hidden"), false);
-  assert.equal(view.searchPanel.classList.contains("hidden"), false);
-
-  renderActiveView({
-    ...view,
-    activeView: "library",
-    isSearchVisible: false,
-  });
-
-  assert.equal(view.searchPanel.classList.contains("hidden"), true);
 });
 
 test("renders insights mode and hides library controls", () => {
@@ -65,7 +54,6 @@ test("renders insights mode and hides library controls", () => {
   renderActiveView({
     ...view,
     activeView: "insights",
-    isSearchVisible: true,
   });
 
   assert.equal(view.libraryLayout.classList.contains("hidden"), true);
@@ -73,5 +61,4 @@ test("renders insights mode and hides library controls", () => {
   assert.equal(view.toggleInsightsButton.textContent, "Back to Library");
   assert.equal(view.showFormButton.classList.contains("hidden"), true);
   assert.equal(view.toggleSearchButton.classList.contains("hidden"), true);
-  assert.equal(view.searchPanel.classList.contains("hidden"), true);
 });

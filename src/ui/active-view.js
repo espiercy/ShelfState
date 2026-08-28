@@ -1,12 +1,10 @@
 export function renderActiveView({
   activeView,
-  isSearchVisible,
   libraryLayout,
   insightsLayout,
   toggleInsightsButton,
   showFormButton,
   toggleSearchButton,
-  searchPanel,
 }) {
   const isLibraryView = activeView === "library";
   const isInsightsView = activeView === "insights";
@@ -20,6 +18,4 @@ export function renderActiveView({
 
   showFormButton.classList.toggle("hidden", isInsightsView);
   toggleSearchButton.classList.toggle("hidden", isInsightsView);
-
-  searchPanel.classList.toggle("hidden", isInsightsView || !isSearchVisible);
 }

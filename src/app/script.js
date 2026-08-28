@@ -53,6 +53,7 @@ import {
   populateBookForm,
 } from "../ui/book-form-view.js";
 import { renderActiveView as renderActiveViewPresentation } from "../ui/active-view.js";
+import { renderSearchView } from "../ui/search-view.js";
 import { downloadLibraryExport } from "../ui/library-export.js";
 import { createBookData } from "./book-data.js";
 import {
@@ -173,10 +174,7 @@ toggleSearchBtn.addEventListener("click", toggleSearchPanel);
 
 function toggleSearchPanel() {
   appState.isSearchVisible = !appState.isSearchVisible;
-  searchPanel.classList.toggle("hidden", !appState.isSearchVisible);
-  toggleSearchBtn.textContent = appState.isSearchVisible
-    ? "Hide Search"
-    : "Search";
+  renderSearch();
 }
 
 exportDataBtn.addEventListener("click", () => {
@@ -214,14 +212,14 @@ function getBookData() {
 function renderActiveView() {
   renderActiveViewPresentation({
     activeView: appState.activeView,
-    isSearchVisible: appState.isSearchVisible,
     libraryLayout,
     insightsLayout,
     toggleInsightsButton: toggleInsightsBtn,
     showFormButton: showFormBtn,
     toggleSearchButton: toggleSearchBtn,
-    searchPanel,
   });
+
+  renderSearch();
 }
 
 function renderBooks() {
@@ -229,7 +227,7 @@ function renderBooks() {
   bookList.replaceChildren();
 
   renderBookshelfSelector();
-  renderSearchSummary();
+  renderSearch();
 
   const insights = getReadingInsights(appState.books, appState.bookshelves);
 
@@ -261,8 +259,6 @@ function renderBooks() {
       isSearchActive(),
     );
   }
-
-  clearSearchBtn.hidden = !isSearchActive();
 }
 
 function renderBookshelfSelector() {
@@ -329,13 +325,21 @@ function getVisibleBooks() {
   );
 }
 
-function renderSearchSummary() {
-  const matchCount = isSearchActive() ? getVisibleBooks().length : 0;
+function renderSearch() {
+  const searchActive = isSearchActive();
+  const matchCount = searchActive ? getVisibleBooks().length : 0;
 
-  searchSummary.textContent = getSearchSummaryText(
-    appState.searchQuery,
-    matchCount,
-  );
+  renderSearchView({
+    isSearchVisible: appState.isSearchVisible,
+    showSearchPanel:
+      appState.activeView === "library" && appState.isSearchVisible,
+    searchActive,
+    summaryText: getSearchSummaryText(appState.searchQuery, matchCount),
+    searchPanel,
+    toggleSearchButton: toggleSearchBtn,
+    searchSummary,
+    clearSearchButton: clearSearchBtn,
+  });
 }
 
 function isSearchActive() {

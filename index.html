@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="src/styles/foundation.css" />
     <link rel="stylesheet" href="src/styles/app-shell.css" />
+    <link rel="stylesheet" href="src/styles/book-editor.css" />
     <link rel="stylesheet" href="src/styles/style.css" />
     <script type="module" src="src/app/script.js"></script>
     <title>ShelfState</title>
@@ -113,9 +114,6 @@
               <label for="isbn" class="form-label">ISBN:</label>
               <input type="text" id="isbn" class="form-input" name="isbn" />
             </div>
-            <div class="book-page-actions">
-              <button type="submit" id="submit-book-btn">Submit</button>
-            </div>
           </div>
           <div class="book-spine-center"></div>
           <div class="book-page book-page-right">
@@ -146,9 +144,10 @@
               <label for="notes" class="form-label">Notes:</label>
               <textarea id="notes" class="form-input" name="notes"></textarea>
             </div>
-            <div class="book-page-actions">
-              <button type="button" id="cancel-form-btn">Cancel</button>
-            </div>
+          </div>
+          <div class="book-form-actions">
+            <button type="submit" id="submit-book-btn">Submit</button>
+            <button type="button" id="cancel-form-btn">Cancel</button>
           </div>
         </div>
       </form>

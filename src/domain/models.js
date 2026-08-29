@@ -50,9 +50,15 @@ export class Book {
 }
 
 export class Bookshelf {
-  constructor({ id = crypto.randomUUID(), name, bookIds = [] }) {
+  constructor({
+    id = crypto.randomUUID(),
+    name,
+    bookIds = [],
+    isDefault = false,
+  }) {
     this.id = id;
     this.name = name;
     this.bookIds = bookIds;
+    this.isDefault = isDefault === true;
   }
 }

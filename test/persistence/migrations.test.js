@@ -2,15 +2,71 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  migrateDefaultBookshelfRole,
   migrateBooksToBookshelfIds,
   migrateBookshelvesFromLegacyNames,
 } from "../../src/persistence/migrations.js";
 
 const bookshelves = [
-  { id: "default", name: "My Library" },
-  { id: "fantasy", name: "Fantasy" },
-  { id: "existing", name: "Existing" },
+  { id: "default", name: "Renamed Library", isDefault: true },
+  { id: "fantasy", name: "Fantasy", isDefault: false },
+  { id: "existing", name: "Existing", isDefault: false },
 ];
+
+test("migrates the legacy default name to the explicit role", () => {
+  const result = migrateDefaultBookshelfRole([
+    { id: "default", name: "My Library" },
+    { id: "favorites", name: "Favorites" },
+  ]);
+
+  assert.equal(result.didMigrate, true);
+  assert.deepEqual(
+    result.bookshelves.map(({ id, isDefault }) => ({ id, isDefault })),
+    [
+      { id: "default", isDefault: true },
+      { id: "favorites", isDefault: false },
+    ],
+  );
+});
+
+test("creates a default shelf when modern data has none", () => {
+  const result = migrateDefaultBookshelfRole([
+    { id: "favorites", name: "Favorites", isDefault: false },
+  ]);
+
+  assert.equal(result.didMigrate, true);
+  assert.equal(result.bookshelves.length, 2);
+  assert.equal(result.bookshelves[0].id, "favorites");
+  assert.equal(result.bookshelves[0].isDefault, false);
+  assert.equal(result.bookshelves[1].isDefault, true);
+});
+
+test("keeps an explicitly ordinary My Library shelf ordinary", () => {
+  const result = migrateDefaultBookshelfRole([
+    { id: "ordinary", name: "My Library", isDefault: false },
+  ]);
+
+  assert.equal(result.bookshelves.length, 2);
+  assert.equal(result.bookshelves[0].id, "ordinary");
+  assert.equal(result.bookshelves[0].isDefault, false);
+  assert.equal(result.bookshelves[1].isDefault, true);
+});
+
+test("keeps the first explicit default when multiple are flagged", () => {
+  const result = migrateDefaultBookshelfRole([
+    { id: "first", name: "First", isDefault: true },
+    { id: "second", name: "Second", isDefault: true },
+  ]);
+
+  assert.equal(result.didMigrate, true);
+  assert.deepEqual(
+    result.bookshelves.map(({ id, isDefault }) => ({ id, isDefault })),
+    [
+      { id: "first", isDefault: true },
+      { id: "second", isDefault: false },
+    ],
+  );
+});
 
 test("migrates legacy bookshelf names to bookshelf IDs", () => {
   const books = [
@@ -32,6 +88,23 @@ test("assigns books without a shelf name to the default bookshelf", () => {
       bookshelf: "",
       bookshelfId: null,
     },
+  ];
+
+  assert.equal(migrateBooksToBookshelfIds(books, bookshelves), true);
+  assert.equal(books[0].bookshelfId, "default");
+});
+
+test("treats the legacy default name as the explicit default role", () => {
+  const books = [
+    {
+      title: "Legacy Default Book",
+      bookshelf: "My Library",
+      bookshelfId: null,
+    },
+  ];
+  const bookshelves = [
+    { id: "default", name: "Renamed Library", isDefault: true },
+    { id: "ordinary", name: "My Library", isDefault: false },
   ];
 
   assert.equal(migrateBooksToBookshelfIds(books, bookshelves), true);
@@ -86,8 +159,8 @@ test("repairs a stale bookshelf ID from the legacy bookshelf name", () => {
   ];
 
   const bookshelves = [
-    { id: "default", name: "My Library" },
-    { id: "fantasy", name: "Fantasy" },
+    { id: "default", name: "Renamed Library", isDefault: true },
+    { id: "fantasy", name: "Fantasy", isDefault: false },
   ];
 
   const didMigrate = migrateBooksToBookshelfIds(books, bookshelves);
@@ -105,8 +178,8 @@ test("preserves an existing valid bookshelf ID", () => {
   ];
 
   const bookshelves = [
-    { id: "default", name: "My Library" },
-    { id: "fantasy", name: "Fantasy" },
+    { id: "default", name: "Renamed Library", isDefault: true },
+    { id: "fantasy", name: "Fantasy", isDefault: false },
   ];
 
   const didMigrate = migrateBooksToBookshelfIds(books, bookshelves);
@@ -116,7 +189,9 @@ test("preserves an existing valid bookshelf ID", () => {
 });
 
 test("migrates unique legacy bookshelf names without mutation", () => {
-  const bookshelves = [{ id: "default", name: "My Library" }];
+  const bookshelves = [
+    { id: "default", name: "Renamed Library", isDefault: true },
+  ];
 
   const migratedBookshelves = migrateBookshelvesFromLegacyNames(bookshelves, [
     { bookshelf: " Fantasy " },
@@ -127,7 +202,20 @@ test("migrates unique legacy bookshelf names without mutation", () => {
 
   assert.deepEqual(
     migratedBookshelves.map((bookshelf) => bookshelf.name),
-    ["My Library", "Fantasy"],
+    ["Renamed Library", "Fantasy"],
   );
   assert.equal(bookshelves.length, 1);
+});
+
+test("does not recreate the legacy default name after the default is renamed", () => {
+  const bookshelves = [
+    { id: "default", name: "Renamed Library", isDefault: true },
+  ];
+
+  const migratedBookshelves = migrateBookshelvesFromLegacyNames(bookshelves, [
+    { bookshelf: "My Library" },
+  ]);
+
+  assert.equal(migratedBookshelves.length, 1);
+  assert.equal(migratedBookshelves[0].id, "default");
 });

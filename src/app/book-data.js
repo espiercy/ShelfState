@@ -1,4 +1,5 @@
-import { BOOK_FIELDS, DEFAULT_BOOKSHELF_NAME } from "../config.js";
+import { BOOK_FIELDS } from "../config.js";
+import { getDefaultBookshelf } from "../domain/bookshelves.js";
 
 export function createBookData(formData, bookshelves) {
   const bookData = Object.fromEntries(
@@ -8,9 +9,7 @@ export function createBookData(formData, bookshelves) {
   bookData.pages = Number(bookData.pages);
   bookData.progress = Number(bookData.progress);
 
-  const defaultBookshelf = bookshelves.find(
-    (bookshelf) => bookshelf.name === DEFAULT_BOOKSHELF_NAME,
-  );
+  const defaultBookshelf = getDefaultBookshelf(bookshelves);
 
   const selectedBookshelfId =
     formData.get("bookshelf") || defaultBookshelf?.id || null;

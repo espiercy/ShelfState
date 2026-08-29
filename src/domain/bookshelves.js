@@ -2,17 +2,17 @@ import { DEFAULT_BOOKSHELF_NAME } from "../config.js";
 import { Bookshelf } from "./models.js";
 
 export function getDefaultBookshelf(bookshelves) {
-  return bookshelves.find(
-    (bookshelf) => bookshelf.name === DEFAULT_BOOKSHELF_NAME,
-  );
+  return bookshelves.find((bookshelf) => bookshelf.isDefault === true);
 }
 
 export function ensureDefaultBookshelf(bookshelves) {
-  if (bookshelves.length > 0) return bookshelves;
+  if (getDefaultBookshelf(bookshelves)) return bookshelves;
 
   return [
+    ...bookshelves,
     new Bookshelf({
       name: DEFAULT_BOOKSHELF_NAME,
+      isDefault: true,
     }),
   ];
 }
@@ -50,7 +50,7 @@ export function removeBookshelfFromLibrary(bookshelves, books, bookshelfId) {
     (bookshelf) => bookshelf.id === bookshelfId,
   );
 
-  if (!bookshelf || bookshelf.name === DEFAULT_BOOKSHELF_NAME) {
+  if (!bookshelf || bookshelf.isDefault) {
     return null;
   }
 

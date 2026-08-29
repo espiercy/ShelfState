@@ -58,10 +58,12 @@ test("downloads prepared library export data as dated JSON", async (context) => 
   };
 
   const exportData = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exportedAt: "2026-08-27T12:00:00.000Z",
     books: [{ id: "book-1" }],
-    bookshelves: [{ id: "shelf-1" }],
+    bookshelves: [
+      { id: "shelf-1", name: "Renamed Library", isDefault: true },
+    ],
     activeBookshelfId: "shelf-1",
   };
 

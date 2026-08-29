@@ -6,6 +6,48 @@ import {
   hasBookshelfName,
 } from "../domain/bookshelves.js";
 
+export function migrateDefaultBookshelfRole(bookshelves) {
+  const explicitDefaultIndex = bookshelves.findIndex(
+    (bookshelf) => bookshelf.isDefault === true,
+  );
+  const legacyDefaultIndex = bookshelves.findIndex(
+    (bookshelf) =>
+      !Object.hasOwn(bookshelf, "isDefault") &&
+      bookshelf.name === DEFAULT_BOOKSHELF_NAME,
+  );
+  const defaultIndex =
+    explicitDefaultIndex >= 0 ? explicitDefaultIndex : legacyDefaultIndex;
+
+  if (defaultIndex < 0) {
+    return {
+      bookshelves: [
+        ...bookshelves.map(
+          (bookshelf) => new Bookshelf({ ...bookshelf, isDefault: false }),
+        ),
+        new Bookshelf({
+          name: DEFAULT_BOOKSHELF_NAME,
+          isDefault: true,
+        }),
+      ],
+      didMigrate: true,
+    };
+  }
+
+  const didMigrate = bookshelves.some(
+    (bookshelf, index) =>
+      !Object.hasOwn(bookshelf, "isDefault") ||
+      bookshelf.isDefault !== (index === defaultIndex),
+  );
+
+  return {
+    bookshelves: bookshelves.map(
+      (bookshelf, index) =>
+        new Bookshelf({ ...bookshelf, isDefault: index === defaultIndex }),
+    ),
+    didMigrate,
+  };
+}
+
 export function migrateBooksToBookshelfIds(books, bookshelves) {
   const defaultBookshelf = getDefaultBookshelf(bookshelves);
 
@@ -19,10 +61,10 @@ export function migrateBooksToBookshelfIds(books, bookshelves) {
     if (currentBookshelfExists) return;
 
     const bookshelfName = book.bookshelf || DEFAULT_BOOKSHELF_NAME;
-
-    const matchingBookshelf = bookshelves.find(
-      (bookshelf) => bookshelf.name === bookshelfName,
-    );
+    const matchingBookshelf =
+      bookshelfName === DEFAULT_BOOKSHELF_NAME
+        ? defaultBookshelf
+        : bookshelves.find((bookshelf) => bookshelf.name === bookshelfName);
 
     const replacementBookshelfId =
       matchingBookshelf?.id ?? defaultBookshelf?.id ?? null;
@@ -43,6 +85,13 @@ export function migrateBookshelvesFromLegacyNames(bookshelves, books) {
     const bookshelfName = normalizeBookshelfName(book.bookshelf ?? "");
 
     if (!bookshelfName) return;
+
+    if (
+      bookshelfName === DEFAULT_BOOKSHELF_NAME &&
+      getDefaultBookshelf(migratedBookshelves)
+    ) {
+      return;
+    }
 
     const alreadyExists = hasBookshelfName(migratedBookshelves, bookshelfName);
 

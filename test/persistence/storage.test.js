@@ -78,7 +78,9 @@ test("backs up the previous valid book collection before saving", () => {
 });
 
 test("saves and loads bookshelves", () => {
-  const bookshelves = [{ id: "shelf-1", name: "My Library" }];
+  const bookshelves = [
+    { id: "shelf-1", name: "Renamed Library", isDefault: true },
+  ];
 
   saveBookshelves(bookshelves);
 
@@ -174,15 +176,18 @@ test("throws for malformed stored JSON", () => {
 
 test("creates versioned library export data", () => {
   const books = [{ id: "book-1" }];
-  const bookshelves = [{ id: "shelf-1" }];
+  const bookshelves = [
+    { id: "shelf-1", name: "Renamed Library", isDefault: true },
+  ];
 
   const exportData = createLibraryExportData(books, bookshelves, "shelf-1");
 
-  assert.equal(EXPORT_SCHEMA_VERSION, 2);
+  assert.equal(EXPORT_SCHEMA_VERSION, 3);
   assert.equal(exportData.schemaVersion, EXPORT_SCHEMA_VERSION);
   assert.equal(Number.isNaN(Date.parse(exportData.exportedAt)), false);
   assert.equal(exportData.books, books);
   assert.equal(exportData.bookshelves, bookshelves);
+  assert.equal(exportData.bookshelves[0].isDefault, true);
   assert.equal(exportData.activeBookshelfId, "shelf-1");
 });
 

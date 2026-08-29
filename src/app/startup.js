@@ -1,9 +1,10 @@
-import { Book, Bookshelf } from "../domain/models.js";
+import { Book } from "../domain/models.js";
 import {
   ensureDefaultBookshelf,
   ensureActiveBookshelfId,
 } from "../domain/bookshelves.js";
 import {
+  migrateDefaultBookshelfRole,
   migrateBooksToBookshelfIds,
   migrateBookshelvesFromLegacyNames,
 } from "../persistence/migrations.js";
@@ -31,14 +32,14 @@ export function initializeLibraryState() {
   let activeBookshelfId = null;
 
   try {
-    bookshelves = loadStoredBookshelves().map(
-      (bookshelfData) => new Bookshelf(bookshelfData),
-    );
+    bookshelves = loadStoredBookshelves();
   } catch (error) {
     console.error("Failed to load bookshelves:", error);
   }
 
-  bookshelves = ensureDefaultBookshelf(bookshelves);
+  const defaultBookshelfMigration = migrateDefaultBookshelfRole(bookshelves);
+
+  bookshelves = defaultBookshelfMigration.bookshelves;
 
   if (!activeBookshelfId && bookshelves.length > 0) {
     activeBookshelfId = bookshelves[0].id;
@@ -53,7 +54,7 @@ export function initializeLibraryState() {
 
   bookshelves = ensureDefaultBookshelf(bookshelves);
 
-  if (didMigrateBookshelves) {
+  if (defaultBookshelfMigration.didMigrate || didMigrateBookshelves) {
     persistBookshelves(bookshelves);
   }
 

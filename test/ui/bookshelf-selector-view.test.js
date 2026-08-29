@@ -127,11 +127,13 @@ test("renders bookshelf controls and forwards selector interactions", () => {
     const bookshelfSelector = new FakeElement("div");
     const defaultBookshelf = {
       id: "default",
-      name: "My Library",
+      name: "Renamed Library",
+      isDefault: true,
     };
     const favoriteBookshelf = {
       id: "favorites",
-      name: "Favorites",
+      name: "My Library",
+      isDefault: false,
     };
     const calls = {
       selected: [],
@@ -171,7 +173,7 @@ test("renders bookshelf controls and forwards selector interactions", () => {
       bookshelfSelector.children;
 
     assert.equal(defaultCard.className, "bookshelf-card");
-    assert.equal(defaultCard.children[0].textContent, "My Library");
+    assert.equal(defaultCard.children[0].textContent, "Renamed Library");
     assert.equal(defaultCard.children.length, 1);
 
     assert.equal(
@@ -179,7 +181,7 @@ test("renders bookshelf controls and forwards selector interactions", () => {
       true,
     );
     assert.equal(favoriteCard.classList.contains("bookshelf-created"), true);
-    assert.equal(favoriteCard.children[0].textContent, "Favorites");
+    assert.equal(favoriteCard.children[0].textContent, "My Library");
     assert.equal(favoriteCard.children.length, 2);
 
     favoriteCard.dispatch("click");

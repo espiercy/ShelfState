@@ -1,7 +1,7 @@
 //Imports
-import { DEFAULT_BOOKSHELF_NAME } from "../config.js";
 import { getReadingInsights } from "../domain/insights.js";
 import {
+  getDefaultBookshelf,
   normalizeBookshelfName,
   hasBookshelfName,
   removeBookshelfFromLibrary,
@@ -315,7 +315,7 @@ function animateBookshelfDelete(card, bookshelfId) {
     (bookshelf) => bookshelf.id === bookshelfId,
   );
 
-  if (!bookshelf || bookshelf.name === DEFAULT_BOOKSHELF_NAME) return;
+  if (!bookshelf || bookshelf.isDefault) return;
 
   const shouldDelete = confirmDeleteBookshelf(bookshelf);
 
@@ -333,9 +333,12 @@ function animateBookshelfDelete(card, bookshelfId) {
 
 function confirmDeleteBookshelf(bookshelf) {
   const booksOnShelf = getBooksForBookshelf(appState.books, bookshelf).length;
+  const defaultBookshelf = getDefaultBookshelf(appState.bookshelves);
+  const defaultBookshelfName =
+    defaultBookshelf?.name ?? "the default bookshelf";
 
   return confirm(
-    `Delete "${bookshelf.name}"?\n\n${booksOnShelf} book${booksOnShelf === 1 ? "" : "s"} will move back to My Library.`,
+    `Delete "${bookshelf.name}"?\n\n${booksOnShelf} book${booksOnShelf === 1 ? "" : "s"} will move back to ${defaultBookshelfName}.`,
   );
 }
 
@@ -396,7 +399,7 @@ function renameBookshelf(bookshelfId) {
     (bookshelf) => bookshelf.id === bookshelfId,
   );
 
-  if (!bookshelf || bookshelf.name === DEFAULT_BOOKSHELF_NAME) return;
+  if (!bookshelf || bookshelf.isDefault) return;
 
   const newName = prompt("New bookshelf name:", bookshelf.name);
 

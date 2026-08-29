@@ -24,7 +24,7 @@ function createBookshelfCard(bookshelf, activeBookshelfId, actions) {
 
   card.appendChild(createBookshelfCardName(bookshelf));
 
-  if (bookshelf.name !== "My Library") {
+  if (!bookshelf.isDefault) {
     card.appendChild(createDeleteBookshelfButton(bookshelf, actions.onDelete));
   }
 

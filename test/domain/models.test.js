@@ -81,6 +81,8 @@ test("creates bookshelves with independent defaults", () => {
   assert.notEqual(first.id, second.id);
   assert.deepEqual(first.bookIds, []);
   assert.deepEqual(second.bookIds, []);
+  assert.equal(first.isDefault, false);
+  assert.equal(second.isDefault, false);
 
   first.bookIds.push("book-1");
 
@@ -92,9 +94,11 @@ test("creates bookshelves with independent defaults", () => {
     id: "shelf-3",
     name: "Provided",
     bookIds: providedBookIds,
+    isDefault: true,
   });
 
   assert.equal(provided.id, "shelf-3");
   assert.equal(provided.name, "Provided");
   assert.equal(provided.bookIds, providedBookIds);
+  assert.equal(provided.isDefault, true);
 });

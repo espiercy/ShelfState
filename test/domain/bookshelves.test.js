@@ -14,27 +14,39 @@ import {
   getBooksForBookshelf,
 } from "../../src/domain/bookshelves.js";
 
-test("finds the default bookshelf by name", () => {
+test("finds the default bookshelf by its explicit role", () => {
   const bookshelves = [
-    { id: "shelf-1", name: "Favorites" },
-    { id: "shelf-2", name: "My Library" },
+    { id: "shelf-1", name: "My Library", isDefault: false },
+    { id: "shelf-2", name: "Renamed Library", isDefault: true },
   ];
 
   assert.equal(getDefaultBookshelf(bookshelves), bookshelves[1]);
   assert.equal(
-    getDefaultBookshelf([{ id: "shelf-1", name: "Favorites" }]),
+    getDefaultBookshelf([
+      { id: "shelf-1", name: "My Library", isDefault: false },
+    ]),
     undefined,
   );
 });
 
-test("creates a default bookshelf only for an empty collection", () => {
+test("creates a default bookshelf only when the role is missing", () => {
   const created = ensureDefaultBookshelf([]);
 
   assert.equal(created.length, 1);
   assert.equal(created[0].name, "My Library");
+  assert.equal(created[0].isDefault, true);
   assert.equal(typeof created[0].id, "string");
 
-  const existing = [{ id: "shelf-1", name: "Favorites" }];
+  const ordinary = [{ id: "shelf-1", name: "Favorites", isDefault: false }];
+  const recovered = ensureDefaultBookshelf(ordinary);
+
+  assert.equal(recovered.length, 2);
+  assert.equal(recovered[0], ordinary[0]);
+  assert.equal(recovered[1].isDefault, true);
+
+  const existing = [
+    { id: "shelf-2", name: "Renamed Library", isDefault: true },
+  ];
 
   assert.equal(ensureDefaultBookshelf(existing), existing);
 });
@@ -68,9 +80,9 @@ test("detects duplicate names case-insensitively with exclusions", () => {
 
 test("removes a bookshelf and reassigns only books matched by ID", () => {
   const bookshelves = [
-    { id: "default", name: "My Library" },
-    { id: "fantasy", name: "Fantasy" },
-    { id: "history", name: "History" },
+    { id: "default", name: "Renamed Library", isDefault: true },
+    { id: "fantasy", name: "Fantasy", isDefault: false },
+    { id: "history", name: "History", isDefault: false },
   ];
 
   const books = [
@@ -105,8 +117,8 @@ test("removes a bookshelf and reassigns only books matched by ID", () => {
 
 test("refuses to remove the default or missing bookshelf", () => {
   const bookshelves = [
-    { id: "default", name: "My Library" },
-    { id: "fantasy", name: "Fantasy" },
+    { id: "default", name: "Renamed Library", isDefault: true },
+    { id: "fantasy", name: "Fantasy", isDefault: false },
   ];
 
   const books = [
@@ -135,16 +147,18 @@ test("uses null when no default bookshelf exists", () => {
   assert.equal(books[0].bookshelfId, null);
 });
 
-test("renames a bookshelf", () => {
+test("renames a bookshelf without changing its default role", () => {
   const bookshelf = {
-    id: "fantasy",
-    name: "Fantasy",
+    id: "default",
+    name: "My Library",
+    isDefault: true,
   };
 
   const result = renameBookshelfInLibrary(bookshelf, "Speculative Fiction");
 
   assert.equal(result, bookshelf);
   assert.equal(bookshelf.name, "Speculative Fiction");
+  assert.equal(bookshelf.isDefault, true);
 });
 
 test("assigns a book to a named bookshelf by ID", () => {
@@ -172,6 +186,7 @@ test("assigns a book to the default shelf by ID", () => {
   const defaultBookshelf = {
     id: "default",
     name: "My Library",
+    isDefault: true,
   };
 
   assignBookToBookshelf(book, defaultBookshelf);
@@ -180,12 +195,15 @@ test("assigns a book to the default shelf by ID", () => {
   assert.equal(book.bookshelfId, "default");
 });
 
-test("adds a normalized bookshelf to the library", () => {
-  const bookshelves = [{ id: "default", name: "My Library" }];
+test("adds a normalized ordinary bookshelf to the library", () => {
+  const bookshelves = [
+    { id: "default", name: "Renamed Library", isDefault: true },
+  ];
 
-  const bookshelf = addBookshelfToLibrary(bookshelves, " Science Fiction ");
+  const bookshelf = addBookshelfToLibrary(bookshelves, " My Library ");
 
-  assert.equal(bookshelf.name, "Science Fiction");
+  assert.equal(bookshelf.name, "My Library");
+  assert.equal(bookshelf.isDefault, false);
   assert.equal(typeof bookshelf.id, "string");
   assert.equal(bookshelves.length, 2);
   assert.equal(bookshelves[1], bookshelf);
@@ -193,8 +211,8 @@ test("adds a normalized bookshelf to the library", () => {
 
 test("refuses empty and duplicate bookshelf names", () => {
   const bookshelves = [
-    { id: "default", name: "My Library" },
-    { id: "fantasy", name: "Fantasy" },
+    { id: "default", name: "My Library", isDefault: true },
+    { id: "fantasy", name: "Fantasy", isDefault: false },
   ];
 
   assert.equal(addBookshelfToLibrary(bookshelves, "   "), null);

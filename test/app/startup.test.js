@@ -46,11 +46,13 @@ test("loads and hydrates stored library state", () => {
     JSON.stringify([
       {
         id: "default",
-        name: DEFAULT_BOOKSHELF_NAME,
+        name: "Renamed Library",
+        isDefault: true,
       },
       {
         id: "favorites",
         name: "Favorites",
+        isDefault: false,
       },
     ]),
   );
@@ -64,6 +66,11 @@ test("loads and hydrates stored library state", () => {
   assert.equal(state.bookshelves.length, 2);
   assert.equal(
     state.bookshelves.every((bookshelf) => bookshelf instanceof Bookshelf),
+    true,
+  );
+  assert.equal(
+    state.bookshelves.find((bookshelf) => bookshelf.id === "default")
+      .isDefault,
     true,
   );
   assert.equal(state.activeBookshelfId, "favorites");
@@ -110,6 +117,49 @@ test("migrates and persists legacy library state", () => {
     savedBookshelves.some((bookshelf) => bookshelf.name === "Favorites"),
     true,
   );
+  assert.equal(
+    savedBookshelves.find((bookshelf) => bookshelf.id === "default").isDefault,
+    true,
+  );
+});
+
+test("recovers a missing default without changing book membership", () => {
+  localStorage.setItem(
+    BOOKS_STORAGE_KEY,
+    JSON.stringify([
+      {
+        id: "book-1",
+        title: "Book One",
+        bookshelfId: "favorites",
+      },
+    ]),
+  );
+  localStorage.setItem(
+    BOOKSHELVES_STORAGE_KEY,
+    JSON.stringify([
+      {
+        id: "favorites",
+        name: "Favorites",
+        isDefault: false,
+      },
+    ]),
+  );
+
+  const state = initializeLibraryState();
+  const savedBookshelves = JSON.parse(
+    localStorage.getItem(BOOKSHELVES_STORAGE_KEY),
+  );
+
+  assert.equal(state.books[0].bookshelfId, "favorites");
+  assert.equal(state.bookshelves.length, 2);
+  assert.equal(
+    state.bookshelves.filter((bookshelf) => bookshelf.isDefault).length,
+    1,
+  );
+  assert.equal(
+    savedBookshelves.filter((bookshelf) => bookshelf.isDefault).length,
+    1,
+  );
 });
 
 test("recovers safely when stored library collections are malformed", (context) => {
@@ -125,5 +175,6 @@ test("recovers safely when stored library collections are malformed", (context) 
   assert.deepEqual(state.books, []);
   assert.equal(state.bookshelves.length, 1);
   assert.equal(state.bookshelves[0].name, DEFAULT_BOOKSHELF_NAME);
+  assert.equal(state.bookshelves[0].isDefault, true);
   assert.equal(state.activeBookshelfId, state.bookshelves[0].id);
 });

@@ -1,12 +1,7 @@
 //Imports
-import {
-  BOOK_STATUS,
-  BOOK_CLASSIFICATION,
-  DEFAULT_BOOKSHELF_NAME,
-} from "../config.js";
+import { DEFAULT_BOOKSHELF_NAME } from "../config.js";
 import { getReadingInsights } from "../domain/insights.js";
 import {
-  getDefaultBookshelf,
   normalizeBookshelfName,
   hasBookshelfName,
   removeBookshelfFromLibrary,
@@ -79,7 +74,6 @@ const appState = {
   booksLoadFailed: false,
   activeBookshelfId: null,
   editingBookId: null,
-  lastMovedBookId: null,
   searchQuery: "",
   searchField: "all",
   isSearchVisible: false,
@@ -276,16 +270,6 @@ function renderBookshelfSelector() {
   );
 }
 
-//UI Factories
-
-function createBookDetail(label, value) {
-  const detail = document.createElement("p");
-  const labelElement = document.createElement("strong");
-  labelElement.textContent = `${label}:`;
-  detail.append(labelElement, ` ${value}`);
-  return detail;
-}
-
 //UI Helpers
 function clearSelectedSpines() {
   document
@@ -452,8 +436,6 @@ function moveBookToBookshelf(bookId, bookshelf) {
   saveActiveBookshelf();
   saveBooks();
   renderBooks();
-
-  appState.lastMovedBookId = null;
 }
 
 function bookMatchesSearch(book) {

@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="src/styles/foundation.css" />
+    <link rel="stylesheet" href="src/styles/app-shell.css" />
     <link rel="stylesheet" href="src/styles/style.css" />
     <script type="module" src="src/app/script.js"></script>
     <title>ShelfState</title>
@@ -154,12 +156,12 @@
         <section id="reading-insights" class="reading-insights"></section>
       </div>
       <div id="library-layout">
+        <aside id="bookshelf-selector" aria-label="Bookshelves">
+          <!-- This section will display the list of shelves in the library-->
+        </aside>
         <section id="book-list">
           <!-- This section will display the list of books on the shelf -->
         </section>
-        <aside id="bookshelf-selector">
-          <!-- This section will display the list of shelves in the library-->
-        </aside>
       </div>
     </main>
   </body>

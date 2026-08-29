@@ -4,11 +4,8 @@ import {
   BOOK_CLASSIFICATION,
   DEFAULT_BOOKSHELF_NAME,
 } from "../config.js";
-import { Book, Bookshelf } from "../domain/models.js";
 import { getReadingInsights } from "../domain/insights.js";
 import {
-  ensureDefaultBookshelf,
-  ensureActiveBookshelfId,
   getDefaultBookshelf,
   normalizeBookshelfName,
   hasBookshelfName,
@@ -19,17 +16,9 @@ import {
   getBooksForBookshelf,
 } from "../domain/bookshelves.js";
 import {
-  migrateBooksToBookshelfIds,
-  migrateBookshelvesFromLegacyNames,
-} from "../persistence/migrations.js";
-import {
-  backupBooksBeforeMigration,
   saveBooks as persistBooks,
-  loadBooks as loadStoredBooks,
   saveBookshelves as persistBookshelves,
-  loadBookshelves as loadStoredBookshelves,
   saveActiveBookshelfId as persistActiveBookshelfId,
-  loadActiveBookshelfId as loadStoredActiveBookshelfId,
   createLibraryExportData,
 } from "../persistence/storage.js";
 import {
@@ -56,6 +45,7 @@ import { renderActiveView as renderActiveViewPresentation } from "../ui/active-v
 import { renderSearchView } from "../ui/search-view.js";
 import { downloadLibraryExport } from "../ui/library-export.js";
 import { createBookData } from "./book-data.js";
+import { initializeLibraryState } from "./startup.js";
 import {
   addBookToLibrary,
   removeBookFromLibrary,
@@ -517,88 +507,22 @@ function saveBooks() {
   return persistBooks(appState.books);
 }
 
-function loadBooks() {
-  try {
-    const storedBooks = loadStoredBooks();
-
-    appState.books = storedBooks;
-    appState.booksLoadFailed = false;
-  } catch (error) {
-    console.error("Failed to load books:", error);
-    appState.booksLoadFailed = true;
-    appState.books = [];
-  }
-}
-
 function saveBookshelves() {
   persistBookshelves(appState.bookshelves);
-}
-
-function loadBookshelves() {
-  try {
-    const storedBookshelves = loadStoredBookshelves();
-
-    appState.bookshelves = storedBookshelves.map(
-      (bookshelfData) => new Bookshelf(bookshelfData),
-    );
-  } catch (error) {
-    console.error("Failed to load bookshelves:", error);
-    appState.bookshelves = [];
-  }
-
-  appState.bookshelves = ensureDefaultBookshelf(appState.bookshelves);
-
-  if (!appState.activeBookshelfId && appState.bookshelves.length > 0) {
-    appState.activeBookshelfId = appState.bookshelves[0].id;
-  }
 }
 
 function saveActiveBookshelf() {
   persistActiveBookshelfId(appState.activeBookshelfId);
 }
 
-function loadActiveBookshelf() {
-  appState.activeBookshelfId = loadStoredActiveBookshelfId();
-}
-
 //Initialization
 function initializeApp() {
-  loadBooks();
-  loadBookshelves();
+  const initialState = initializeLibraryState();
 
-  const bookshelfCountBeforeMigration = appState.bookshelves.length;
-
-  appState.bookshelves = migrateBookshelvesFromLegacyNames(
-    appState.bookshelves,
-    appState.books,
-  );
-
-  const didMigrateBookshelves =
-    appState.bookshelves.length > bookshelfCountBeforeMigration;
-
-  appState.bookshelves = ensureDefaultBookshelf(appState.bookshelves);
-
-  if (didMigrateBookshelves) {
-    saveBookshelves();
-  }
-
-  const didMigrate = migrateBooksToBookshelfIds(
-    appState.books,
-    appState.bookshelves,
-  );
-
-  appState.books = appState.books.map((bookData) => new Book(bookData));
-
-  if (didMigrate && backupBooksBeforeMigration()) {
-    saveBooks();
-  }
-
-  loadActiveBookshelf();
-
-  appState.activeBookshelfId = ensureActiveBookshelfId(
-    appState.bookshelves,
-    appState.activeBookshelfId,
-  );
+  appState.books = initialState.books;
+  appState.bookshelves = initialState.bookshelves;
+  appState.booksLoadFailed = initialState.booksLoadFailed;
+  appState.activeBookshelfId = initialState.activeBookshelfId;
 
   renderBooks();
   renderActiveView();

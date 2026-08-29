@@ -46,7 +46,7 @@ import {
 import { validateBookData } from "../domain/validation.js";
 import { renderReadingInsights } from "../ui/insights-view.js";
 import { renderBookshelfSelector as renderBookshelfSelectorView } from "../ui/bookshelf-selector-view.js";
-import { renderBookshelf as renderBookshelfView } from "../ui/bookshelf-view.js";
+import { renderLibraryBookList } from "../ui/library-view.js";
 import {
   openBookForm,
   closeBookForm,
@@ -224,7 +224,6 @@ function renderActiveView() {
 
 function renderBooks() {
   clearSelectedSpines();
-  bookList.replaceChildren();
 
   renderBookshelfSelector();
   renderSearch();
@@ -233,32 +232,23 @@ function renderBooks() {
 
   renderReadingInsights(readingInsights, insights);
 
-  if (appState.books.length === 0) {
-    const emptyState = document.createElement("div");
-    emptyState.className = "empty-bookshelf-message";
-    emptyState.textContent =
-      "No books added yet. Click Add Book to start your shelf.";
-    bookList.appendChild(emptyState);
-    return;
-  }
-
   const activeBookshelf = appState.bookshelves.find(
     (bookshelf) => bookshelf.id === appState.activeBookshelfId,
   );
 
-  if (activeBookshelf) {
-    const visibleBooks = getBooksForBookshelf(
-      appState.books,
-      activeBookshelf,
-    ).filter(bookMatchesSearch);
+  const visibleBooks = activeBookshelf
+    ? getBooksForBookshelf(appState.books, activeBookshelf).filter(
+        bookMatchesSearch,
+      )
+    : [];
 
-    renderBookshelfView(
-      bookList,
-      activeBookshelf,
-      visibleBooks,
-      isSearchActive(),
-    );
-  }
+  renderLibraryBookList({
+    bookList,
+    isLibraryEmpty: appState.books.length === 0,
+    activeBookshelf,
+    visibleBooks,
+    searchActive: isSearchActive(),
+  });
 }
 
 function renderBookshelfSelector() {

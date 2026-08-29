@@ -1,6 +1,8 @@
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
+import { Bookshelf } from "../../src/domain/models.js";
+
 import {
   saveBooks,
   loadBooks,
@@ -79,7 +81,12 @@ test("backs up the previous valid book collection before saving", () => {
 
 test("saves and loads bookshelves", () => {
   const bookshelves = [
-    { id: "shelf-1", name: "Renamed Library", isDefault: true },
+    new Bookshelf({
+      id: "shelf-1",
+      name: "Renamed Library",
+      bookIds: ["legacy-book"],
+      isDefault: true,
+    }),
   ];
 
   saveBookshelves(bookshelves);
@@ -88,7 +95,12 @@ test("saves and loads bookshelves", () => {
     localStorage.getItem(BOOKSHELVES_STORAGE_KEY),
     JSON.stringify(bookshelves),
   );
-  assert.deepEqual(loadBookshelves(), bookshelves);
+  const loadedBookshelves = loadBookshelves();
+
+  assert.deepEqual(loadedBookshelves, [
+    { id: "shelf-1", name: "Renamed Library", isDefault: true },
+  ]);
+  assert.equal(Object.hasOwn(loadedBookshelves[0], "bookIds"), false);
 });
 
 test("saves and loads the active bookshelf ID", () => {
@@ -175,9 +187,14 @@ test("throws for malformed stored JSON", () => {
 });
 
 test("creates versioned library export data", () => {
-  const books = [{ id: "book-1" }];
+  const books = [{ id: "book-1", bookshelfId: "shelf-1" }];
   const bookshelves = [
-    { id: "shelf-1", name: "Renamed Library", isDefault: true },
+    new Bookshelf({
+      id: "shelf-1",
+      name: "Renamed Library",
+      bookIds: ["legacy-book"],
+      isDefault: true,
+    }),
   ];
 
   const exportData = createLibraryExportData(books, bookshelves, "shelf-1");
@@ -187,7 +204,9 @@ test("creates versioned library export data", () => {
   assert.equal(Number.isNaN(Date.parse(exportData.exportedAt)), false);
   assert.equal(exportData.books, books);
   assert.equal(exportData.bookshelves, bookshelves);
+  assert.equal(exportData.books[0].bookshelfId, "shelf-1");
   assert.equal(exportData.bookshelves[0].isDefault, true);
+  assert.equal(Object.hasOwn(exportData.bookshelves[0], "bookIds"), false);
   assert.equal(exportData.activeBookshelfId, "shelf-1");
 });
 

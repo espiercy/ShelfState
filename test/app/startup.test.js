@@ -52,6 +52,7 @@ test("loads and hydrates stored library state", () => {
       {
         id: "favorites",
         name: "Favorites",
+        bookIds: ["book-1"],
         isDefault: false,
       },
     ]),
@@ -72,6 +73,11 @@ test("loads and hydrates stored library state", () => {
     state.bookshelves.find((bookshelf) => bookshelf.id === "default")
       .isDefault,
     true,
+  );
+  assert.equal(state.books[0].bookshelfId, "favorites");
+  assert.equal(
+    state.bookshelves.some((bookshelf) => Object.hasOwn(bookshelf, "bookIds")),
+    false,
   );
   assert.equal(state.activeBookshelfId, "favorites");
 });

@@ -67,7 +67,7 @@ test("preserves the bookshelf ID when an update omits it", () => {
   assert.equal(book.bookshelfId, "shelf-1");
 });
 
-test("creates bookshelves with independent defaults", () => {
+test("creates bookshelves without obsolete membership state", () => {
   const first = new Bookshelf({
     name: "First",
   });
@@ -79,26 +79,20 @@ test("creates bookshelves with independent defaults", () => {
   assert.equal(typeof first.id, "string");
   assert.equal(typeof second.id, "string");
   assert.notEqual(first.id, second.id);
-  assert.deepEqual(first.bookIds, []);
-  assert.deepEqual(second.bookIds, []);
+  assert.equal(Object.hasOwn(first, "bookIds"), false);
+  assert.equal(Object.hasOwn(second, "bookIds"), false);
   assert.equal(first.isDefault, false);
   assert.equal(second.isDefault, false);
 
-  first.bookIds.push("book-1");
-
-  assert.deepEqual(first.bookIds, ["book-1"]);
-  assert.deepEqual(second.bookIds, []);
-
-  const providedBookIds = ["book-2"];
   const provided = new Bookshelf({
     id: "shelf-3",
     name: "Provided",
-    bookIds: providedBookIds,
+    bookIds: ["legacy-book"],
     isDefault: true,
   });
 
   assert.equal(provided.id, "shelf-3");
   assert.equal(provided.name, "Provided");
-  assert.equal(provided.bookIds, providedBookIds);
+  assert.equal(Object.hasOwn(provided, "bookIds"), false);
   assert.equal(provided.isDefault, true);
 });

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="src/styles/book-editor.css" />
     <link rel="stylesheet" href="src/styles/library.css" />
     <link rel="stylesheet" href="src/styles/bookshelf-controls.css" />
+    <link rel="stylesheet" href="src/styles/search.css" />
     <link rel="stylesheet" href="src/styles/style.css" />
     <script type="module" src="src/app/script.js"></script>
     <title>ShelfState</title>
@@ -49,6 +50,7 @@
               id="book-search"
               class="form-input"
               placeholder="Search books..."
+              aria-label="Search books"
             />
 
             <button
@@ -56,12 +58,17 @@
               class="icon-button"
               type="button"
               title="Clear Search"
+              aria-label="Clear search"
             >
               ✕
             </button>
           </div>
 
-          <select id="search-field" class-form="form-input">
+          <select
+            id="search-field"
+            class="form-input"
+            aria-label="Search field"
+          >
             <option value="all">All</option>
             <option value="title">Title</option>
             <option value="author">Author</option>

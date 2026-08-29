@@ -71,10 +71,6 @@ library-layout.library-exiting {
   width: auto;
 }
 
-.library-controls #book-search {
-  max-width: 100%;
-}
-
 .library-background {
   opacity: 0.25;
   filter: blur(2px);

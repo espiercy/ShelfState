@@ -117,10 +117,34 @@ test("creates a book spine with content, drag behavior, and animation wiring", (
 
     assert.equal(hoverDetails.tagName, "div");
     assert.equal(hoverDetails.className, "book-hover-details");
-    assert.match(hoverDetails.innerHTML, /Dune/);
-    assert.match(hoverDetails.innerHTML, /Frank Herbert/);
-    assert.match(hoverDetails.innerHTML, /120\/412 pages/);
-    assert.match(hoverDetails.innerHTML, /Currently Reading/);
+    assert.equal(hoverDetails.innerHTML, "");
+    assert.deepEqual(
+      hoverDetails.children.map((child) => [child.tagName, child.textContent]),
+      [
+        ["strong", "Dune"],
+        ["span", "Frank Herbert"],
+        ["span", "120/412 pages"],
+        ["span", "Currently Reading"],
+      ],
+    );
+
+    const unsafeBookSpine = createBookSpine({
+      ...book,
+      id: "book-2",
+      title: '<img src="x" onerror="alert(1)">',
+      author: "<script>alert(1)</script>",
+    });
+    const unsafeHoverDetails = unsafeBookSpine.children[2];
+
+    assert.equal(unsafeHoverDetails.innerHTML, "");
+    assert.equal(
+      unsafeHoverDetails.children[0].textContent,
+      '<img src="x" onerror="alert(1)">',
+    );
+    assert.equal(
+      unsafeHoverDetails.children[1].textContent,
+      "<script>alert(1)</script>",
+    );
 
     let transferredBookId = null;
 

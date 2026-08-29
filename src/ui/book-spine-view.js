@@ -45,12 +45,23 @@ function createDeleteBookButton() {
 function createBookHoverDetails(book) {
   const hoverDetails = document.createElement("div");
   hoverDetails.className = "book-hover-details";
-  hoverDetails.innerHTML = `
-    <strong>${book.title}</strong>
-    <span>${book.author}</span>
-    <span>${book.progress}/${book.pages} pages</span>
-    <span>${STATUS_LABELS[book.status]}</span>
-  `;
+
+  const title = document.createElement("strong");
+  title.textContent = book.title;
+
+  const author = document.createElement("span");
+  author.textContent = book.author;
+
+  const progress = document.createElement("span");
+  progress.textContent = `${book.progress}/${book.pages} pages`;
+
+  const status = document.createElement("span");
+  status.textContent = STATUS_LABELS[book.status];
+
+  hoverDetails.appendChild(title);
+  hoverDetails.appendChild(author);
+  hoverDetails.appendChild(progress);
+  hoverDetails.appendChild(status);
 
   return hoverDetails;
 }

@@ -1,0 +1,222 @@
+.book-spine {
+  width: 80px;
+  height: 240px;
+  border: 1px solid #5b3921;
+  border-radius: 4px;
+  background-color: #d8a15d;
+  cursor: pointer;
+  padding: 0.5rem;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.book-spine:hover {
+  transform: translateY(-6px) scale(1.03);
+  box-shadow: 4px 8px 12px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.book-spine:active {
+  transform: translateY(-10px) scale(1.08);
+  box-shadow: 6px 12px 16px rgba(0, 0, 0, 0.3);
+}
+
+.book-hover-details {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 105%;
+  transform: translateX(-50%);
+  width: 180px;
+  padding: 0.75rem;
+  background-color: #fffaf2;
+  border: 1px solid #5b3921;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  z-index: 10;
+  font-size: 0.85rem;
+}
+
+.book-hover-details span {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.book-spine:hover .book-hover-details {
+  filter: brightness(1.1);
+  display: block;
+}
+
+.book-spine-selected {
+  animation: book-picked-up 225ms ease-out forwards;
+}
+
+@keyframes book-picked-up {
+  from {
+    transform: translateY(0) rotate(0) scale(1);
+  }
+
+  to {
+    transform: translateY(-18px) rotate(-3deg) scale(1.06);
+
+    box-shadow: 10px 16px 20px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.book-spine-title {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  text-align: center;
+
+  height: 180px;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.book-spine .delete-book-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin-top: auto;
+}
+
+.book-shelf {
+  background-color: #f8efe2;
+  margin-bottom: 2rem;
+  padding: 0.75rem clamp(0.75rem, 4vw, 1rem);
+  border-bottom: 12px solid #8b5a2b;
+  border-radius: 8px 8px 2px 2px;
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.book-shelf h2 {
+  margin: 0 0 0 0.75rem;
+  font-size: 1.15rem;
+  letter-spacing: 0.04rem;
+  border-bottom: none;
+  color: #4b2e1e;
+  padding-bottom: 0;
+}
+
+.shelf-row {
+  display: flex;
+  gap: clamp(0.75rem, 4vw, 1rem);
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.book-status-currently-reading {
+  background-color: #3f7d58;
+}
+
+.book-status-on-hold {
+  background-color: #c27c2c;
+}
+
+.book-status-not-started {
+  background-color: #4a6fa5;
+}
+
+.book-status-completed {
+  background-color: #7b4f9d;
+}
+
+.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.empty-bookshelf-message {
+  width: 100%;
+  min-height: 80px;
+  padding: 1.5rem;
+  color: #4b2e1e;
+  border: 1px dashed #8b5a2b;
+  border-radius: 8px;
+  background-color: #f8efe2;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-style: italic;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.book-created {
+  animation: book-slide-in-right 525ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes book-slide-in-right {
+  0% {
+    opacity: 0;
+    transform: translateX(180px) translateY(-10px) rotate(5deg) scale(0.96);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateX(-8px) translateY(2px) rotate(-1deg) scale(1.02);
+  }
+
+  80% {
+    transform: translateX(3px) translateY(-1px) rotate(0.3deg) scale(0.998);
+  }
+
+  100% {
+    transform: translateX(0) translateY(0) rotate(0) scale(1);
+  }
+}
+
+.book-moved {
+  animation: book-slide-in-left 375ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes book-slide-in-left {
+  0% {
+    transform: translateX(-80px) translateY(-4px) rotate(-2deg);
+  }
+
+  65% {
+    transform: translateX(6px) translateY(1px) rotate(0.5deg);
+  }
+
+  100% {
+    transform: translateX(0) translateY(0) rotate(0);
+  }
+}
+
+.book-deleted {
+  animation: book-delete 425ms ease-in forwards;
+}
+
+@keyframes book-delete {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-8px) scale(0.96) rotate(-1deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(80px) scale(0.35) rotate(4deg);
+  }
+}

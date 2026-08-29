@@ -3,6 +3,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  box-sizing: border-box;
+  font-size: 1rem;
+  font-weight: bold;
 }
 
 .bookshelf-card:hover,
@@ -35,6 +38,22 @@
   background: linear-gradient(to bottom, #fff3d8, #cfa66f);
 }
 
+.bookshelf-select-btn,
+.bookshelf-select-btn:hover {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transform: none;
+}
+
 .bookshelf-title {
   margin-top: 0;
   margin-bottom: 1rem;
@@ -60,6 +79,13 @@
   70% {
     opacity: 1;
     transform: scaleY(1) translateY(0);
+  }
+}
+
+@media (max-width: 42rem) {
+  .bookshelf-select-btn > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 

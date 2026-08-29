@@ -15,6 +15,7 @@ class FakeElement {
     this._textContent = "";
     this.id = "";
     this.type = "";
+    this.attributes = new Map();
 
     this.classList = {
       add: (...classNames) => {
@@ -44,6 +45,14 @@ class FakeElement {
 
   get textContent() {
     return this._textContent;
+  }
+
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
+  }
+
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
   }
 
   syncClassName() {
@@ -172,19 +181,40 @@ test("renders bookshelf controls and forwards selector interactions", () => {
     const [defaultCard, favoriteCard, newBookshelfButton] =
       bookshelfSelector.children;
 
+    assert.equal(defaultCard.tagName, "div");
     assert.equal(defaultCard.className, "bookshelf-card");
-    assert.equal(defaultCard.children[0].textContent, "Renamed Library");
     assert.equal(defaultCard.children.length, 1);
+
+    const defaultSelectButton = defaultCard.children[0];
+
+    assert.equal(defaultSelectButton.tagName, "button");
+    assert.equal(defaultSelectButton.type, "button");
+    assert.equal(defaultSelectButton.className, "bookshelf-select-btn");
+    assert.equal(defaultSelectButton.children[0].textContent, "Renamed Library");
 
     assert.equal(
       favoriteCard.classList.contains("bookshelf-card-active"),
       true,
     );
     assert.equal(favoriteCard.classList.contains("bookshelf-created"), true);
-    assert.equal(favoriteCard.children[0].textContent, "My Library");
     assert.equal(favoriteCard.children.length, 2);
 
+    const [favoriteSelectButton, deleteButton] = favoriteCard.children;
+
+    assert.equal(favoriteCard.tagName, "div");
+    assert.equal(favoriteSelectButton.tagName, "button");
+    assert.equal(favoriteSelectButton.type, "button");
+    assert.equal(favoriteSelectButton.className, "bookshelf-select-btn");
+    assert.equal(favoriteSelectButton.children[0].textContent, "My Library");
+    assert.equal(deleteButton.tagName, "button");
+    assert.equal(deleteButton.parentElement, favoriteCard);
+    assert.equal(deleteButton.getAttribute("aria-label"), "Delete My Library");
+
     favoriteCard.dispatch("click");
+
+    assert.deepEqual(calls.selected, []);
+
+    favoriteSelectButton.dispatch("click");
 
     assert.deepEqual(calls.selected, [favoriteBookshelf]);
 
@@ -239,7 +269,7 @@ test("renders bookshelf controls and forwards selector interactions", () => {
 
     let renamePropagationStopped = false;
 
-    favoriteCard.dispatch("dblclick", {
+    favoriteSelectButton.dispatch("dblclick", {
       stopPropagation() {
         renamePropagationStopped = true;
       },
@@ -248,7 +278,6 @@ test("renders bookshelf controls and forwards selector interactions", () => {
     assert.equal(renamePropagationStopped, true);
     assert.deepEqual(calls.renamed, [favoriteBookshelf]);
 
-    const deleteButton = favoriteCard.children[1];
     let deletePropagationStopped = false;
 
     deleteButton.dispatch("click", {
@@ -264,6 +293,8 @@ test("renders bookshelf controls and forwards selector interactions", () => {
         bookshelf: favoriteBookshelf,
       },
     ]);
+    assert.deepEqual(calls.selected, [favoriteBookshelf]);
+    assert.deepEqual(calls.renamed, [favoriteBookshelf]);
 
     assert.equal(newBookshelfButton.id, "new-bookshelf-btn");
     assert.equal(newBookshelfButton.type, "button");

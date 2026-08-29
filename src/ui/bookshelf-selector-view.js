@@ -18,11 +18,11 @@ export function renderBookshelfSelector(
 }
 
 function createBookshelfCard(bookshelf, activeBookshelfId, actions) {
-  const card = document.createElement("button");
+  const card = document.createElement("div");
 
   initializeBookshelfCard(card);
 
-  card.appendChild(createBookshelfCardName(bookshelf));
+  card.appendChild(createBookshelfSelectButton(bookshelf, actions));
 
   if (!bookshelf.isDefault) {
     card.appendChild(createDeleteBookshelfButton(bookshelf, actions.onDelete));
@@ -40,10 +40,6 @@ function initializeBookshelfCard(card) {
 }
 
 function attachBookshelfCardEvents(card, bookshelf, actions) {
-  card.addEventListener("click", () => {
-    actions.onSelect(bookshelf);
-  });
-
   card.addEventListener("dragover", (event) => {
     event.preventDefault();
     card.classList.add("bookshelf-card-drop-target");
@@ -61,11 +57,24 @@ function attachBookshelfCardEvents(card, bookshelf, actions) {
 
     actions.onDropBook(bookId, bookshelf);
   });
+}
 
-  card.addEventListener("dblclick", (event) => {
+function createBookshelfSelectButton(bookshelf, actions) {
+  const selectBtn = document.createElement("button");
+  selectBtn.type = "button";
+  selectBtn.className = "bookshelf-select-btn";
+  selectBtn.appendChild(createBookshelfCardName(bookshelf));
+
+  selectBtn.addEventListener("click", () => {
+    actions.onSelect(bookshelf);
+  });
+
+  selectBtn.addEventListener("dblclick", (event) => {
     event.stopPropagation();
     actions.onRename(bookshelf);
   });
+
+  return selectBtn;
 }
 
 function createBookshelfCardName(bookshelf) {
@@ -80,6 +89,7 @@ function createDeleteBookshelfButton(bookshelf, onDelete) {
   deleteBtn.type = "button";
   deleteBtn.className = "delete-bookshelf-btn";
   deleteBtn.textContent = "×";
+  deleteBtn.setAttribute("aria-label", `Delete ${bookshelf.name}`);
 
   deleteBtn.addEventListener("click", (event) => {
     event.stopPropagation();

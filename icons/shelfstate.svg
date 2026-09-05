@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>ShelfState</title>
+  <rect width="512" height="512" fill="#efe7da" />
+  <g id="shelf-mark">
+    <rect x="96" y="120" width="88" height="248" rx="8" fill="#4b2e1e" />
+    <rect x="208" y="80" width="88" height="288" rx="8" fill="#8b5a2b" />
+    <rect x="320" y="144" width="88" height="224" rx="8" fill="#4b2e1e" />
+    <path d="M116 160h48m64-40h48m64 64h48" fill="none" stroke="#efe7da" stroke-width="12" />
+    <rect x="64" y="368" width="384" height="40" rx="8" fill="#4b2e1e" />
+  </g>
+</svg>

@@ -5,6 +5,10 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  canonicalizeNetlifyIndexHtml,
+  NETLIFY_INDEX_HTML_INTEGRITY,
+} from "../../src/pwa/service-worker-policy.js";
+import {
   buildPrecacheManifest,
   calculateReleaseSha256,
   renderPrecacheManifest,
@@ -27,10 +31,17 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-async function independentFileDigest(url, kind) {
-  const bytes = await readFile(path.join(rootDirectory, url.slice(1)));
+async function independentFileDigest(resource) {
+  const bytes = await readFile(path.join(rootDirectory, resource.url.slice(1)));
 
-  return sha256(kind === "text" ? normalizeText(bytes.toString("utf8")) : bytes);
+  if (resource.kind !== "text") return sha256(bytes);
+
+  const text = bytes.toString("utf8");
+  return sha256(
+    resource.integrity === NETLIFY_INDEX_HTML_INTEGRITY
+      ? canonicalizeNetlifyIndexHtml(text)
+      : normalizeText(text),
+  );
 }
 
 async function discoverApplicationShell() {
@@ -91,10 +102,11 @@ test("the inventory exactly covers the application shell dependency graph", asyn
 test("the generated manifest independently matches repository content", async () => {
   assert.equal(PRECACHE_RESOURCES.length, 38);
   assert.deepEqual(
-    PRECACHE_RESOURCES.map(({ url, kind, mediaType }) => ({
+    PRECACHE_RESOURCES.map(({ url, kind, mediaType, integrity }) => ({
       url,
       kind,
       mediaType,
+      ...(integrity ? { integrity } : {}),
     })),
     SHELL_RESOURCE_DEFINITIONS,
   );
@@ -102,7 +114,7 @@ test("the generated manifest independently matches repository content", async ()
   for (const resource of PRECACHE_RESOURCES) {
     assert.equal(
       resource.sha256,
-      await independentFileDigest(resource.url, resource.kind),
+      await independentFileDigest(resource),
       `Stale digest for ${resource.url}`,
     );
   }
@@ -112,7 +124,7 @@ test("the generated manifest independently matches repository content", async ()
   for (const url of WORKER_RELEASE_SOURCES) {
     workerSources.push({
       url,
-      sha256: await independentFileDigest(url, "text"),
+      sha256: await independentFileDigest({ url, kind: "text" }),
     });
   }
 
@@ -121,6 +133,23 @@ test("the generated manifest independently matches repository content", async ()
   );
 
   assert.equal(SHELL_CACHE_NAME, `shelfstate-shell-${expectedReleaseSha256}`);
+});
+
+test("only index.html declares the Netlify canonical integrity mode", () => {
+  const canonicalResources = PRECACHE_RESOURCES.filter(
+    (resource) => resource.integrity === NETLIFY_INDEX_HTML_INTEGRITY,
+  );
+
+  assert.deepEqual(canonicalResources.map((resource) => resource.url), [
+    "/index.html",
+  ]);
+  assert.equal(
+    PRECACHE_RESOURCES.filter(
+      (resource) =>
+        resource.url !== "/index.html" && "integrity" in resource,
+    ).length,
+    0,
+  );
 });
 
 test("manifest generation is deterministic and checked-in output is current", async () => {

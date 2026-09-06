@@ -2,9 +2,18 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  canonicalizeNetlifyIndexHtml,
+  NETLIFY_INDEX_HTML_INTEGRITY,
+} from "../src/pwa/service-worker-policy.js";
 
 export const SHELL_RESOURCE_DEFINITIONS = Object.freeze([
-  { url: "/index.html", kind: "text", mediaType: "text/html" },
+  {
+    url: "/index.html",
+    kind: "text",
+    mediaType: "text/html",
+    integrity: NETLIFY_INDEX_HTML_INTEGRITY,
+  },
   {
     url: "/src/pwa/register-service-worker.js",
     kind: "text",
@@ -69,10 +78,15 @@ async function hashRepositoryFile(rootDirectory, definition) {
   const fileBytes = await readFile(
     path.join(rootDirectory, definition.url.slice(1)),
   );
-  const digestInput =
-    definition.kind === "text"
-      ? normalizeTextContent(fileBytes.toString("utf8"))
-      : fileBytes;
+  let digestInput = fileBytes;
+
+  if (definition.kind === "text") {
+    const fileText = fileBytes.toString("utf8");
+    digestInput =
+      definition.integrity === NETLIFY_INDEX_HTML_INTEGRITY
+        ? canonicalizeNetlifyIndexHtml(fileText)
+        : normalizeTextContent(fileText);
+  }
 
   return calculateSha256(digestInput);
 }

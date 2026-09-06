@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+<!-- This site is hosted on Netlify. Anyone can build and deploy a site
+     like this one for free: https://netlify.new/?utm_campaign=ai-legible&utm_source=comment&utm_medium=referral&utm_id=03acb311-1959-40f1-9e0d-b6cc4dc34520
+     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
+<meta name="hosting-provider" content="Netlify">
+<meta name="netlify-deploy" content="https://netlify.new/?utm_campaign=ai-legible&amp;utm_source=meta&amp;utm_medium=referral&amp;utm_id=03acb311-1959-40f1-9e0d-b6cc4dc34520">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4b2e1e" />
+    <link rel="icon" href="/icons/shelfstate.svg" type="image/svg+xml" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/icons/apple-touch-icon.png"
+    />
+    <link rel="stylesheet" href="src/styles/foundation.css" />
+    <link rel="stylesheet" href="src/styles/app-shell.css" />
+    <link rel="stylesheet" href="src/styles/book-editor.css" />
+    <link rel="stylesheet" href="src/styles/library.css" />
+    <link rel="stylesheet" href="src/styles/bookshelf-controls.css" />
+    <link rel="stylesheet" href="src/styles/search.css" />
+    <link rel="stylesheet" href="src/styles/insights.css" />
+    <script type="module" src="src/app/script.js"></script>
+    <script
+      type="module"
+      src="/src/pwa/register-service-worker.js"
+    ></script>
+    <title>ShelfState</title>
+  </head>
+  <body>
+    <main>
+      <!-- This is the main page for ShelfState documentation -->
+      <h1>ShelfState</h1>
+      <p>Welcome to ShelfState!</p>
+      <div class="library-controls">
+        <div class="library-actions">
+          <button id="show-form-btn">Add Book</button>
+          <button
+            id="toggle-search-btn"
+            class="secondary-action-btn"
+            type="button"
+          >
+            Search
+          </button>
+          <button
+            id="toggle-insights-btn"
+            class="secondary-action-btn"
+            type="button"
+          >
+            Reading Insights
+          </button>
+          <button
+            id="export-data-btn"
+            class="secondary-action-btn"
+            type="button"
+          >
+            Export Backup
+          </button>
+        </div>
+        <div id="search-panel" class="search-panel hidden">
+          <div class="search-row">
+            <input
+              type="search"
+              id="book-search"
+              class="form-input"
+              placeholder="Search books..."
+              aria-label="Search books"
+            />
+
+            <button
+              id="clear-search-btn"
+              class="icon-button"
+              type="button"
+              title="Clear Search"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          </div>
+
+          <select
+            id="search-field"
+            class="form-input"
+            aria-label="Search field"
+          >
+            <option value="all">All</option>
+            <option value="title">Title</option>
+            <option value="author">Author</option>
+            <option value="category">Category</option>
+            <option value="notes">Notes</option>
+            <option value="isbn">ISBN</option>
+          </select>
+
+          <div id="search-summary" class="search-summary"></div>
+        </div>
+      </div>
+
+      <!-- This form is for adding a new book to the shelf -->
+      <!-- Consider the grid layout for better organization -->
+      <form id="new-book-form" class="book-form hidden">
+        <div class="open-book">
+          <div class="book-page book-page-left">
+            <div class="book-page-fields">
+              <label for="title" class="form-label">Title:</label>
+              <input type="text" id="title" class="form-input" name="title" />
+
+              <label for="author" class="form-label">Author:</label>
+              <input type="text" id="author" class="form-input" name="author" />
+
+              <label for="classification" class="form-label"
+                >Classification:</label
+              >
+              <select name="classification" id="classification">
+                <option value="fiction">Fiction</option>
+                <option value="non-fiction">Non-Fiction</option>
+                <option value="poetry">Poetry</option>
+              </select>
+
+              <label for="category" class="form-label">Category:</label>
+              <input
+                type="text"
+                id="category"
+                class="form-input"
+                name="category"
+              />
+              <label for="status" class="form-label">Status:</label>
+              <select name="status" id="status">
+                <option value="">Select Status</option>
+                <option value="currently-reading">Currently Reading</option>
+                <option value="not-started">Not Started</option>
+                <option value="on-hold">On Hold</option>
+                <option value="completed">Completed</option>
+                <option value="dnf">DNF</option>
+              </select>
+              <label for="bookshelf" class="form-label">Bookshelf:</label>
+              <select id="bookshelf" name="bookshelf"></select>
+              <label for="isbn" class="form-label">ISBN:</label>
+              <input type="text" id="isbn" class="form-input" name="isbn" />
+            </div>
+          </div>
+          <div class="book-spine-center"></div>
+          <div class="book-page book-page-right">
+            <div class="book-page-fields">
+              <label for="pages" class="form-label">Pages:</label>
+              <input type="number" id="pages" class="form-input" name="pages" />
+              <label for="progress" class="form-label">Progress:</label>
+              <input
+                type="number"
+                id="progress"
+                class="form-input"
+                name="progress"
+              />
+              <label for="startDate" class="form-label">Start Date:</label>
+              <input
+                type="date"
+                id="startDate"
+                class="form-input"
+                name="startDate"
+              />
+              <label for="endDate" class="form-label">End Date:</label>
+              <input
+                type="date"
+                id="endDate"
+                class="form-input"
+                name="endDate"
+              />
+              <label for="notes" class="form-label">Notes:</label>
+              <textarea id="notes" class="form-input" name="notes"></textarea>
+            </div>
+          </div>
+          <div class="book-form-actions">
+            <button type="submit" id="submit-book-btn">Submit</button>
+            <button type="button" id="cancel-form-btn">Cancel</button>
+          </div>
+        </div>
+      </form>
+      <div id="insights-layout">
+        <section id="reading-insights" class="reading-insights"></section>
+      </div>
+      <div id="library-layout">
+        <aside id="bookshelf-selector" aria-label="Bookshelves">
+          <!-- This section will display the list of shelves in the library-->
+        </aside>
+        <section id="book-list">
+          <!-- This section will display the list of books on the shelf -->
+        </section>
+      </div>
+    </main>
+  </body>
+  <footer>
+    <div><span>© 2026 Evan Piercy</span></div>
+    <div><span>All Rights Reserved</span></div>
+  </footer>
+</html>

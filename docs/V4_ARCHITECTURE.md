@@ -1,11 +1,11 @@
 # ShelfState V4 Architecture Baseline
 
-**Status:** Approved Architecture Baseline / Pre-Implementation Review  
-**Baseline date:** 2026-09-11  
-**Implementation status:** Production-code implementation not yet authorized  
-**Pre-Code Gate:** **NOT YET CLEARED** — see §33  
-**Primary region:** `us-west-2` (Oregon)  
-**Edge certificate region:** `us-east-1` for CloudFront ACM certificate  
+**Status:** Approved Architecture Baseline / Pre-Code Gate cleared 2026-09-15
+**Baseline date:** 2026-09-14; gate status updated 2026-09-15
+**Implementation status:** Production-code implementation not yet authorized\
+**Pre-Code Gate:** **CLEARED** — implementation planning authorized; implementation remains separately gated
+**Primary region:** `us-west-2` (Oregon)\
+**Edge certificate region:** `us-east-1` for CloudFront ACM certificate
 
 ---
 
@@ -15,20 +15,21 @@ This document is the authoritative implementation baseline for ShelfState V4. It
 
 The authority hierarchy is:
 
-1. **This document** describes the currently approved V4 architecture.
-2. **ADR-001 through ADR-025** preserve the rationale behind material architecture decisions.
-3. **The future V4 implementation plan** must be derived from this baseline.
-4. If implementation reveals a material architectural change, the relevant ADR must be created or amended first, this baseline must then be updated, and only then may implementation adopt the change.
+1. **`docs/V4_ARCHITECTURE.md`** is the authoritative current-state V4 architecture baseline.
+2. **`docs/adr/ADR-001-*.md` through `ADR-025-*.md`** are the authoritative decision history and rationale.
+3. **`docs/V4_REQUIREMENTS.md`** is the authoritative implementation requirements registry.
+4. **`docs/V4_IMPLEMENTATION_PLAN.md`** describes implementation sequencing derived from the three authorities above. It is subordinate to them and does not itself authorize implementation.
+5. If implementation reveals a material architectural change, the relevant ADR must be created or amended first, this baseline and requirements registry must then be updated, and only then may implementation adopt the change.
 
 Code must not silently become the architecture.
 
 This baseline is a synthesis and verification artifact. It does not authorize implementation by itself.
 
-### 1.1 Consolidation caveat
+### 1.1 Requirements governance
 
-The architecture discussion established and approved **196 explicit V4 requirements**. The complete original 196-row requirement ledger is not available in the currently recoverable project context or File Library. This document therefore consolidates the approved requirement **categories and constraints** that were preserved in the project record, and traces the complete named threat/control model and ADR set.
+The architecture discussion referred to a historical 196-item V4 requirements ledger. That ledger is unavailable and cannot be reliably reconstructed. The repository-controlled [`V4_REQUIREMENTS.md`](V4_REQUIREMENTS.md) formally supersedes it for implementation governance; it does **not** claim verbatim or one-to-one equivalence.
 
-The original 196-item ledger must be recovered from the source conversation/export or other retained record and reconciled line by line against this baseline before the Pre-Code Gate may be marked **CLEARED**. This is intentionally recorded as a gate item rather than silently claiming a reconciliation that has not occurred.
+The canonical registry is derived from this baseline, ADR-001 through ADR-025 and their approved amendments, the named assets/trust boundaries/threats/controls, relevant V3 behavior, the first audit, and the 2026-09-14 human adjudications. Pre-Code clearance requires the registry to be complete and independently reviewed, with every material requirement traceable to architecture/control decisions and a planned verification mechanism.
 
 ---
 
@@ -70,7 +71,7 @@ Representative Book fields include:
 - `createdAt`
 - `updatedAt`
 
-Bookshelf identity and default-shelf behavior remain domain concerns rather than datastore coupling.
+Bookshelf identity and default-shelf behavior are server-authoritative domain invariants. Every active library has exactly one explicit default Bookshelf. Its default shelf cannot be deleted through ordinary operations. Shelf names are trimmed and case-insensitively unique within a user's active library. `Book.bookshelfId` is the only membership relationship; no `Bookshelf.bookIds` reverse mirror is permitted. Deleting a non-default shelf is one logical operation that first reassigns all affected Books to the default and then removes the shelf.
 
 ---
 
@@ -138,11 +139,12 @@ V4.0 intentionally does **not** require:
 flowchart TD
     U[Browser / Installed PWA]
     R53[Route 53]
-    CF[CloudFront\nSingle public application origin]
+    CF[CloudFront\nOrdinary static/API application origin]
     S3WEB[Private S3 static site bucket\nOAC only]
     APIGW[API Gateway HTTP API\n/api/v1/*]
     AUTH[Auth / Session Lambda]
-    LIB[Library Lambda]
+    LIB[Library API Lambda]
+    OPS[Library Operations Lambda]
     ADMIN[Admin / Account Lambda]
     LIFE[Account Lifecycle Lambda]
     COG[Cognito User Pool Plus\nManaged Login]
@@ -150,6 +152,7 @@ flowchart TD
     SESS[(Session Table\nDynamoDB)]
     LIBDB[(Library Table\nDynamoDB)]
     XFER[Private S3 Transfer Bucket\nImport / Export]
+    FAIL[SQS asynchronous failure destination]
     SCH[EventBridge Scheduler]
     CW[CloudWatch Logs + Alarms]
     SNS[SNS Email Alerts]
@@ -157,6 +160,9 @@ flowchart TD
     ACM[ACM Certificate\nus-east-1]
 
     U --> R53 --> CF
+    U -->|TB-09 HTTPS authorization / logout| COG
+    COG -->|HTTPS callback| U
+    U -->|TB-10 presigned PUT / GET only| XFER
     ACM --> CF
     CF -->|static| S3WEB
     CF -->|/api/*| APIGW
@@ -170,6 +176,11 @@ flowchart TD
     LIB --> SESS
     LIB --> LIBDB
     LIB --> XFER
+    LIB -->|direct asynchronous invocation| OPS
+    OPS --> IDDB
+    OPS --> LIBDB
+    OPS --> XFER
+    OPS -. exhausted asynchronous event .-> FAIL
     ADMIN --> COG
     ADMIN --> IDDB
     ADMIN --> SESS
@@ -180,6 +191,7 @@ flowchart TD
     LIFE --> LIBDB
     AUTH --> CW
     LIB --> CW
+    OPS --> CW
     ADMIN --> CW
     LIFE --> CW
     CW --> SNS
@@ -189,12 +201,12 @@ flowchart TD
 
 ### 5.1 Normal browser path
 
-The supported browser path is one origin:
+The supported path for ordinary ShelfState application traffic is one origin:
 
 - `/*` → CloudFront → private S3 static origin;
 - `/api/*` → CloudFront → API Gateway HTTP API → Lambda.
 
-The browser sees one application origin. This simplifies session-cookie behavior and avoids unnecessary application CORS complexity.
+The browser sees one ShelfState application origin for static and API traffic. This simplifies session-cookie behavior and avoids unnecessary application API CORS complexity. Two explicit, narrowly bounded cross-origin flows remain: browser navigation to Cognito Managed Login (TB-09) and direct transfer-object access using presigned S3 URLs (TB-10). Neither flow receives the ShelfState session cookie.
 
 The API Gateway default `execute-api` endpoint remains enabled in V4.0 as the CloudFront origin. The backend must remain secure if that endpoint is reached directly; CloudFront traversal is not an authorization boundary.
 
@@ -214,6 +226,7 @@ flowchart LR
     PROD[Production AWS]
     REC[Backup / Recovery Assets]
     EXT[External Services]
+    XFER[Private temporary S3 transfer storage]
 
     B -- TB-01 Client / API --> API
     API -- TB-02 Backend / Persistence --> DATA
@@ -224,6 +237,9 @@ flowchart LR
     B -- TB-07 Public Internet / Edge --> E
     E --> API
     PROD -- TB-08 External Services --> EXT
+    B -- TB-09 Browser / Identity Provider --> IDP
+    B -- TB-10 Browser / Temporary Transfer Storage --> XFER
+    API --> XFER
 ```
 
 Approved trust boundaries:
@@ -236,6 +252,8 @@ Approved trust boundaries:
 - **TB-06:** production / recovery
 - **TB-07:** public internet / edge
 - **TB-08:** external services
+- **TB-09:** browser / identity provider. Browser navigation uses HTTPS and exact allowed redirect/logout URLs. OAuth `state`, PKCE S256, OIDC `nonce`, a transient browser-binding cookie, and a short-lived single-use server transaction bind the callback. Cognito tokens never become browser-JavaScript-accessible, and CSP navigation/connect policy permits only required endpoints.
+- **TB-10:** browser / temporary transfer storage. Presigned URLs are short-lived bearer material limited to one randomized operation-specific key, exact action/method, bounded size, and restricted content type where practical. S3 CORS permits only required V4 origin/methods/headers. There is no listing, general bucket access, browser AWS credential, or ShelfState-cookie authorization. URLs are never logged and uploads remain untrusted until backend validation succeeds.
 
 ---
 
@@ -349,7 +367,13 @@ The identity/account store also maintains account status, role, and session vers
 
 Email address is not the ownership key and does not automatically link identities. Future federation must use explicit verified linking; matching email alone is insufficient.
 
-### 9.3 Just-in-time account provisioning
+### 9.3 OAuth/OIDC login transaction
+
+Each Authorization Code + PKCE attempt creates a short-lived, single-use server-side login transaction. The server generates a cryptographically unpredictable OAuth `state`, PKCE `code_verifier`, `S256` `code_challenge`, OIDC `nonce`, and transient browser-binding value. The server record stores the state, hashed binding value, verifier, nonce, allowlisted intended return path, `createdAt`, `expiresAt`, and status/used marker. The raw binding is carried only in a short-lived `Secure`, `HttpOnly` cookie. An initial lifetime of approximately ten minutes is acceptable.
+
+Before creating an authenticated ShelfState session, the callback must verify that the returned state resolves to a real, unexpired and unused transaction; the browser binding matches; the code exchange succeeds with the stored verifier; the ID token is valid for the configured issuer, client, and lifetime; the nonce matches; and the callback/return destination is explicitly allowed. The transaction is atomically consumed exactly once. Replay fails safely. Tokens and the PKCE verifier are never exposed to browser JavaScript. Server-side expiry is authoritative; DynamoDB TTL is cleanup only.
+
+### 9.4 Just-in-time account provisioning
 
 An invitation does not create a ShelfState account. On first successful authenticated access:
 
@@ -360,7 +384,7 @@ An invitation does not create a ShelfState account. On first successful authenti
 
 The client cannot choose `userId`, role, or ownership partition.
 
-### 9.4 BFF session model
+### 9.5 BFF session model
 
 Cognito tokens are not stored in browser-accessible storage.
 
@@ -377,7 +401,7 @@ Session storage is a dedicated DynamoDB table keyed by random opaque session ID 
 
 Server-side expiry is authoritative; DynamoDB TTL is cleanup only.
 
-### 9.5 Session policy
+### 9.6 Session policy
 
 Initial policy:
 
@@ -397,7 +421,7 @@ Cookie requirements:
 
 Successful login creates a brand-new cryptographically unpredictable session identifier. Pre-authentication state is never elevated in place.
 
-### 9.6 Revocation
+### 9.7 Revocation
 
 Each session carries the account's current `sessionVersion`.
 
@@ -406,7 +430,7 @@ Each session carries the account's current `sessionVersion`.
 - Account disablement also increments `sessionVersion`.
 - Cognito-side token/session revocation is defense in depth, not the sole revocation mechanism.
 
-### 9.7 CSRF
+### 9.8 CSRF
 
 State-changing cookie-authenticated requests require a separate session-bound anti-CSRF token sent in a custom header.
 
@@ -420,7 +444,7 @@ Defense in depth includes:
 
 CSRF tokens are regenerated at session establishment and meaningful security-boundary transitions, not on every request.
 
-### 9.8 Fresh authentication
+### 9.9 Fresh authentication
 
 Recent authentication is required for a narrowly defined sensitive set, including account deletion, identity/email changes, and privileged administrative account-state/role operations. Ordinary library work does not require repeated reauthentication.
 
@@ -464,6 +488,8 @@ Admin privileges are bootstrapped through an explicit controlled administrative/
 
 Routine in-app role management is not provided initially. Role changes are privileged and auditable.
 
+Application role and workload authority are distinct. An `ADMIN` may manage invitations and account lifecycle only through authorized functions and may not routinely browse another user's library. A backend lifecycle or recovery workload may have narrowly scoped technical IAM authority to execute an already-authorized workflow, but that authority is target-bound, condition-checked, and auditable; it is not human ownership or general cross-user browsing authority.
+
 ### 10.4 Audit behavior
 
 Audit:
@@ -499,6 +525,8 @@ Books and shelves share the user's item collection. `Book.bookshelfId` remains t
 
 Avoid secondary indexes unless a concrete server-side query requirement makes one necessary. Search, filtering, grouping, and Insights remain client-side over the bounded loaded library in V4.0.
 
+The backend enforces the Bookshelf invariants in §2.2 on every write, import, migration, and activation. Case-insensitive name uniqueness is checked over the bounded active library; no GSI is introduced solely for this invariant. A non-default shelf delete atomically reassigns affected Books to the default before removing the shelf. It may use an in-place DynamoDB transaction when the complete operation fits safely inside transaction limits; otherwise it uses the generation protocol below.
+
 ### 11.3 Generation model
 
 Large replace/import/structural operations use generations because DynamoDB transaction limits are too small for arbitrary full-library replacement.
@@ -512,32 +540,50 @@ SK = GEN#G8#BOOK#<bookId>
 SK = GEN#G8#SHELF#<shelfId>
 ```
 
-The CONTROL record identifies the active generation.
+The server-managed CONTROL record contains, conceptually:
 
-Read path:
+```text
+activeGeneration
+libraryRevision       # monotonically increasing
+activeOperation       # optional exclusive writer-fence metadata
+```
 
-1. read CONTROL;
-2. query the active generation prefix;
-3. construct the logical library.
+`activeOperation` binds an expiring, recoverable exclusive lease to an `operationId`, source generation, source library revision, ownership/attempt marker, and expiry/recovery metadata. It is correctness state, not a best-effort advisory lock.
+
+Coherent whole-library read/export path:
+
+1. strongly read CONTROL and capture `activeGeneration` plus `libraryRevision`;
+2. query every page of the captured active generation;
+3. strongly read CONTROL again;
+4. accept and construct the logical library only if both captured values are unchanged; otherwise discard and retry or fail safely.
+
+Strongly consistent DynamoDB item reads do not provide multi-item snapshot isolation; the double-CONTROL protocol is the coherence test.
 
 Whole-library replacement:
 
-1. validate proposed state;
-2. stage a complete new generation in bounded writes;
-3. verify staged generation;
-4. atomically switch `activeGeneration`;
-5. retain prior generation for approximately **24 hours** for convenient rollback;
-6. controlled cleanup later.
+1. conditionally acquire the writer fence, bound to operation ID, source generation, and source library revision;
+2. read the stable source state;
+3. validate the proposed state and stage a complete new generation in bounded writes;
+4. verify the staged generation and all server-authoritative invariants;
+5. conditionally activate only while the same operation still owns an unexpired/recovered-valid fence and source generation/revision still match;
+6. atomically switch `activeGeneration`, increment `libraryRevision`, and release the fence;
+7. retain the prior generation for approximately **24 hours** for convenient rollback, followed by controlled cleanup.
+
+While an exclusive generation operation owns the fence, ordinary mutations that could invalidate it fail safely with a stable 409-class conflict. A worker that loses the fence cannot activate. Lease expiry/recovery prevents a dead worker from creating a permanent lock; recovery is conditional and cannot permit two activators.
 
 TTL may be a cleanup safety net but is never correctness logic.
 
 ### 11.4 Entity revisions and concurrency
 
-Mutable Book/Bookshelf entities carry server-managed integer revision/version metadata.
+Mutable Book/Bookshelf entities carry server-managed integer revision/version metadata. Every accepted ordinary mutation executes one atomic transaction that:
 
-Updates/deletes use conditional writes. Stale updates are rejected rather than silently overwriting newer data.
+1. verifies the client's `expectedGeneration` equals CONTROL `activeGeneration`;
+2. verifies no incompatible exclusive `activeOperation` owns the writer fence;
+3. verifies `expectedEntityRevision` when the resource already exists;
+4. modifies the target domain state while preserving all library invariants; and
+5. increments CONTROL `libraryRevision`.
 
-For large operations, activation verifies the expected source generation and relevant revision/state atomically where required.
+The stale-client token is therefore `expectedGeneration + expectedEntityRevision`; entity revision alone is insufficient across generation activation. Creates participate in the generation/fence/library-revision checks even though no prior entity revision exists. Updates/deletes use conditional writes and reject stale state rather than silently overwriting it.
 
 Server timestamps/revisions are authoritative. Client clocks are not used to choose winners.
 
@@ -605,7 +651,8 @@ Provisioned Concurrency is not used initially. Occasional serverless cold-start 
 Initial deployment boundaries are approximately:
 
 - Auth / Session Lambda;
-- Library Lambda;
+- Library API Lambda;
+- Library Operations Lambda for bounded asynchronous work;
 - Admin / Account Lambda;
 - Account Lifecycle Lambda for delayed destructive lifecycle execution.
 
@@ -649,6 +696,36 @@ No GraphQL or generalized RPC framework is introduced initially.
 A version-controlled **OpenAPI specification** is the authoritative external API contract.
 
 Implementation and tests must remain consistent with it. Code generation is optional.
+
+### 13.7 Application idempotency
+
+Operations whose replay can create duplicate resources or duplicate logical side effects require a client-supplied idempotency key. This includes create Book, create Bookshelf, create invitation, import replace/merge, structural/generation operations, whole-library migrations, and future command endpoints with comparable replay risk.
+
+The server scopes the record by authenticated ShelfState `userId`, operation type, and idempotency key and stores a canonical request fingerprint, resource/operation result, status, and created/expiry timestamps for a bounded retry window. Same key plus the same logical request returns or resumes the original result without repeating the side effect. The same key with a materially different request returns `IDEMPOTENCY_CONFLICT`. Server-generated resource IDs are retained. Records do not retain full private request bodies unless strictly necessary. Server-enforced expiry is authoritative; TTL is cleanup only. Naturally idempotent reads and safe resource-addressed updates need no key unless their actual semantics introduce independent replay risk.
+
+### 13.8 Asynchronous operation resources
+
+Potentially long-running work never holds an API Gateway request open. After authentication, authorization, boundary validation, and idempotency handling, the Library API creates an ownership-scoped `Operation` record in `QUEUED`, directly invokes the Library Operations Lambda asynchronously, and returns `202 Accepted` with `operationId` and a status URL. The authenticated owner polls `GET /api/v1/operations/{operationId}` with reasonable backoff; another owner observes the normal indistinguishable 404 response.
+
+The asynchronous invocation contains only a bounded, non-secret operation reference/routing envelope; it contains no import body, token, cookie, presigned URL, or private library content. The worker loads the authoritative owned Operation, conditionally transitions safe states, acquires the generation fence when required, performs bounded work, validates before activation, and records `SUCCEEDED` or a sanitized `FAILED` result. Delivery and execution are idempotent and retry-safe. AWS Lambda asynchronous invocation is the primary dispatcher; Step Functions and SQS are not. A low-volume, access-controlled, bounded-retention SQS queue is allowed only as a durable on-failure destination after Lambda exhausts retries.
+
+This model applies to import, export generation, whole-library schema migration, oversized shelf deletion/reassignment, and other generation rebuilds. Ordinary CRUD stays synchronous. Before production, benchmark maximum supported inputs in the real non-production AWS stack. If workloads cannot finish with substantial margin inside the normal Lambda execution limit, stop for architecture review; do not silently introduce another execution platform.
+
+### 13.9 Derivable initial workflow surface
+
+This is an architecture-level representability check, not an OpenAPI specification or implementation plan. The v1 contract can represent the required workflows without changing architecture:
+
+| Workflow | Contract shape | Execution |
+|---|---|---|
+| Library load | `GET /api/v1/library` | synchronous coherent whole read |
+| Book CRUD / move | `/api/v1/books` and `/api/v1/books/{bookId}` | synchronous; mutation carries generation/entity preconditions |
+| Shelf create/rename/delete | `/api/v1/bookshelves` and `/api/v1/bookshelves/{bookshelfId}` | create/rename synchronous; delete synchronous if bounded, otherwise operation resource |
+| Import/export/migration | explicit command resources under `/api/v1/imports`, `/exports`, `/migrations` | asynchronous `202` operation |
+| Invitation/account administration | admin-scoped invitation/account command resources | synchronous command or accepted lifecycle workflow as specified |
+| Account disable/delete/cancel | account lifecycle command resources | immediate state change; scheduled deletion worker where applicable |
+| Operation status | `GET /api/v1/operations/{operationId}` | synchronous owned status read |
+
+The future version-controlled OpenAPI document must choose exact request/response schemas and route spelling within these boundaries and include stable 409 conflicts for stale generation/entity revision, active writer fence, and idempotency mismatch.
 
 ---
 
@@ -812,6 +889,16 @@ New frontend builds do not forcibly reload active sessions. Supported older clie
 
 A client outside the supported range may receive a stable `CLIENT_UPDATE_REQUIRED` response and must stop unsafe incompatible mutations until updated.
 
+### 16.7 V3/V4 deployment and service-worker isolation
+
+V3.9 and V4 remain in one repository but are independently deployable applications. The frozen V3 root shell, Netlify metadata, and root-scoped service worker belong only to V3. V4 frontend, backend, infrastructure, tests, build artifacts, and release triggers must occupy a clearly separate project/deployment boundary selected during later implementation planning. V4 deploys only to AWS V4 resources; V4-only changes must neither consume a V3 production build nor trigger/alter the Netlify production deployment.
+
+V4 uses a distinct hostname/origin and its own origin-scoped service worker, so an installed V3 worker can never control V4. No in-place service-worker migration is required. Shared code is allowed only where it cannot couple deployments or lifecycle; preserving domain semantics and isolation takes precedence over DRY runtime sharing.
+
+The current repository's Netlify behavior is limited to the root V3 surface (`index.html`, `service-worker.js`, `manifest.webmanifest`, root application assets) and a root `_headers` rule for the manifest content type; no tracked `netlify.toml` or deploy-ignore guard currently isolates future V4 paths. Later implementation planning must therefore define both the separate V4 layout and a Netlify build/ignore configuration that proves V4-only changes cannot publish or trigger V3. This phase does not modify V3.
+
+V4 carries forward the useful V3 PWA lessons—controlled worker lifecycle, no forced reload, release coherence, explicit cache ownership, API/auth bypass of application-shell precache, and safe updates. It does not copy Netlify index canonicalization, V3's current unversioned resource inventory, V3-specific cache policy, or any Netlify-only behavior. AWS/CloudFront caching and service-worker rules are defined independently by ADR-006 and ADR-024.
+
 ---
 
 ## 17. Networking and regional placement
@@ -878,7 +965,7 @@ Exports include portable application data and required logical relationships. Th
 
 ### 18.2 Export consistency
 
-An export binds to the active generation selected at operation start and exports that coherent logical snapshot even if a newer generation becomes active during export.
+An export uses the §11.3 double-CONTROL read. It captures generation plus library revision, reads every page, rereads CONTROL, and accepts the result only if both values remain unchanged. Otherwise it discards and retries or fails safely. It does not claim DynamoDB multi-item snapshot isolation. Export generation runs through the asynchronous operation resource when it may be long-running.
 
 ### 18.3 Import validation
 
@@ -915,9 +1002,9 @@ Import mode is explicit.
 - timestamps do not automatically choose a winner;
 - no field-by-field automatic merge in V4.0.
 
-### 18.5 Idempotency
+### 18.5 Idempotency and operation execution
 
-Import operations have a unique server-recognized operation identity/idempotency key. Retries resume/return the same logical operation and cannot double-activate or duplicate side effects.
+Imports, exports that create transfer artifacts, and migrations follow §13.7 idempotency and §13.8 asynchronous operation-resource rules. Retries resume/return the same logical operation and cannot double-activate or duplicate side effects.
 
 ### 18.6 File transport
 
@@ -946,6 +1033,8 @@ Flow:
 4. fully validate;
 5. use normal generation staging/activation;
 6. replace mode recommended.
+
+The normative schema-by-schema contract is [`V3_EXPORT_COMPATIBILITY.md`](V3_EXPORT_COMPATIBILITY.md). Frozen V3.9 schema version 3 is mandatory. Valid historical Book and Bookshelf IDs, `Book.bookshelfId`, all supported Book data, and `Bookshelf.isDefault` are preserved; IDs never convey authorization. `activeBookshelfId` is UI/client state and is not persisted as cloud-authoritative library data. Legitimately omitted optional properties and historical representations are normalized only by documented deterministic rules. Structural corruption and ambiguous relationships fail with actionable diagnostics; unsupported versions fail with `UNSUPPORTED_IMPORT_VERSION`.
 
 ### 18.8 Persisted schema evolution
 
@@ -1028,10 +1117,10 @@ Use one-time **EventBridge Scheduler** tasks invoking a narrowly scoped Account 
 The schedule is only a trigger. The worker must re-read authoritative account state and delete only when:
 
 - status is still `PENDING_DELETION`;
-- the deletion request is still current;
+- the deletion request/version is still current;
 - `deletionDueAt` has passed.
 
-Deletion execution is idempotent and retry-safe. A stale scheduled event becomes harmless if deletion was canceled.
+It then operates only on resources belonging to that target user, performs the approved deletion workflow, and audits the outcome. Deletion execution is idempotent and retry-safe. A stale scheduled event becomes harmless if deletion was canceled. The workload's narrow technical delete authority does not permit an ADMIN or operator to browse cross-user library content.
 
 ### 19.6 Identity retirement
 
@@ -1181,6 +1270,12 @@ Routine production console changes are prohibited.
 
 Emergency manual changes are permitted only to mitigate an incident and must be documented and reconciled into IaC or reverted promptly.
 
+### 21.9 Human AWS administration
+
+The AWS account root user is break-glass only, protected by MFA, has no access keys, and is never used for routine ShelfState work. Routine human AWS access uses MFA-protected temporary role credentials; IAM Identity Center is preferred where appropriate to the existing account structure, without requiring whole-account restructuring solely for ShelfState absent evidence.
+
+GitHub OIDC is the normal production deployment authority. Human operational access assumes narrowly scoped ShelfState operator/admin roles. Exceptional recovery, backup, Vault Lock, destructive recovery, and account-level authority is separately scoped from routine operations. AWS management activity remains auditable through CloudTrail. Roles, credentials, and permissions are reviewed periodically and unnecessary access is removed. These temporary-role and separation invariants matter more than a particular AWS login UI.
+
 ---
 
 ## 22. Observability, cost controls, and operations
@@ -1317,12 +1412,15 @@ These are screening headroom, not quotas or forecasts.
 | CloudWatch logs + ~5 alarms | $1.00 | $3.00 |
 | AWS Backup | $0.07 | $1.30 |
 | Temporary S3 transfer | $0.09 | $0.90 |
+| Async operation duration + failure destination allowance | $0.01 | $0.05 |
 | Supporting-service reserve | $0.05 | $0.10 |
-| **Total** | **~$2.69/mo** | **~$16.04/mo** |
+| **Total** | **~$2.70/mo** | **~$16.09/mo** |
+
+The added Library Operations Lambda has no idle charge. A conservative Personal delta check of 100 operations/month at 512 MB and five billed seconds each adds 250 GB-seconds, approximately `$0.00417`, plus approximately `$0.00002` for 100 asynchronous request units at published x86 first-tier rates, without using the Lambda free allowance. Short-lived auth, idempotency, and operation records fit within the already modeled DynamoDB request/storage headroom. SQS is an on-failure destination, has no minimum fee, and its expected request cost is well inside the `$0.01` rounded allowance even without counting promotional/free usage. The delta is therefore immaterial to the approved Personal posture; `$0.01` is added for conservatism.
 
 ### 23.4 Cost gates
 
-The Personal architecture is financially approved for initial production use at the conservative modeled **~$2.69/month**.
+The Personal architecture is financially approved for initial production use at the conservative modeled **~$2.70/month**.
 
 After the first complete production billing cycle:
 
@@ -1536,24 +1634,29 @@ Public signup must also remain independently reversible: registration can be cha
 
 ## 29. Requirements consolidation and traceability
 
-The following table consolidates preserved requirement categories. It does **not** renumber or replace the original 196-item ledger; final Pre-Code clearance requires line-by-line reconciliation with that source ledger.
+The normative implementation requirements are the stable-ID entries in [`V4_REQUIREMENTS.md`](V4_REQUIREMENTS.md). That registry formally supersedes the unavailable historical 196-item ledger without claiming equivalence. This table is a navigational summary, not a second requirements authority.
 
 | Requirement theme | Architecture response |
 |---|---|
 | Cloud-authoritative persistence | ADR-001; §§11, 18 |
+| Generation/library concurrency and coherent reads | ADR-001/011/015; §§11.3–11.5, 18.2 |
 | Online-only V4.0; offline future path | §§3, 11.6, 16.6 |
 | Existing Book/Bookshelf model retained | §§2.2, 11.2 |
 | Server-side ownership enforcement | ADR-004; §§9–10 |
 | Internal immutable user identity | ADR-003; §9.2 |
 | Invite-only now, public signup later | ADR-012/023; §§19, 28 |
 | Email auth and future federation | ADR-003; §9 |
-| Revocable bounded sessions | ADR-003/020; §9.4–9.7 |
-| CSRF protection | ADR-020; §9.7 |
+| Bound OAuth login transactions | ADR-003/020; §§6 TB-09, 9.3 |
+| Revocable bounded sessions | ADR-003/020; §9.5–9.8 |
+| CSRF protection | ADR-020; §9.8 |
 | No anonymous cloud libraries | §§9–10, 19 |
 | Complete import/export | ADR-011; §18 |
 | V3 migration without changing V3 | §§2.1, 18.7 |
 | Merge/replace explicit semantics | §18.4 |
 | Safe idempotent import | §18.5 |
+| Replay-safe create and commands | ADR-005/011/018; §13.7 |
+| Asynchronous operation resources | ADR-005/011/015; §13.8 |
+| Server-authoritative shelf invariants | ADR-001/004/015; §§2.2, 11.2 |
 | Flexible/evolving search/Insights | client-side V4.0; §11.2 |
 | Multi-device conflict detection later | revisions/server authority; §§11.4, 11.6 |
 | No silent overwrite | conditional writes; §11.4 |
@@ -1564,6 +1667,7 @@ The following table consolidates preserved requirement categories. It does **not
 | Secrets isolated from client/source | §24 |
 | Least-privilege IAM | §§10, 20.3, 21 |
 | Minimal public exposure | §17 |
+| Explicit browser/IdP and browser/S3 boundaries | ADR-003/006/011/020; §6 TB-09/TB-10 |
 | No unnecessary VPC/NAT complexity | §17.2 |
 | Custom domain/TLS | §16.1 |
 | CSP/security headers | §16.4 |
@@ -1578,6 +1682,7 @@ The following table consolidates preserved requirement categories. It does **not
 | Data minimization/retention/privacy | §25 |
 | Public-signup readiness gate | §28 |
 | PWA retained | §16 |
+| V3/V4 deployment isolation | ADR-006/007/024; §16.7 |
 | Client-neutral backend/OpenAPI | §§13.5–13.6 |
 | No dedicated search/analytics initially | §§3.1, 11.2 |
 | Managed services/minimal dependencies | §§4, 26 |
@@ -1587,10 +1692,10 @@ The following table consolidates preserved requirement categories. It does **not
 | Threat | Primary controls / decisions |
 |---|---|
 | T-01 Authenticated user untrusted | C-12, C-25; ADR-004/019 |
-| T-02 Compromised session | C-02; ADR-003/020 |
+| T-02 Compromised session | C-02, C-15; ADR-003/020; single-use bound login transaction, server-held tokens, opaque rotating/revocable session, fresh auth |
 | T-03 Hostile client | C-12, C-25; ADR-004/019 |
 | T-04 XSS | C-05; ADR-006/019 |
-| T-05 CSRF | C-15; ADR-020 |
+| T-05 CSRF | C-02, C-15; ADR-003/020; binding cookie, OAuth state, session-bound anti-CSRF header, origin/method checks |
 | T-06 BOLA/IDOR | C-01; ADR-004/001 |
 | T-07 BFLA | C-10; ADR-004/012 |
 | T-08 Credential abuse | C-13; ADR-003/023 |
@@ -1599,9 +1704,9 @@ The following table consolidates preserved requirement categories. It does **not
 | T-11 Cost/resource exhaustion | C-06; ADR-005/019/021 |
 | T-12 Supply chain | C-22; ADR-016 |
 | T-13 CI/CD compromise | C-07; ADR-007 |
-| T-14 AWS admin compromise | C-21; ADR-007/009 |
+| T-14 AWS admin compromise | C-07, C-08, C-21; ADR-007/009; break-glass root, MFA, temporary scoped roles, separated recovery authority, CloudTrail review |
 | T-15 Misconfiguration exposure | C-04, C-20; ADR-006/007/014 |
-| T-16 Data corruption/loss | C-03; ADR-001/009/015 |
+| T-16 Data corruption/loss | C-03, C-16, C-17; ADR-001/009/011/015; revision/fence protocol, validation, retained generation, PITR/locked backups and drills |
 | T-17 Accidental destructive action | C-16; ADR-012/011 |
 | T-18 Backup compromise | C-08; ADR-009 |
 | T-19 Log leakage | C-14; ADR-008/018/022 |
@@ -1609,7 +1714,7 @@ The following table consolidates preserved requirement categories. It does **not
 | T-21 DNS/TLS misconfiguration | C-20; ADR-006/013 |
 | T-22 Identity-provider failure | C-18; ADR-003/009 |
 | T-23 Export abuse | C-23; ADR-011/022 |
-| T-24 Replay/duplicate writes | C-17; ADR-011/015 |
+| T-24 Replay/duplicate writes | C-17; ADR-005/011/015/018; scoped fingerprinted idempotency record and retry-safe operation state machine |
 | T-25 Stale/incompatible client | C-24; ADR-024 |
 
 ---
@@ -1618,31 +1723,31 @@ The following table consolidates preserved requirement categories. It does **not
 
 | ADR | Decision | Status |
 |---|---|---|
-| ADR-001 | Primary datastore: DynamoDB Standard, On-Demand, generation-based user partitions | CLOSED / APPROVED |
-| ADR-002 | Relational implementation choice if relational datastore selected | N/A — closed by ADR-001 DynamoDB selection |
-| ADR-003 | Cognito Plus, Managed Login, Authorization Code + PKCE, BFF opaque sessions, internal ShelfState userId | CLOSED / APPROVED |
-| ADR-004 | Centralized server-side authorization, owner-scoped persistence, USER/ADMIN only, no Verified Permissions | CLOSED / APPROVED |
-| ADR-005 | API Gateway HTTP API + capability-aligned Lambda functions in Node.js/JavaScript | CLOSED / APPROVED |
-| ADR-006 | Private S3 + CloudFront/OAC, single origin, PWA cache/security policy, WAF deferred | CLOSED / APPROVED |
-| ADR-007 | CDK v2 JavaScript, GitHub Actions OIDC, deliberate production release and rollback | CLOSED / APPROVED |
-| ADR-008 | CloudWatch structured logs + minimal alarms; SNS email; no custom dashboard initially; no X-Ray | CLOSED / APPROVED, amended during ADR-021 |
-| ADR-009 | PITR + AWS Backup/Governance Vault Lock + tested DR/runbook | CLOSED / APPROVED |
-| ADR-010 | Minimize secrets; IAM first; SSM/config for non-secrets; Secrets Manager only when needed | CLOSED / APPROVED |
-| ADR-011 | Versioned logical import/export, explicit merge/replace, V3 compatibility importer, S3 transfer staging | CLOSED / APPROVED |
-| ADR-012 | Invitation/onboarding, reversible disablement, grace-period account deletion | CLOSED / APPROVED |
-| ADR-013 | `us-west-2` primary region for dev/prod; service-specific edge exceptions only | CLOSED / APPROVED |
-| ADR-014 | No customer-managed VPC; CloudFront normal entry path; direct API endpoint security-independent | CLOSED / APPROVED |
-| ADR-015 | Explicit schema versions; backward-compatible evolution; generation-based whole-library migrations | CLOSED / APPROVED |
-| ADR-016 | Dependency minimization, lockfiles, pinned Actions, vulnerability release gate | CLOSED / APPROVED |
-| ADR-017 | Layered tests, real AWS integration, OpenAPI verification, production smoke tests | CLOSED / APPROVED |
-| ADR-018 | Sanitized stable HTTP/API error contract | CLOSED / APPROVED |
-| ADR-019 | Server-side schema validation and explicit resource limits | CLOSED / APPROVED |
-| ADR-020 | Secure opaque sessions, explicit CSRF, fresh-auth and session rotation rules | CLOSED / APPROVED |
-| ADR-021 | Conservative AWS cost model and scale-up cost gate | CLOSED / APPROVED |
-| ADR-022 | Data minimization, classification, retention, privacy policy | CLOSED / APPROVED |
-| ADR-023 | Explicit public-signup readiness gate and server-side kill switch | CLOSED / APPROVED |
-| ADR-024 | Rolling PWA/API client compatibility and controlled update behavior | CLOSED / APPROVED |
-| ADR-025 | Opaque immutable IDs; new V4 resources use backend-generated UUID v4 | CLOSED / APPROVED |
+| [ADR-001](adr/ADR-001-primary-datastore.md) | Primary datastore: DynamoDB Standard, On-Demand, generation-based user partitions | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-002](adr/ADR-002-relational-datastore.md) | Relational implementation choice if relational datastore selected | N/A — superseded by ADR-001 DynamoDB selection |
+| [ADR-003](adr/ADR-003-identity-authentication-sessions.md) | Cognito Plus, Managed Login, Authorization Code + PKCE, BFF opaque sessions, internal ShelfState userId | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-004](adr/ADR-004-authorization-ownership.md) | Centralized server-side authorization, owner-scoped persistence, USER/ADMIN only, no Verified Permissions | CLOSED / APPROVED; clarified 2026-09-14 |
+| [ADR-005](adr/ADR-005-api-backend-compute.md) | API Gateway HTTP API + capability-aligned synchronous/asynchronous Lambda functions in Node.js/JavaScript | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-006](adr/ADR-006-frontend-edge-hosting.md) | Private S3 + CloudFront/OAC, ordinary-traffic single origin, PWA cache/security and isolation policy, WAF deferred | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-007](adr/ADR-007-iac-delivery.md) | CDK v2 JavaScript, GitHub Actions OIDC, hardened human AWS access, deliberate releases | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-008](adr/ADR-008-observability.md) | CloudWatch structured logs + minimal alarms; SNS email; custom dashboard deferred; no X-Ray | CLOSED / APPROVED; amended by ADR-021 |
+| [ADR-009](adr/ADR-009-backup-disaster-recovery.md) | PITR + AWS Backup/Governance Vault Lock + tested DR/runbook + separated recovery authority | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-010](adr/ADR-010-secrets-configuration.md) | Minimize secrets; IAM first; SSM/config for non-secrets; Secrets Manager only when needed | CLOSED / APPROVED |
+| [ADR-011](adr/ADR-011-import-export-migration.md) | Versioned import/export, V3 compatibility, transfer staging, async operations and concurrency | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-012](adr/ADR-012-account-lifecycle.md) | Invitation/onboarding, disablement, grace-period deletion, narrow worker authority | CLOSED / APPROVED; clarified 2026-09-14 |
+| [ADR-013](adr/ADR-013-regional-placement.md) | `us-west-2` primary region for dev/prod; service-specific edge exceptions only | CLOSED / APPROVED |
+| [ADR-014](adr/ADR-014-networking-exposure.md) | No customer-managed VPC; CloudFront normal path; direct endpoint independently secure | CLOSED / APPROVED |
+| [ADR-015](adr/ADR-015-schema-evolution.md) | Schema versions, generation-based migrations, shelf invariants and writer-fence concurrency | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-016](adr/ADR-016-supply-chain.md) | Dependency minimization, lockfiles, pinned Actions, vulnerability release gate | CLOSED / APPROVED |
+| [ADR-017](adr/ADR-017-testing-release-verification.md) | Layered tests, real AWS integration, OpenAPI verification, production smoke tests | CLOSED / APPROVED |
+| [ADR-018](adr/ADR-018-error-contract.md) | Sanitized stable HTTP/API errors and idempotency-conflict semantics | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-019](adr/ADR-019-validation-resource-bounds.md) | Server-side schema validation and explicit resource limits | CLOSED / APPROVED |
+| [ADR-020](adr/ADR-020-session-csrf.md) | Bound single-use login transaction, opaque sessions, CSRF, fresh auth and rotation | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-021](adr/ADR-021-cost-model.md) | Conservative AWS cost model and scale-up cost gate | CLOSED / APPROVED; revalidated 2026-09-14 |
+| [ADR-022](adr/ADR-022-privacy-retention.md) | Data minimization, classification, retention, privacy policy | CLOSED / APPROVED |
+| [ADR-023](adr/ADR-023-public-signup.md) | Explicit public-signup readiness gate and server-side kill switch | CLOSED / APPROVED |
+| [ADR-024](adr/ADR-024-pwa-client-compatibility.md) | Rolling PWA/API compatibility, safe updates, and V3/V4 service-worker isolation | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-025](adr/ADR-025-identifiers.md) | Opaque immutable IDs; new V4 resources use backend-generated UUID v4 | CLOSED / APPROVED |
 
 ---
 
@@ -1675,98 +1780,9 @@ The following table consolidates preserved requirement categories. It does **not
 
 ---
 
-## 32. Implementation sequencing
+## 32. Implementation-planning boundary
 
-Implementation should proceed in vertical, testable increments. This is architectural sequencing, not the final issue/task breakdown.
-
-### Increment 1 — Repository and IaC foundation
-
-- CDK v2 JavaScript structure;
-- dev/prod configuration boundaries;
-- GitHub Actions validation;
-- OIDC deployment roles;
-- production release guardrails.
-
-### Increment 2 — Identity/session foundation
-
-- Cognito Plus / Managed Login;
-- internal userId/IdentityMap;
-- BFF callback/token handling;
-- session table;
-- secure cookie policy;
-- CSRF;
-- account ACTIVE/sessionVersion checks.
-
-### Increment 3 — Persistence foundation
-
-- DynamoDB library table;
-- CONTROL and generation model;
-- owner-scoped data-access layer;
-- revisions/conditional writes;
-- core repository/domain boundaries.
-
-### Increment 4 — Core library API
-
-- OpenAPI baseline;
-- library load;
-- Book CRUD;
-- Bookshelf CRUD;
-- authorization/error/validation contracts;
-- integration tests against real non-prod AWS.
-
-### Increment 5 — V4 frontend shell
-
-- S3/CloudFront hosting;
-- same-origin `/api/*` routing;
-- authentication integration;
-- basic cloud library UI;
-- PWA caching/update behavior;
-- security headers.
-
-### Increment 6 — Generation operations
-
-- replace/merge imports;
-- logical exports;
-- transfer bucket/presigned URLs;
-- idempotency;
-- large structural operations;
-- migration framework.
-
-### Increment 7 — Account administration/lifecycle
-
-- invitations;
-- admin account controls;
-- disable/re-enable;
-- deletion request/cancel;
-- EventBridge Scheduler lifecycle execution;
-- audit events.
-
-### Increment 8 — Operational hardening
-
-- CloudWatch structured logging;
-- ~5 actionable alarms + SNS email;
-- AWS Budgets;
-- PITR;
-- AWS Backup vault/policy;
-- retention/lifecycle rules;
-- reserved concurrency/resource limits;
-- supply-chain gates.
-
-### Increment 9 — Migration and production verification
-
-- V3 compatibility importer;
-- recovery drill;
-- DR runbook verification;
-- complete non-prod E2E;
-- production smoke suite;
-- final cost check.
-
-### Increment 10 — Production acceptance
-
-- Pre-Code-derived acceptance verification;
-- deliberate production release;
-- post-deploy smoke verification;
-- cost/operations observation.
+The Pre-Code Gate was explicitly cleared on 2026-09-15 and creation of `docs/V4_IMPLEMENTATION_PLAN.md` was authorized. The plan may derive work packages, dependencies, acceptance criteria, and sequencing from this architecture, the ADR set, and the requirements registry. Planning must not change an architecture decision implicitly. Production implementation and AWS changes remain separately unauthorized.
 
 ---
 
@@ -1777,29 +1793,31 @@ Production-code implementation must not begin until this gate is explicitly revi
 ### 33.1 Gate checklist
 
 - [x] Architecture discovery completed through ADR-025.
-- [x] Consolidated runtime architecture documented.
-- [x] Trust boundaries, assets, threats, and controls documented.
-- [x] Primary datastore and logical key/generation model documented sufficiently for implementation planning.
+- [x] Current consolidated architecture baseline is complete.
+- [x] ADR-001 through ADR-025 are reconstructed and independently reviewed.
+- [x] Canonical `V4_REQUIREMENTS.md` is complete and an independent requirements-completeness pass is recorded in the second audit.
+- [x] Runtime architecture and trust boundaries TB-01 through TB-10 are documented.
+- [x] Assets, T-01 through T-25, and their sufficient controls are documented and traced.
+- [x] Generation, library-revision, writer-fence, and coherent whole-read protocol is fully represented.
 - [x] Identity/session/authorization boundaries documented.
-- [x] API/backend and frontend/edge boundaries documented.
-- [x] Dev/prod and deployment authority model documented.
+- [x] OAuth single-use login-transaction contract is represented.
+- [x] API/backend synchronous and asynchronous operation boundaries are represented.
+- [x] V3 schema compatibility matrix is complete enough for implementation; mandatory schema 3 and deterministic schema 1/2 policy are explicit.
+- [x] V3/V4 build, deployment, origin, and service-worker isolation is represented.
+- [x] Human AWS administration and deployment authority model is represented.
 - [x] Backup/recovery architecture documented.
-- [x] Cost model approved for Personal launch.
+- [x] Cost model revalidated for the added resources and remains within Personal posture.
 - [x] Deferred decisions separated from V4.0 requirements.
-- [x] Implementation sequencing established.
-- [ ] **Recover and reconcile the original 196-item requirement ledger line by line against this baseline.**
-- [ ] Perform an independent contradiction/completeness review of this consolidated baseline against the approved ADR record.
-- [ ] Confirm no material requirement/threat is left without a documented architectural control.
-- [ ] Derive the initial OpenAPI contract sufficiently to confirm approved routes/workflows are representable without architecture change.
-- [ ] Produce implementation work packages from §32 with explicit acceptance criteria and dependency order.
-- [ ] Revalidate current AWS service constraints/pricing immediately before implementation begins where they affect architecture/cost.
-- [ ] Explicit human approval to mark the V4 Pre-Code Gate **CLEARED**.
+- [x] Initial OpenAPI surface is derivable enough to prove approved workflows representable without architecture change (§13.9).
+- [x] A fresh independent contradiction/completeness review is recorded in `V4_ARCHITECTURE_AUDIT_2.md`.
+- [x] Implementation work packages are explicitly deferred until human approval authorizes planning.
+- [x] Explicit human approval to mark the V4 Pre-Code Gate **CLEARED** (received 2026-09-15).
 
 ### 33.2 Current gate result
 
-**NOT CLEARED.**
+**CLEARED on 2026-09-15.**
 
-The architecture decisions are approved, but consolidation review is not complete until the remaining checklist items—especially the original requirement-ledger reconciliation—are completed.
+The human approval authorizes implementation planning only. It does not authorize production implementation, V3 changes, or AWS resource creation.
 
 ---
 
@@ -1808,6 +1826,9 @@ The architecture decisions are approved, but consolidation review is not complet
 These references support service behavior and pricing assumptions that were material to the architecture discussion. Pricing and service capabilities must be revalidated before implementation and again before public-signup expansion.
 
 - AWS Lambda Pricing — https://aws.amazon.com/lambda/pricing/
+- AWS Lambda asynchronous invocation/error handling — https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-error-handling.html
+- AWS Lambda asynchronous invocation destinations — https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html
+- Amazon SQS Pricing — https://aws.amazon.com/sqs/pricing/
 - Amazon API Gateway Pricing — https://aws.amazon.com/api-gateway/pricing/
 - API Gateway: Choose between REST APIs and HTTP APIs — https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html
 - Amazon DynamoDB Pricing — https://aws.amazon.com/dynamodb/pricing/
@@ -1832,7 +1853,7 @@ These references support service behavior and pricing assumptions that were mate
 
 This document is not frozen forever, but changes are controlled.
 
-A change requires ADR/baseline review when it materially alters any of the following:
+A change requires ADR, baseline, and requirements-registry review when it materially alters any of the following:
 
 - trust boundary;
 - identity/authorization model;
@@ -1854,6 +1875,6 @@ Routine implementation details that remain inside these boundaries do not requir
 
 ShelfState V4 is architected as a low-idle-cost, single-region, serverless AWS application with a vanilla-JavaScript PWA, CloudFront/private-S3 edge, API Gateway HTTP API, capability-aligned Lambda backend, Cognito Plus authentication with server-held BFF sessions, DynamoDB authoritative persistence, strict server-side ownership enforcement, generation-based atomic large mutations, controlled migration/import/export, layered recovery, reproducible CDK infrastructure, and deliberate production releases.
 
-The architecture is financially approved for Personal launch under the conservative **~$2.69/month** model. Public signup, offline synchronization, WAF, multi-region operation, richer observability, and other complexity remain intentionally deferred behind explicit reconsideration gates.
+The architecture is financially approved for Personal launch under the conservative **~$2.70/month** model. Public signup, offline synchronization, WAF, multi-region operation, richer observability, and other complexity remain intentionally deferred behind explicit reconsideration gates.
 
-The architecture discovery phase is complete. The next phase is **consolidation verification and Pre-Code Gate clearance**, not implementation.
+The architecture discovery, independent consolidation review, and Pre-Code Gate approval are complete. The authorized implementation plan now exists at `docs/V4_IMPLEMENTATION_PLAN.md` and awaits human review. Production implementation remains separately gated.

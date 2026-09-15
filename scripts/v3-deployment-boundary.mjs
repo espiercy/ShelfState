@@ -6,6 +6,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const V3_PUBLISH_DIRECTORY = "v3-dist";
 export const V4_PATH_PREFIX = "v4/";
+export const V4_OWNED_DOCUMENT_PATHS = Object.freeze([
+  "docs/V3_EXPORT_COMPATIBILITY.md",
+  "docs/V3_V4_REPOSITORY_BOUNDARY.md",
+]);
 export const V3_PUBLISH_ENTRIES = Object.freeze([
   "_headers",
   "icons",
@@ -29,7 +33,13 @@ function normalizeRepositoryPath(value) {
 
 export function isV4OwnedPath(value) {
   const normalized = normalizeRepositoryPath(value);
-  return normalized === "v4" || normalized.startsWith(V4_PATH_PREFIX);
+  return (
+    normalized === "v4" ||
+    normalized.startsWith(V4_PATH_PREFIX) ||
+    /^docs\/V4_[^/]+\.md$/.test(normalized) ||
+    normalized.startsWith("docs/adr/") ||
+    V4_OWNED_DOCUMENT_PATHS.includes(normalized)
+  );
 }
 
 export function shouldBuildV3(changedPaths) {
@@ -125,7 +135,10 @@ export async function buildV3PublishArtifact(rootDirectory = repositoryRoot) {
   return { outputDirectory, publishedFiles };
 }
 
-export function changedPathsFromGit(environment = process.env) {
+export function changedPathsFromGit(
+  environment = process.env,
+  rootDirectory = repositoryRoot,
+) {
   const base = environment.CACHED_COMMIT_REF;
   const head = environment.COMMIT_REF;
 
@@ -135,8 +148,17 @@ export function changedPathsFromGit(environment = process.env) {
 
   const result = spawnSync(
     "git",
-    ["diff", "--name-only", "--diff-filter=ACDMRTUXB", base, head, "--"],
-    { cwd: repositoryRoot, encoding: "utf8" },
+    [
+      "diff",
+      "--name-only",
+      "--no-renames",
+      "-z",
+      "--diff-filter=ACDMRTUXB",
+      base,
+      head,
+      "--",
+    ],
+    { cwd: rootDirectory, encoding: "utf8" },
   );
 
   if (result.status !== 0) {
@@ -146,14 +168,16 @@ export function changedPathsFromGit(environment = process.env) {
   return {
     reliable: true,
     paths: result.stdout
-      .split(/\r?\n/)
-      .map((entry) => entry.trim())
+      .split("\0")
       .filter(Boolean),
   };
 }
 
-export function netlifyIgnoreDecision(environment = process.env) {
-  const changed = changedPathsFromGit(environment);
+export function netlifyIgnoreDecision(
+  environment = process.env,
+  rootDirectory = repositoryRoot,
+) {
+  const changed = changedPathsFromGit(environment, rootDirectory);
 
   if (!changed.reliable) {
     return {
@@ -168,7 +192,7 @@ export function netlifyIgnoreDecision(environment = process.env) {
     exitCode: buildRequired ? 1 : 0,
     message: buildRequired
       ? "V3 build required: the change set includes V3-owned or shared paths."
-      : `V3 build skipped: all ${changed.paths.length} changed paths are owned by v4/.`,
+      : `V3 build skipped: all ${changed.paths.length} changed paths are V4-owned.`,
     paths: changed.paths,
   };
 }

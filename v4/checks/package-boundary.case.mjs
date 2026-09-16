@@ -45,10 +45,63 @@ async function listJavaScriptFiles(rootDirectory) {
 
 function importSpecifiers(source) {
   const specifiers = [];
-  const pattern = /(?:\bfrom\s*|\bimport\s*\(\s*)["']([^"']+)["']/g;
+  const pattern =
+    /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)["']([^"']+)["']/g;
   for (const match of source.matchAll(pattern)) specifiers.push(match[1]);
   return specifiers;
 }
+
+function relativeImportEscapesPackage(file, specifier) {
+  if (!specifier.startsWith(".")) return false;
+  const target = path.resolve(path.dirname(file), specifier);
+  const relative = path.relative(packageRoot, target);
+  return relative === ".." || relative.startsWith(`..${path.sep}`);
+}
+
+test("scanner rejects an escaping static side-effect import", () => {
+  const file = path.join(packageRoot, "frontend", "example.mjs");
+  const specifiers = importSpecifiers('import "../../src/example.js";');
+
+  assert.deepEqual(specifiers, ["../../src/example.js"]);
+  assert.equal(relativeImportEscapesPackage(file, specifiers[0]), true);
+});
+
+test("scanner permits an in-package static side-effect import", () => {
+  const file = path.join(packageRoot, "frontend", "example.mjs");
+  const specifiers = importSpecifiers('import "./local-side-effect.js";');
+
+  assert.deepEqual(specifiers, ["./local-side-effect.js"]);
+  assert.equal(relativeImportEscapesPackage(file, specifiers[0]), false);
+});
+
+test("scanner retains import-from and re-export-from coverage", () => {
+  const file = path.join(packageRoot, "frontend", "example.mjs");
+  const specifiers = importSpecifiers(`
+    import value from "../../src/imported.js";
+    export { value } from "../../src/re-exported.js";
+  `);
+
+  assert.deepEqual(specifiers, [
+    "../../src/imported.js",
+    "../../src/re-exported.js",
+  ]);
+  assert.equal(
+    specifiers.every((specifier) =>
+      relativeImportEscapesPackage(file, specifier),
+    ),
+    true,
+  );
+});
+
+test("scanner retains literal dynamic-import coverage", () => {
+  const file = path.join(packageRoot, "frontend", "example.mjs");
+  const specifiers = importSpecifiers(
+    'const module = await import("../../src/dynamic.js");',
+  );
+
+  assert.deepEqual(specifiers, ["../../src/dynamic.js"]);
+  assert.equal(relativeImportEscapesPackage(file, specifiers[0]), true);
+});
 
 test("V4 owns an explicit package and logical project boundary", async () => {
   assert.equal((await stat(packageRoot)).isDirectory(), true);
@@ -105,11 +158,8 @@ test("V4 production tooling has no root or V3 code imports", async () => {
           false,
           `${path.relative(packageRoot, file)} imports a V3 package: ${specifier}`,
         );
-        if (!specifier.startsWith(".")) continue;
-        const target = path.resolve(path.dirname(file), specifier);
-        const relative = path.relative(packageRoot, target);
         assert.equal(
-          relative === ".." || relative.startsWith(`..${path.sep}`),
+          relativeImportEscapesPackage(file, specifier),
           false,
           `${path.relative(packageRoot, file)} imports outside the V4 package: ${specifier}`,
         );

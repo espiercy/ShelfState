@@ -95,10 +95,17 @@ export function assertStatefulResourceSafeguards(
 
       if (
         environmentName === "prod" &&
-        resource.Type === "AWS::Backup::BackupVault" &&
-        !resource.Properties?.LockConfiguration
+        resource.Type === "AWS::Backup::BackupVault"
       ) {
-        throw new Error(`${logicalId} must declare backup vault lock configuration.`);
+        const lockConfiguration = resource.Properties?.LockConfiguration;
+        if (!lockConfiguration) {
+          throw new Error(`${logicalId} must declare backup vault lock configuration.`);
+        }
+        if (Object.hasOwn(lockConfiguration, "ChangeableForDays")) {
+          throw new Error(
+            `${logicalId} must use Governance Vault Lock; ChangeableForDays must be absent (Compliance mode is not approved).`,
+          );
+        }
       }
       continue;
     }

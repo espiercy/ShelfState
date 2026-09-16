@@ -299,6 +299,46 @@ test("stateful-resource guard requires explicit, environment-safe protection", (
   );
 });
 
+test("retained production backup vault requires Governance Vault Lock and retention", () => {
+  const vault = (resource) => ({ Resources: { BackupVault: resource } });
+  const governanceVault = retainedResource("AWS::Backup::BackupVault", {
+    LockConfiguration: { MinRetentionDays: 1 },
+  });
+
+  assert.doesNotThrow(() =>
+    assertStatefulResourceSafeguards(vault(governanceVault), "prod"),
+  );
+  assert.throws(
+    () =>
+      assertStatefulResourceSafeguards(
+        vault(retainedResource("AWS::Backup::BackupVault")),
+        "prod",
+      ),
+    /must declare backup vault lock configuration/,
+  );
+  assert.throws(
+    () =>
+      assertStatefulResourceSafeguards(
+        vault(
+          retainedResource("AWS::Backup::BackupVault", {
+            LockConfiguration: { ChangeableForDays: 3, MinRetentionDays: 1 },
+          }),
+        ),
+        "prod",
+      ),
+    /Governance Vault Lock; ChangeableForDays must be absent.*Compliance mode/,
+  );
+
+  for (const policy of ["DeletionPolicy", "UpdateReplacePolicy"]) {
+    const unprotectedVault = structuredClone(governanceVault);
+    delete unprotectedVault[policy];
+    assert.throws(
+      () => assertStatefulResourceSafeguards(vault(unprotectedVault), "prod"),
+      /lacks Retain deletion and update-replace policies/,
+    );
+  }
+});
+
 test("CDK entry and outputs stay within V4 and contain no credentials", async () => {
   const cdkConfig = JSON.parse(
     await readFile(path.join(packageRoot, "cdk.json"), "utf8"),

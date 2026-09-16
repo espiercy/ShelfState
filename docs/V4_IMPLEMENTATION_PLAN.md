@@ -7,7 +7,7 @@
 - **Plan revision:** 1.0
 - **Plan date:** 2026-09-15
 - **Architecture baseline used:** `docs/V4_ARCHITECTURE.md`, baseline 2026-09-14; Pre-Code Gate cleared 2026-09-15
-- **Requirements registry used:** `docs/V4_REQUIREMENTS.md`, independently reviewed 2026-09-14; 172 current requirements (166 MUST, 4 SHOULD, 2 MAY); SHA-256 `333E993E64D6F881667D8B2DBF9308658BDB7B24D24BA7B29869A9CB309A96AE`
+- **Requirements registry used:** `docs/V4_REQUIREMENTS.md`, independently reviewed 2026-09-14; 172 current requirements (166 MUST, 4 SHOULD, 2 MAY); SHA-256 `E937E112102C9EED41421D938D4477341AAC0400040EAA7721928A036FFA07EA`
 - **ADR set used:** ADR-001 through ADR-025, including 2026-09-14 amendments
 - **Compatibility contract used:** `docs/V3_EXPORT_COMPATIBILITY.md`
 - **Independent review used:** `docs/V4_ARCHITECTURE_AUDIT_2.md`

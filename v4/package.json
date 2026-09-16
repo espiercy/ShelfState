@@ -12,7 +12,19 @@
     "check:runtime": "node scripts/check-runtime.mjs",
     "test": "npm run check:runtime && node --test checks/package-boundary.case.mjs",
     "test:contract": "npm run check:runtime && node --test checks/contract-reservation.case.mjs",
+    "infra:test": "npm run check:runtime && node --test checks/infrastructure.case.mjs",
+    "infra:synth:dev": "npm run check:runtime && cdk synth --quiet --context shelfstateEnvironment=dev --output cdk.out/dev",
+    "infra:synth:prod": "npm run check:runtime && cdk synth --quiet --context shelfstateEnvironment=prod --output cdk.out/prod",
+    "infra:synth": "npm run infra:synth:dev && npm run infra:synth:prod",
+    "infra:preview": "npm run check:runtime && node infrastructure/scripts/preview.mjs",
     "build": "npm run check:runtime && node scripts/build.mjs",
-    "verify": "npm test && npm run test:contract && npm run build"
+    "verify": "npm test && npm run test:contract && npm run infra:test && npm run infra:synth && npm run infra:preview && npm run build"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.269.0",
+    "constructs": "10.8.1"
+  },
+  "devDependencies": {
+    "aws-cdk": "2.1141.0"
   }
 }

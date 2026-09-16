@@ -114,7 +114,7 @@ test("V4 owns an explicit package and logical project boundary", async () => {
   }
 });
 
-test("package metadata and lockfile are dependency-free and deterministic", async () => {
+test("package metadata and lockfile pin only the authorized dependencies", async () => {
   const packageMetadata = JSON.parse(
     await readFile(path.join(packageRoot, "package.json"), "utf8"),
   );
@@ -126,10 +126,17 @@ test("package metadata and lockfile are dependency-free and deterministic", asyn
   assert.equal(packageMetadata.packageManager, "npm@11.6.2");
   assert.equal(packageMetadata.engines.node, ">=24.11.0 <25");
   assert.equal(packageMetadata.engines.npm, "11.6.2");
-  assert.deepEqual(packageMetadata.dependencies ?? {}, {});
-  assert.deepEqual(packageMetadata.devDependencies ?? {}, {});
+  assert.deepEqual(packageMetadata.dependencies, {
+    "aws-cdk-lib": "2.269.0",
+    constructs: "10.8.1",
+  });
+  assert.deepEqual(packageMetadata.devDependencies, {
+    "aws-cdk": "2.1141.0",
+  });
   assert.equal(lockfile.lockfileVersion, 3);
-  assert.deepEqual(Object.keys(lockfile.packages), [""]);
+  assert.equal(lockfile.packages[""].dependencies["aws-cdk-lib"], "2.269.0");
+  assert.equal(lockfile.packages[""].dependencies.constructs, "10.8.1");
+  assert.equal(lockfile.packages[""].devDependencies["aws-cdk"], "2.1141.0");
 });
 
 test("runtime baseline is the pinned Node.js 24 LTS line", () => {

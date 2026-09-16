@@ -1,0 +1,7 @@
+{
+  "app": "node infrastructure/bin/app.mjs",
+  "versionReporting": false,
+  "context": {
+    "@aws-cdk/core:newStyleStackSynthesis": true
+  }
+}

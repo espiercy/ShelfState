@@ -1,0 +1,68 @@
+name: ShelfState validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  repository-v3:
+    name: V3 and repository boundary
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout without retained credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use approved Node line
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: v4/.nvmrc
+          package-manager-cache: false
+      - name: Check tracked files for obvious credentials
+        run: node scripts/check-ci-secrets.mjs
+      - name: Run V3 and repository tests
+        run: node --test
+      - name: Recheck WP-001 deployment isolation
+        run: node --test test/deployment/v3-v4-isolation.test.js
+      - name: Rebuild frozen V3 publish artifact
+        run: node scripts/v3-deployment-boundary.mjs build
+
+  v4-validation:
+    name: V4 install and verification
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: v4
+    steps:
+      - name: Checkout without retained credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use approved Node line
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: v4/.nvmrc
+          package-manager-cache: false
+      - name: Establish exact npm version
+        run: |
+          npm install --global npm@11.6.2
+          test "$(npm --version)" = "11.6.2"
+      - name: Require credential-free validation
+        run: |
+          test -z "${AWS_ACCESS_KEY_ID:-}"
+          test -z "${AWS_SECRET_ACCESS_KEY:-}"
+          test -z "${AWS_SESSION_TOKEN:-}"
+          test -z "${AWS_PROFILE:-}"
+          test -z "${CDK_DEFAULT_ACCOUNT:-}"
+      - name: Install the committed V4 dependency graph
+        run: npm ci
+      - name: Block high and critical dependency advisories
+        run: npm audit --audit-level=high
+      - name: Verify registry signatures and available provenance
+        run: npm audit signatures
+      - name: Verify V4 package, contracts, CDK synth, and preview
+        run: npm run verify

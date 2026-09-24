@@ -1,13 +1,14 @@
 # ShelfState V4 AWS human-access checkpoint
 
-Status: **WP-005B DESIGN COMPLETE / AWS MUTATION NOT AUTHORIZED**
+Status: **WP-005C1 REMEDIATION COMPLETE — READY FOR FINAL REVIEW / WP-005C2 ON HOLD**
 
 - Assessment date: 2026-09-21
 - Repository baseline: `532be5c240ac62dd4fdb51cde491baba4540edb6`
 - AWS evidence window: 2026-06-23 through 2026-09-21, limited by CloudTrail Event History retention
 - Governing sources: `V4_ARCHITECTURE.md` §§20.3 and 21.9; ADR-007, ADR-009, and ADR-022; requirements OPS-005 through OPS-008, LIFE-009, and TEST-007
-- Scope: read-only account assessment and proposed WP-005C human-access design
-- Implementation status: not implemented; independent review and separate WP-005C authorization are required
+- Scope: historical WP-005B account assessment, WP-005C1 execution evidence, and human-adjudicated access boundaries
+- Implementation status: WP-005C1 recorded in §15; remediation control-plane proof succeeded under §15.4; further AWS mutation requires separate authorization
+- Human scope adjudication: 2026-09-27, recorded in §1.1
 
 This document deliberately uses symbolic names. It contains no account IDs,
 usernames, email addresses, access-key identifiers, MFA device identifiers,
@@ -37,11 +38,49 @@ account assignments, and one-hour permission-set sessions. No AWS managed
 Generic read-only policies are unsuitable because they include application
 data-plane reads.
 
-The currently active permanent IAM administrator key must be retired in stages
-only after the replacement temporary paths are proven. Root remains a
+Legacy administrator retirement is on hold under §1.1. Root remains an
 MFA-protected, no-key break-glass path.
 
+### 1.1 Account-wide administrator purpose and retirement hold
+
+On 2026-09-27 the account owner clarified that `LegacyAdministrator` was created
+to administer the entire AWS account, including cleanup of resources unrelated
+to ShelfState. It is not a ShelfState-specific identity and must not be used
+for future ShelfState work. ShelfState work uses its approved temporary roles;
+insufficient permissions require review of the authorized role and task scope.
+
+The account owner agreed to preserve the existing administrator for now and to
+plan a separate MFA-backed, temporary account-wide administration role for
+unrelated resource cleanup. That role is outside the three ShelfState authority
+boundaries. `ShelfStateAccountAdmin` does not replace general AWS resource
+administration or cleanup authority, and its policy must not be broadened for
+that purpose.
+
+Retirement of the legacy key, console profile, administrator membership/policy,
+or IAM user is a separate account-governance decision, not a prerequisite for
+ShelfState. WP-005C2 is on hold: its earlier staged-retirement proposal is
+superseded and does not authorize legacy administrator retirement. Before any
+retirement is proposed, the separate account-wide temporary path must be
+independently verified to support the owner's required administration and
+cleanup capabilities. The owner can then decide whether to retain the legacy
+identity for a documented purpose or
+authorize particular retirement stages. Deletion is not presumed.
+
+Decisions to rotate, retain, deactivate, or delete the legacy IAM user's access
+key belong to that separate account-wide access work, outside WP-005C1. The
+legacy IAM user, access keys, console profile, MFA, groups, and permissions
+remain unchanged. The three ShelfState temporary paths are the approved paths
+for normal ShelfState administration, operation, and recovery; Recovery
+capabilities remain limited until WP-039.
+
+This scope adjudication does not authorize creation of the broader role,
+resource cleanup, credential changes, or additional work packages. Existing
+AWS permissions remain unchanged.
+
 ## 2. Observed account facts
+
+This section preserves the WP-005B assessment-time inventory. Subsequent
+WP-005C1 changes are recorded in §15; the current scope decision is in §1.1.
 
 ### 2.1 Organizations and account ownership
 
@@ -66,8 +105,12 @@ Separate AWS accounts remain deferred under ADR-007.
 | Root MFA device count/type | The non-root credential report confirms an active MFA posture but does not disclose a reliable device count or device details; those details were intentionally not pursued through a root session |
 
 The root-key stop condition is not present. Root's credential posture meets the
-key/MFA baseline, but recent root activity described in §3 is not evidence that
-root is already operating as break-glass only.
+key/MFA baseline. The account owner subsequently attested that the reviewed
+root activity described in §3 was legitimate account-recovery work used to
+restore access to a dormant administrator identity. This resolves the earlier
+unexplained-activity question without changing the forward control: root use is
+prohibited for routine administration, and any future unexplained root use is
+an escalation condition.
 
 ### 2.3 IAM credential inventory
 
@@ -126,8 +169,8 @@ Changing the organization-wide portal session is not required by this design.
 
 | Approved invariant | Current gap | WP-005C target |
 | --- | --- | --- |
-| Routine human access uses temporary MFA-backed credentials | Permanent administrator console profile and long-lived key remain usable | Prove Identity Center paths, then retire permanent credentials in stages |
-| Root is break-glass only | Recent root sign-ins and root management activity exist; justification was not available from Event History | Establish procedure and end routine root use |
+| Routine ShelfState human access uses temporary MFA-backed credentials | ShelfState temporary paths were absent at assessment; the permanent administrator serves the wider AWS account | Prove ShelfState Identity Center paths; legacy retirement is outside this prerequisite and on hold under §1.1 |
+| Root is break-glass only | Reviewed activity was attested as legitimate account recovery; routine future root use remains prohibited | Enforce the documented break-glass procedure |
 | Operator and recovery are separate | Neither authority exists | Create separate group/permission-set assignments after review |
 | Account administration is not routine operation | Permanent administrator combines all authority | Establish separate AccountAdmin authority |
 | Management activity is auditable | Event History works, but the legacy trail is not a management-event baseline | Retain Event History review; propose any durable trail change separately because it affects storage/cost |
@@ -161,11 +204,12 @@ in an unreviewed Region, or outside Event History's management-event scope.
 | `us-east-2` | Root activity in the bounded result set consisted of read-only EC2 inventory calls. The write-event view contained three console-login events and three corresponding MFA checks for the legacy administrator, including the assessment session; no account/service configuration mutation appeared. No trail or event data store exists in this Region. |
 
 The Event History evidence establishes audit availability, not business
-justification. The account owner must review the earlier root sequence and
-record whether it was legitimate recovery/cleanup. Unexplained root use is an
-incident-review trigger. WP-005C must also confirm that the first federated
-AccountAdmin, Operator, and Recovery sessions appear under the intended
-Identity Center role identities.
+justification. The account owner attested that the reviewed root sequence was
+legitimate account-recovery work associated with restoring access to a dormant
+administrator identity. Future unexplained root use remains an incident-review
+trigger. WP-005C must also confirm that the first federated AccountAdmin,
+Operator, and Recovery sessions appear under the intended Identity Center role
+identities.
 
 ### 3.3 Trails, event data stores, and cost posture
 
@@ -249,6 +293,15 @@ procedure explicitly changes the effective policy:
 - KMS: `Decrypt`, `ReEncryptFrom`, and data-key generation for ShelfState keys;
 - direct application API invocation through `execute-api:Invoke` when acting as
   an AWS human role.
+
+The names above describe prohibited API capabilities, not necessarily literal
+IAM `Action` values. `TransactGetItems` is authorized by `dynamodb:GetItem`.
+The three PartiQL execution APIs are authorized, according to their statements,
+by `dynamodb:PartiQLSelect`, `dynamodb:PartiQLInsert`,
+`dynamodb:PartiQLUpdate`, and `dynamodb:PartiQLDelete` and all four are denied.
+`SelectObjectContent` is authorized by `s3:GetObject` and is covered by the
+applicable `s3:GetObject*` deny. Executable policies must use these valid IAM
+authorization actions rather than the API-operation names.
 
 These are policy guardrails against accidental or routine content browsing.
 An identity administrator who can change permission sets could deliberately
@@ -415,7 +468,14 @@ invariant at that package boundary rather than broadening the policy.
 
 ## 7. WP-005C migration sequence and checkpoints
 
-No step below has been executed.
+WP-005C1 executed steps 1–4 and 6–8 below. Step 5 was initially deferred until
+CLI tooling was available, then proved with temporary SSO credentials during
+remediation (§15.4); no static credential or legacy access key was substituted.
+These steps record the historical C1 sequence; step 1 does not authorize
+future ShelfState use of the legacy
+administrator. The former steps 9–12 for legacy credential/user retirement
+were never executed and are superseded by the hold and separate
+account-governance prerequisites in §1.1. Root remains break-glass under §9.
 
 1. Using the existing authenticated administrator only for the migration,
    create the independently approved Identity Center groups and permission sets.
@@ -434,35 +494,16 @@ No step below has been executed.
    an authorized recovery package provides a synthetic target.
 8. Review CloudTrail Event History for the three intended federated role
    sessions and confirm principal, account, Region, and denied-action evidence.
-9. Only after steps 3–8 pass, deactivate the active `LegacyAdministrator`
-   access key. Record its identifier only in a private operator record, never in
-   the repository.
-10. Re-test portal, AccountAdmin, Operator, Recovery, and temporary CLI access
-    after key deactivation. If replacement access fails, reactivate only under
-    an explicit human rollback decision and investigate; do not improvise root
-    routine use.
-11. Pause for a human checkpoint before permanently deleting the old access key.
-12. In separate reviewed stages, remove the IAM user's console login profile,
-    detach administrator group membership, and delete the IAM user if no
-    legitimate residual purpose remains. Re-verify replacement access and
-    CloudTrail after each stage.
-13. Preserve root only as break-glass under §9.
-
-The old key is not retained indefinitely for convenience, but it is never
-destroyed before temporary replacement access is proven. The IAM key, console
-profile, group membership, and user object are four independent retirement
-decisions.
 
 ## 8. Rollback and stop behavior during migration
 
-- Before legacy-key deactivation, rollback is removal of the new assignments or
-  policy correction while the existing administrator remains available.
-- After deactivation but before deletion, a human may explicitly authorize key
-  reactivation only if every intended temporary admin path is unusable. Record
-  the reason and review CloudTrail immediately.
-- After key deletion, rollback uses the proven AccountAdmin path; root is used
-  only if all authorized federated administration paths are unavailable.
-- Stop WP-005C before credential retirement if MFA is not enforced, either
+- ShelfState assignment/policy rollback requires an explicitly authorized
+  change through the approved temporary administration path. If that path is
+  unusable, stop for human review; do not fall back to `LegacyAdministrator`.
+- Legacy credentials remain untouched under §1.1. Any separately proposed
+  retirement must define and verify account-wide rollback access; the
+  restricted ShelfState roles are not sufficient proof of that capability.
+- Stop WP-005C if MFA is not enforced, either
   symbolic principal cannot sign in, intended positive actions fail, any
   forbidden content/destructive action succeeds, CloudTrail cannot identify the
   sessions, or policy implementation requires broader authority than §5.
@@ -553,11 +594,18 @@ must not be assumed.
   redacted facts above and is not a repository artifact.
 - No production/application data, object names, DynamoDB items, Cognito user
   profiles, secrets, or credential values were inspected.
-- No AWS identity, permission set, assignment, group, policy, key, MFA setting,
-  trail, event data store, organization/account setting, or other resource was
-  created, modified, disabled, deactivated, or deleted.
+- WP-005C1 created only the three approved Identity Center groups, the three
+  approved permission sets and inline policies, the approved symbolic group
+  memberships, and the three corresponding AWS-account assignments described
+  in §15. No access key, console profile, IAM user, MFA setting, trail, event
+  data store, organization/account setting, application resource, or deployment
+  resource was created, modified, disabled, deactivated, or deleted.
+- Root was not used. `ExistingLegacyTrail` was not modified. The legacy
+  administrator access key, console profile, administrator group/policy, and IAM
+  user remain unchanged for their separate account-wide purpose under §1.1,
+  not as a fallback for ShelfState work.
 - No AWS bootstrap or deployment occurred.
-- WP-005C and WP-006 were not started.
+- WP-005C2 and WP-006 were not started.
 
 ## 14. WP-005C authorization prerequisites
 
@@ -571,14 +619,160 @@ WP-005C is authorized:
   self-escalation limitation;
 - Operator and Recovery allow/deny policy models and tests;
 - whether and how to disposition `ExistingLegacyTrail` in a separate package;
-- the staged credential retirement checkpoints and rollback authority; and
-- the handling/attestation of the recent root activity.
+- the account-wide administration separation and retirement hold in §1.1; and
+- the recorded resolution of the recent root-activity attestation.
 
 WP-005C must stop for review instead of broadening a policy, choosing a real
-principal implicitly, changing CloudTrail cost posture, or retiring a legacy
-credential before replacement access and audit evidence are proven.
+principal implicitly, changing CloudTrail cost posture, or using or retiring
+legacy credentials contrary to §1.1.
 
-## 15. Current official-service references
+## 15. WP-005C1 redacted execution record
+
+WP-005C1 established the following symbolic structure without committing live
+AWS identifiers or personal information:
+
+| Symbolic principal | Group | Permission set | Session |
+| --- | --- | --- | --- |
+| `PrimaryHumanPrincipal` | `ShelfStateAccountAdmins` | `ShelfStateAccountAdmin` | 1 hour |
+| `PrimaryHumanPrincipal` | `ShelfStateOperators` | `ShelfStateOperator` | 1 hour |
+| `RecoveryHumanPrincipal` | `ShelfStateRecovery` | `ShelfStateRecovery` | 1 hour |
+
+All three groups, permission sets, group memberships, and account assignments
+were created. No AWS managed policy is attached to any permission set. The
+committed, secret-free policy model version is `wp-005c1-v1`.
+
+### 15.1 Policy validation and adjudicated action mapping
+
+Local policy assertions pass for all three permission sets. IAM Access Analyzer
+basic validation returned, for each materialized inline policy: 0 security
+findings, 0 errors, 0 warnings, and 2 reviewed suggestions. No unresolved error
+or security finding was assigned. No paid custom policy check was used.
+
+The implementation uses the adjudicated API-operation/IAM-action mapping in
+§4.2: `TransactGetItems` is blocked by `dynamodb:GetItem`; the three PartiQL
+execution APIs are blocked through all four valid `dynamodb:PartiQL*` actions;
+and `SelectObjectContent` is blocked by `s3:GetObject`/`s3:GetObject*`. No
+invented API-operation name remains in executable IAM `Action` sets.
+
+`ShelfStateAccountAdmin` permits the reviewed IAM, Identity Center, Identity
+Store, account, Organizations, and CloudTrail administration/inventory surface
+while denying application content, recovery authority, role use, and
+application deployment. `ShelfStateOperator` permits only current CloudTrail
+and CloudWatch metadata operations and denies identity, content, recovery, role
+use, and deployment authority. `ShelfStateRecovery` is deny-only until WP-039
+defines exact vault, recovery-point, service-role, and isolated restore-target
+boundaries.
+
+### 15.2 Temporary-session and capability proof
+
+Interactive portal verification proved that `PrimaryHumanPrincipal` can sign in
+with the enrolled MFA method and sees only the AccountAdmin and Operator
+ShelfState roles, while `RecoveryHumanPrincipal` signs in separately with its
+enrolled MFA method and sees only the Recovery ShelfState role. Each resulting
+console session is an Identity Center assumed-role session from a one-hour
+permission set; no browser-held long-lived AWS credential was created.
+
+Safe positive tests proved AccountAdmin IAM inventory/read capability and
+Operator CloudTrail Event History lookup capability. Recovery identity/session
+establishment succeeded; no restore authority was added or exercised.
+
+Representative live negative tests produced the expected authorization
+failures: Operator IAM administration; AccountAdmin S3 bucket inventory, Backup
+vault listing, and CloudFormation stack listing; and Recovery IAM inventory,
+S3 bucket inventory, CloudFormation stack listing, and Backup vault listing.
+The validated explicit-deny/static invariants additionally cover every listed
+DynamoDB/PartiQL, S3 payload, Cognito profile, Lambda/API execution, secret/
+parameter/KMS, identity, deployment, recovery, role-assumption, and pass-role
+capability. Potentially mutating forbidden calls were not invoked merely to
+prove their denial.
+
+CloudTrail Event History contains distinguishable, redacted management events
+for all three federated roles: a successful AccountAdmin IAM read, a successful
+Operator lookup, and Recovery access-denied events. The records identify the
+expected Identity Center assumed-role issuer and console-sourced temporary
+session without relying on personal usernames, account IDs, IP addresses,
+session identifiers, or request identifiers in repository evidence.
+
+Temporary CLI proof was initially deferred because the AWS CLI executable was
+not discoverable in the workstation command path or standard installation
+locations. The subsequent direct API proof is recorded in §15.4. The legacy
+access key was not used or copied, and no replacement access key was created.
+
+### 15.3 Procedure note and remaining boundary
+
+Group membership was added before inline-policy provisioning completed, rather
+than after policy review as sequenced in §7. At that time the groups had no AWS
+account assignments, so the memberships conveyed no AWS permissions. Policies
+were corrected, locally tested, and successfully validated before any account
+assignment was created. This is a recorded procedure-sequencing deviation, not
+an architecture or authority-boundary deviation.
+
+WP-005C1 adds no incremental Identity Center service charge. The next step is
+independent review and finalization of WP-005C1. WP-005C2 remains on hold;
+account-wide maintenance access is separately planned only when authorized,
+under §1.1. Recovery activation remains deferred to WP-039;
+GitHub/OIDC/deployment controls remain deferred to WP-006.
+
+### 15.4 Remediation control-plane proof — succeeded
+
+On 2026-09-27 the account owner completed interactive portal authentication for
+`PrimaryHumanPrincipal`. The `ShelfStateAccountAdmin` role was selected and the
+resulting console identified the expected temporary federated AccountAdmin
+session. Neither `LegacyAdministrator` nor root was used for this proof.
+
+The Identity Center dashboard loaded, but opening Groups failed with an
+authorization error: `sso-directory:SearchGroups` was not allowed by an
+identity-based policy. The console returned no group-list evidence for the
+ShelfState structures. This result is a failure of the attempted console read;
+it did not establish the outcome of a direct Identity Store API call. Work
+stopped for human adjudication; no console permission was added.
+
+The account owner subsequently authorized a direct read using the already
+approved `identitystore` actions and provided an authenticated CLI SSO path.
+On 2026-09-27 the following non-destructive checks succeeded:
+
+| Check | Redacted evidence | Result |
+| --- | --- | --- |
+| Temporary caller | STS caller identity matched the Identity Center-generated assumed role for `ShelfStateAccountAdmin` | PASS; neither root nor an IAM user was the caller |
+| Actual ShelfState structure | `identitystore:ListGroups` against the actual Identity Store in `us-west-2`, filtered by the exact `ShelfStateAccountAdmins` display name with a bounded, non-paginated result | PASS; exactly one matching group returned |
+| Auditability | CloudTrail Event History lookup in `us-west-2` found the successful `ListGroups` event from `identitystore.amazonaws.com` under the `ShelfStateAccountAdmin` session issuer in the proof window | PASS; `AssumedRole`, read-only management event, no error |
+
+The direct API response proves the group match; the CloudTrail event proves
+the role, operation, and successful read. The event is not claimed to preserve
+the exact display-name filter. Raw responses and live identifiers are not
+repository artifacts. Credential values were not printed or recorded.
+
+The direct Identity Store proof resolves the positive control-plane blocker.
+Console group-search usability is not an acceptance requirement, and
+`sso-directory:SearchGroups` remains ungranted. Executable policy statements
+were not changed for remediation; the only policy-model change is descriptive
+deferred-capability metadata reflecting the account-wide access boundary.
+No AWS mutation, root use, legacy-identity use or change, bootstrap, or
+deployment occurred during remediation. Recovery remains deny-only pending
+WP-039. WP-005C2 and WP-006 remain unstarted; this record awaits final human
+review and is not authorization to push or proceed to another package.
+
+### 15.5 Remediation repository verification
+
+Final verification completed on 2026-09-28:
+
+| Command/check | Result |
+| --- | --- |
+| Root `node --test` | 149 passed, 0 failed |
+| Focused deployment-isolation and CI-policy tests | 21 passed, 0 failed: 6 isolation and 15 CI-policy tests |
+| V4 `npm ci` using pinned npm through Corepack | Succeeded; dependencies unchanged |
+| V4 `npm run verify` | Succeeded: 9 package-boundary, 1 contract, 12 human-access policy, and 8 infrastructure tests; preview and inert build succeeded |
+| Dev/prod synth within verification | Each environment: 6 stacks, 0 resources; account-unbound local synthesis, no bootstrap or deployment |
+| `node scripts/check-ci-secrets.mjs` | No obvious credential matches |
+| `node scripts/v3-deployment-boundary.mjs build` | Exactly 42 frozen V3 files; no V4 content |
+| Frozen V3 SHA-256 | `2b973f2a0c83fe0ca7df51528980f5d2cb142e3e8b3b2411e8727e303560af3a`, unchanged |
+| `git diff --check` | Passed |
+
+The remediation changes only this checkpoint and the policy model's
+descriptive deferred-capability entry. No executable IAM statement, dependency,
+V3 runtime, Netlify configuration, or deployment workflow changed.
+
+## 16. Current official-service references
 
 - [IAM Identity Center FAQs](https://aws.amazon.com/iam/identity-center/faqs/)
   (service pricing and workforce access model)

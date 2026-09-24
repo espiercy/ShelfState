@@ -20,6 +20,8 @@ for later work packages.
 - `npm ci` installs exactly the committed lockfile state.
 - `npm test` runs package-boundary and isolation tests.
 - `npm run test:contract` verifies that the contract area remains reserved.
+- `npm run test:security` verifies the secret-free WP-005C1 human-access policy
+  model and its content, identity, deployment, and recovery boundaries.
 - `npm run infra:test` verifies the environment, topology, exclusions, and
   stateful-resource guardrails.
 - `npm run infra:synth` synthesizes isolated dev and prod assemblies locally.
@@ -40,6 +42,7 @@ input and is not controlled by the root-scoped V3 service worker.
 - `contracts/` — future OpenAPI and shared contracts
 - `checks/` — explicit V4 package-boundary verification
 - `scripts/` — V4-local tooling
+- `security/` — reviewed, secret-free human-access policy models
 - `test/` — reserved V4 test organization for later work packages
 
 The placeholder directories are not permission to begin later work packages.

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
@@ -56,6 +57,24 @@ function resourceValues(statement) {
   return Array.isArray(statement.Resource)
     ? statement.Resource
     : [statement.Resource];
+}
+
+// These fixtures have unconditional statements. This is a scope regression
+// helper, not a general IAM evaluator; resource names remain case-sensitive.
+function globMatches(pattern, value, flags = "") {
+  return new RegExp(
+    `^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`,
+    flags,
+  ).test(value);
+}
+
+function permitsResource(policy, action, resource) {
+  const matches = policy.Statement.filter((statement) =>
+    statement.Action.some((pattern) => globMatches(pattern, action, "i")) &&
+    resourceValues(statement).some((pattern) => globMatches(pattern, resource)),
+  );
+  return matches.some(({ Effect }) => Effect === "Allow") &&
+    !matches.some(({ Effect }) => Effect === "Deny");
 }
 
 function actionIsDenied(action, deniedActions) {
@@ -259,6 +278,136 @@ test("AccountAdmin resource-scopes all mutable IAM and identity administration",
   }
 });
 
+test("OIDC inventory allows only list plus an exact runtime-account GitHub provider read", () => {
+  const match = (pattern, value) => new RegExp(
+    `^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`,
+    "i",
+  ).test(value);
+  const permits = (policy, action, resource) => {
+    const matches = policy.Statement.filter((statement) =>
+      statement.Action.some((pattern) => match(pattern, action)) &&
+      resourceValues(statement).some((pattern) => match(pattern, resource)),
+    );
+    return matches.some(({ Effect }) => Effect === "Allow") &&
+      !matches.some(({ Effect }) => Effect === "Deny");
+  };
+  const policy = permissionSetMap.ShelfStateAccountAdmin.inlinePolicy;
+  const arn = `arn:aws:iam::${runtimeBindings.accountId}:oidc-provider/token.actions.githubusercontent.com`;
+  assert.equal(permits(policy, "iam:ListOpenIDConnectProviders", "*"), true);
+  assert.equal(ALLOWED_WILDCARD_RESOURCE_ACTIONS.includes("iam:ListOpenIDConnectProviders"), true);
+  assert.equal(ALLOWED_WILDCARD_RESOURCE_ACTIONS.includes("iam:GetOpenIDConnectProvider"), false);
+  assert.equal(permits(policy, "iam:GetOpenIDConnectProvider", arn), true);
+  for (const resource of ["*", arn.replace(runtimeBindings.accountId, "2".repeat(12)), `${arn}/extra`, arn.replace("token.actions.githubusercontent.com", "example.com")]) {
+    assert.equal(permits(policy, "iam:GetOpenIDConnectProvider", resource), false, resource);
+  }
+  const rebound = createHumanAccessPermissionSets({ ...runtimeBindings, accountId: "2".repeat(12) }).ShelfStateAccountAdmin.inlinePolicy;
+  assert.equal(permits(rebound, "iam:GetOpenIDConnectProvider", arn), false);
+  assert.equal(permits(rebound, "iam:GetOpenIDConnectProvider", arn.replace(runtimeBindings.accountId, "2".repeat(12))), true);
+  for (const statement of policy.Statement.filter(({ Effect }) => Effect === "Allow")) {
+    if (statement.Action.some((action) => match(action, "iam:GetOpenIDConnectProvider"))) {
+      assert.deepEqual(resourceValues(statement), [arn]);
+    }
+  }
+  for (const action of [
+    "iam:CreateOpenIDConnectProvider", "iam:DeleteOpenIDConnectProvider",
+    "iam:UpdateOpenIDConnectProviderThumbprint", "iam:AddClientIDToOpenIDConnectProvider",
+    "iam:RemoveClientIDFromOpenIDConnectProvider", "iam:TagOpenIDConnectProvider",
+    "iam:UntagOpenIDConnectProvider", "iam:ListOpenIDConnectProviderTags",
+  ]) {
+    assert.equal(permits(policy, action, arn), false, action);
+    assert.equal(permits(policy, action, "*"), false, action);
+  }
+});
+
+test("provisioning completion read uses only the bound instance and adds no other SSO authority", () => {
+  const allowStatements = statements(permissionSetMap.ShelfStateAccountAdmin, "Allow");
+  const action = "sso:DescribePermissionSetProvisioningStatus";
+  const matching = allowStatements.filter((statement) => statement.Action.includes(action));
+  assert.equal(matching.length, 1);
+  assert.equal(matching[0].Sid, "AllowIdentityCenterInstanceAdministration");
+  assert.deepEqual(resourceValues(matching[0]), [runtimeBindings.identityCenterInstanceArn]);
+  assert.equal(ALLOWED_WILDCARD_RESOURCE_ACTIONS.includes(action), false);
+  assert.equal(actions(permissionSetMap.ShelfStateAccountAdmin, "Allow").has("sso:ListPermissionSetProvisioningStatus"), false);
+  assert.deepEqual(matching[0].Action, [
+    "sso:DescribeAccountAssignmentCreationStatus",
+    "sso:DescribeAccountAssignmentDeletionStatus",
+    "sso:DescribeInstance",
+    "sso:DescribePermissionSetProvisioningStatus",
+    "sso:ListAccountAssignmentCreationStatus",
+    "sso:ListAccountAssignmentDeletionStatus",
+    "sso:ListPermissionSets",
+  ]);
+  for (const statement of allowStatements) {
+    assert.equal(statement.Action.some((candidate) => candidate === "sso:*" || candidate === "*"), false);
+  }
+});
+
+test("generated-role reprovisioning permits only the AccountAdmin namespace in the bound account and Region", () => {
+  const policy = permissionSetMap.ShelfStateAccountAdmin.inlinePolicy;
+  const action = "iam:PutRolePolicy";
+  const roleArn = (name, account = runtimeBindings.accountId, region = "us-west-2") =>
+    `arn:aws:iam::${account}:role/aws-reserved/sso.amazonaws.com/${region}/AWSReservedSSO_${name}_${"a".repeat(16)}`;
+  const intended = roleArn("ShelfStateAccountAdmin");
+  assert.equal(permitsResource(policy, action, intended), true);
+  assert.equal(permitsResource(policy, action, intended.replace(/a{16}$/, "b".repeat(16))), true);
+  for (const resource of [
+    "*",
+    `arn:aws:iam::${runtimeBindings.accountId}:role/UnrelatedAdmin`,
+    roleArn("ShelfStateOperator"),
+    roleArn("ShelfStateRecovery"),
+    roleArn("AccountMaintenanceAdmin"),
+    roleArn("UnrelatedPermissionSet"),
+    roleArn("ShelfStateAccountAdministrator"),
+    roleArn("ShelfStateAccountAdmin", "2".repeat(12)),
+    roleArn("ShelfStateAccountAdmin", runtimeBindings.accountId, "us-east-1"),
+    intended.replace("aws-reserved/", "other/"),
+  ]) assert.equal(permitsResource(policy, action, resource), false, resource);
+
+  const rebound = createHumanAccessPermissionSets({ ...runtimeBindings, accountId: "2".repeat(12) }).ShelfStateAccountAdmin.inlinePolicy;
+  assert.equal(permitsResource(rebound, action, intended), false);
+  assert.equal(permitsResource(rebound, action, roleArn("ShelfStateAccountAdmin", "2".repeat(12))), true);
+
+  const generatedAllowance = policy.Statement.filter(({ Effect, Action, Resource }) =>
+    Effect === "Allow" && Action.includes(action) &&
+    (Array.isArray(Resource) ? Resource : [Resource]).some((pattern) => globMatches(pattern, intended)),
+  );
+  assert.equal(generatedAllowance.length, 1);
+  assert.deepEqual(generatedAllowance[0].Action, [action]);
+  assert.deepEqual(resourceValues(generatedAllowance[0]), [intended.replace(/a{16}$/, "*")]);
+  assert.equal(ALLOWED_WILDCARD_RESOURCE_ACTIONS.includes(action), false);
+});
+
+test("generated-role exception adds no other mutations and preserves role-use denials", () => {
+  const policy = permissionSetMap.ShelfStateAccountAdmin.inlinePolicy;
+  const intended = `arn:aws:iam::${runtimeBindings.accountId}:role/aws-reserved/sso.amazonaws.com/us-west-2/AWSReservedSSO_ShelfStateAccountAdmin_${"a".repeat(16)}`;
+  const inventory = new Set(ALLOWED_WILDCARD_RESOURCE_ACTIONS);
+  const matchingMutationActions = statements(permissionSetMap.ShelfStateAccountAdmin, "Allow")
+    .filter((statement) => resourceValues(statement).some((pattern) => globMatches(pattern, intended)))
+    .flatMap((statement) => statement.Action)
+    .filter((action) => !inventory.has(action));
+  assert.deepEqual(matchingMutationActions, ["iam:PutRolePolicy"]);
+  for (const action of [
+    "iam:CreateRole", "iam:DeleteRole", "iam:DeleteRolePolicy",
+    "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:UpdateRole",
+    "iam:UpdateRoleDescription", "iam:UpdateAssumeRolePolicy", "iam:TagRole",
+    "iam:UntagRole", "iam:PassRole", "sts:AssumeRole",
+  ]) assert.equal(permitsResource(policy, action, intended), false, action);
+  for (const action of ["iam:PassRole", "sts:AssumeRole"]) {
+    assert.equal(actions(permissionSetMap.ShelfStateAccountAdmin, "Deny").has(action), true);
+  }
+});
+
+test("policy amendments preserve the approved Operator and Recovery models byte-for-byte", () => {
+  // Synthetic-binding digests captured before amendment from approved 92ef181.
+  const expected = {
+    ShelfStateOperator: "21a96708c20a10d0329d0f88f7b45cba62e1d2f32c8c17ba51152cae1f7846df",
+    ShelfStateRecovery: "de751307f47921046f937979ee6814323592962a46959f8064d04bbaaf2bc366",
+  };
+  for (const [name, digest] of Object.entries(expected)) {
+    assert.equal(createHash("sha256").update(JSON.stringify(permissionSetMap[name])).digest("hex"), digest);
+  }
+});
+
 test("Operator is limited to current safe metadata and lacks privileged authority", () => {
   const permissionSet = permissionSetMap.ShelfStateOperator;
   const allowed = actions(permissionSet, "Allow");
@@ -363,5 +512,11 @@ test("committed policy sources contain no personal or live AWS identifiers", asy
   assert.doesNotMatch(serialized, /@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
   assert.doesNotMatch(serialized, /ssoins-[A-Za-z0-9-]{16}/);
   assert.doesNotMatch(serialized, /d-[0-9a-f]{10}/);
-  assert.doesNotMatch(serialized, /AWSReservedSSO_[A-Za-z0-9_]+/);
+  // Allow only the reviewed symbolic namespace followed by a wildcard or a
+  // synthetic template expression; keep rejecting all literal live role names.
+  const withoutSymbolicNamespace = serialized.replace(
+    new RegExp("AWSReservedSSO_" + "ShelfStateAccountAdmin_" + "(?=\\*|\\$\\{)", "g"),
+    "[SYMBOLIC_ACCOUNTADMIN_ROLE]",
+  );
+  assert.doesNotMatch(withoutSymbolicNamespace, /AWSReservedSSO_[A-Za-z0-9_]+/);
 });

@@ -139,6 +139,8 @@ const IAM_INVENTORY_ACTIONS = Object.freeze([
   "iam:ListGroupsForUser",
   "iam:ListInstanceProfilesForRole",
   "iam:ListMFADevices",
+  // OIDC-provider listing has no resource-scoped authorization type.
+  "iam:ListOpenIDConnectProviders",
   "iam:ListPolicies",
   "iam:ListPolicyTags",
   "iam:ListPolicyVersions",
@@ -182,6 +184,7 @@ const IDENTITY_CENTER_INSTANCE_ACTIONS = Object.freeze([
   "sso:DescribeAccountAssignmentCreationStatus",
   "sso:DescribeAccountAssignmentDeletionStatus",
   "sso:DescribeInstance",
+  "sso:DescribePermissionSetProvisioningStatus",
   "sso:ListAccountAssignmentCreationStatus",
   "sso:ListAccountAssignmentDeletionStatus",
   "sso:ListPermissionSets",
@@ -361,6 +364,10 @@ function materializedResources(bindings) {
       groupIds.map((groupId) => `arn:aws:identitystore:::group/${groupId}`),
     ),
     identityCenterAccountArn: `arn:aws:sso:::account/${accountId}`,
+    githubOidcProviderArn: `arn:aws:iam::${accountId}:oidc-provider/token.actions.githubusercontent.com`,
+    // AG-001C: management-account Identity Center self-reprovisioning only.
+    // The suffix is service-owned; the account and permission-set namespace are not.
+    accountAdminGeneratedRoleArn: `arn:aws:iam::${accountId}:role/aws-reserved/sso.amazonaws.com/us-west-2/AWSReservedSSO_ShelfStateAccountAdmin_*`,
     identityStoreArn: `arn:aws:identitystore::${accountId}:identitystore/${identityStoreId}`,
     instanceArn,
     permissionSetArns: Object.freeze(permissionSetArns),
@@ -380,10 +387,22 @@ export function createHumanAccessPermissionSets(bindings) {
   const accountAdminPolicy = policyDocument([
     policyStatement("AllowIamInventory", "Allow", IAM_INVENTORY_ACTIONS, "*"),
     policyStatement(
+      "AllowGitHubOidcProviderRead",
+      "Allow",
+      ["iam:GetOpenIDConnectProvider"],
+      resources.githubOidcProviderArn,
+    ),
+    policyStatement(
       "AllowShelfStateRolePolicyAdministration",
       "Allow",
       SHELFSTATE_IAM_ADMIN_ACTIONS,
       resources.shelfStateIamArns,
+    ),
+    policyStatement(
+      "AllowAccountAdminGeneratedRoleInlinePolicyProvisioning",
+      "Allow",
+      ["iam:PutRolePolicy"],
+      resources.accountAdminGeneratedRoleArn,
     ),
     policyStatement(
       "AllowIdentityCenterDiscovery",

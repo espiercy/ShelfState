@@ -100,6 +100,157 @@ const providerBlock = netlifyIndexFixture
   )
   .trimEnd();
 
+// Independent literal for the reviewed comment-only production transformation.
+const commentOnlyBlock = [
+  "<!-- This site is hosted on Netlify. Anyone can build and deploy a site",
+  `     like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=${fixtureSiteId}`,
+  "     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->",
+].join("\n");
+const normalizedIndex = normalizeTextContent(indexSource);
+const charsetLine = '    <meta charset="UTF-8" />\n';
+const commentOnlyIndex = normalizedIndex.replace(
+  charsetLine,
+  `${charsetLine}${commentOnlyBlock}\n`,
+);
+
+for (const [name, newline] of [["LF", "\n"], ["CRLF", "\r\n"], ["CR", "\r"]]) {
+  test(`comment-only transformation preserves frozen source with ${name} endings`, async () => {
+    const resource = await indexResourceFor();
+    assert.equal(resource.sha256, "dfed71c48d6833f3c500948419c15e06d55c00135fd74b7b63ceb92a960a04a3");
+    for (const source of [normalizedIndex, commentOnlyIndex]) {
+      const candidate = source.replaceAll("\n", newline);
+      assert.equal(canonicalizeNetlifyIndexHtml(candidate), normalizedIndex);
+      await assert.doesNotReject(() =>
+        validateResourceResponse(indexResponseFor(candidate), resource, origin, webcrypto),
+      );
+    }
+  });
+}
+
+test("comment-only fixture matches the observed production response digest", () => {
+  assert.equal(
+    createHash("sha256").update(commentOnlyIndex).digest("hex"),
+    "233608652caa1a67ed16bc304694e6d727c7ccdb811e0334378bac304bbe697d",
+  );
+});
+
+const rejectedCommentChanges = [
+  ["text", "Anyone can build", "Anyone may build"],
+  ["capitalization", "Netlify hosting facts", "Netlify Hosting facts"],
+  ["punctuation", "Netlify Edge.", "Netlify Edge!"],
+  ["URL", "https://netlify.new/", "https://example.com/"],
+  ["campaign", "utm_campaign=loops", "utm_campaign=other"],
+  ["source", "utm_source=ai-legible", "utm_source=other"],
+  ["medium", "utm_medium=owned", "utm_medium=other"],
+  ["content", "utm_content=comment", "utm_content=other"],
+  ["parameter order", "utm_campaign=loops&utm_source=ai-legible", "utm_source=ai-legible&utm_campaign=loops"],
+  ["added parameter", "utm_id=", "extra=true&utm_id="],
+  ["removed parameter", "utm_content=comment&", ""],
+  ["another valid UUID", fixtureSiteId, alternateSiteId],
+  ["invalid identifier", fixtureSiteId, "invalid"],
+  ["space", "like this one", "like  this one"],
+  ["tab", "     like", "\tlike"],
+  ["indentation", "     like", "    like"],
+  ["blank line", "\n     like", "\n\n     like"],
+  ["opening delimiter", "<!--", "<!-"],
+  ["closing delimiter", "-->", "->"],
+];
+for (const [name, search, replacement] of rejectedCommentChanges) {
+  test(`rejects comment-only grammar change: ${name}`, async () => {
+    const candidate = commentOnlyIndex.replace(search, replacement);
+    assert.notEqual(candidate, commentOnlyIndex);
+    assert.throws(() => canonicalizeNetlifyIndexHtml(candidate), /Netlify/);
+    await assert.rejects(() => validateResourceResponse(
+      indexResponseFor(candidate), awaitableIndexResource, origin, webcrypto,
+    ));
+  });
+}
+
+const awaitableIndexResource = await indexResourceFor();
+const rejectedCommentPlacements = [
+  ["later in head", normalizedIndex.replace("</head>", `${commentOnlyBlock}\n</head>`)],
+  ["in body", normalizedIndex.replace("</body>", `${commentOnlyBlock}\n</body>`)],
+  ["duplicate", commentOnlyIndex.replace(commentOnlyBlock, `${commentOnlyBlock}\n${commentOnlyBlock}`)],
+  ["legacy then new", commentOnlyIndex.replace(commentOnlyBlock, `${normalizeTextContent(providerBlock)}\n${commentOnlyBlock}`)],
+  ["new then legacy", commentOnlyIndex.replace(commentOnlyBlock, `${commentOnlyBlock}\n${normalizeTextContent(providerBlock)}`)],
+  ["truncated", commentOnlyIndex.replace(commentOnlyBlock, commentOnlyBlock.slice(0, -10))],
+  ["blank before", commentOnlyIndex.replace(commentOnlyBlock, `\n${commentOnlyBlock}`)],
+  ["blank after", commentOnlyIndex.replace(commentOnlyBlock, `${commentOnlyBlock}\n`)],
+  ["indented opening", commentOnlyIndex.replace(commentOnlyBlock, ` ${commentOnlyBlock}`)],
+  ["additional provider elsewhere", commentOnlyIndex.replace("</head>", `${commentOnlyBlock}\n</head>`)],
+];
+for (const [name, candidate] of rejectedCommentPlacements) {
+  test(`rejects comment-only placement/count change: ${name}`, async () => {
+    assert.notEqual(candidate, commentOnlyIndex);
+    assert.throws(() => canonicalizeNetlifyIndexHtml(candidate), /Netlify/);
+    await assert.rejects(() => validateResourceResponse(
+      indexResponseFor(candidate), awaitableIndexResource, origin, webcrypto,
+    ));
+  });
+}
+
+const residualChanges = [
+  ["title / different release", "<title>ShelfState</title>", "<title>Other release</title>"],
+  ["body", "<h1>ShelfState</h1>", "<h1>Changed</h1>"],
+  ["module", 'src="src/app/script.js"', 'src="src/app/other.js"'],
+  ["stylesheet resource", "src/styles/foundation.css", "src/styles/other.css"],
+];
+for (const [name, search, replacement] of residualChanges) {
+  test(`comment-only acceptance does not hide changed ${name}`, async () => {
+    const candidate = commentOnlyIndex.replace(search, replacement);
+    assert.notEqual(candidate, commentOnlyIndex);
+    assert.equal(canonicalizeNetlifyIndexHtml(candidate), normalizedIndex.replace(search, replacement));
+    await assert.rejects(() => validateResourceResponse(
+      indexResponseFor(candidate), awaitableIndexResource, origin, webcrypto,
+    ), /digest mismatch/);
+  });
+}
+
+for (const [name, markup] of [
+  ["metadata", '<meta name="extra" content="unexpected">'],
+  ["script", '<script src="/unexpected.js"></script>'],
+  ["stylesheet", '<link rel="stylesheet" href="/unexpected.css">'],
+  ["comment", "<!-- arbitrary extra comment -->"],
+]) {
+  for (const side of ["before", "after"]) {
+    test(`rejects extra ${name} ${side} the comment-only block`, async () => {
+      const candidate = commentOnlyIndex.replace(commentOnlyBlock, side === "before"
+        ? `${markup}\n${commentOnlyBlock}` : `${commentOnlyBlock}\n${markup}`);
+      await assert.rejects(() => validateResourceResponse(
+        indexResponseFor(candidate), awaitableIndexResource, origin, webcrypto,
+      ));
+    });
+  }
+}
+
+test("arbitrary comments and provider-looking error pages cannot substitute for the shell", async () => {
+  const arbitrary = commentOnlyIndex.replace(commentOnlyBlock, "<!-- arbitrary comment -->");
+  assert.equal(canonicalizeNetlifyIndexHtml(arbitrary), arbitrary);
+  await assert.rejects(() => validateResourceResponse(
+    indexResponseFor(arbitrary), awaitableIndexResource, origin, webcrypto,
+  ), /digest mismatch/);
+  const errorBody = commentOnlyIndex.replace(/<body>[\s\S]*<\/body>/, "<body>404: Page not found</body>");
+  assert.notEqual(errorBody, commentOnlyIndex);
+  await assert.rejects(() => validateResourceResponse(
+    { ...indexResponseFor(errorBody), ok: false, status: 404 }, awaitableIndexResource, origin, webcrypto,
+  ), /HTTP 404/);
+  await assert.rejects(() => validateResourceResponse(
+    indexResponseFor(errorBody), awaitableIndexResource, origin, webcrypto,
+  ), /digest mismatch/);
+});
+
+test("comment-only responses preserve origin, media type and integrity-mode boundaries", async () => {
+  const response = indexResponseFor(commentOnlyIndex);
+  for (const [candidate, resource, error] of [
+    [{ ...response, url: "https://other.example/index.html" }, awaitableIndexResource, /origin/],
+    [{ ...response, headers: new Headers({ "content-type": "text/plain" }) }, awaitableIndexResource, /media type/],
+    [response, { ...awaitableIndexResource, url: "/other.html" }, /limited to \/index.html/],
+    [response, { ...awaitableIndexResource, integrity: "unknown" }, /Unsupported integrity mode/],
+  ]) {
+    await assert.rejects(() => validateResourceResponse(candidate, resource, origin, webcrypto), error);
+  }
+});
+
 test("classifies only recognized same-origin GET requests", () => {
   assert.equal(
     classifyRequest(

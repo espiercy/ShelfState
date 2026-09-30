@@ -22,7 +22,7 @@ export const V3_PUBLISH_ENTRIES = Object.freeze([
 // Aggregate SHA-256 of the sorted, path-qualified V3 runtime files. Text line
 // endings are normalized so this boundary is stable across Git platforms.
 export const FROZEN_V3_RUNTIME_SHA256 =
-  "2b973f2a0c83fe0ca7df51528980f5d2cb142e3e8b3b2411e8727e303560af3a";
+  "a4b25c4da79431dedb37a1213d74bac55d8df42e86eecac296a7d88c06cd8caa";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, "..");

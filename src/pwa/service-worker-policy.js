@@ -12,6 +12,12 @@ const NETLIFY_PROVIDER_MARKERS = Object.freeze([
 const INDEX_INSERTION_PREFIX = '    <meta charset="UTF-8" />\n';
 const INDEX_INSERTION_SUFFIX =
   '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />';
+// Exact reviewed production comment; unlike the legacy form, its ID is fixed.
+const NETLIFY_COMMENT_ONLY_BLOCK = [
+  "<!-- This site is hosted on Netlify. Anyone can build and deploy a site",
+  "     like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=03acb311-1959-40f1-9e0d-b6cc4dc34520",
+  "     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->",
+].join("\n");
 
 const JAVASCRIPT_MEDIA_TYPES = new Set([
   "application/javascript",
@@ -44,6 +50,25 @@ export function canonicalizeNetlifyIndexHtml(value) {
   );
 
   if (!hasProviderMarkers) return normalized;
+
+  if (normalized.includes(NETLIFY_COMMENT_ONLY_BLOCK)) {
+    const approvedInsertion = `${INDEX_INSERTION_PREFIX}${NETLIFY_COMMENT_ONLY_BLOCK}\n${INDEX_INSERTION_SUFFIX}`;
+    if (
+      normalized.split(NETLIFY_COMMENT_ONLY_BLOCK).length !== 2 ||
+      !normalized.includes(approvedInsertion)
+    ) {
+      throw new Error("Unexpected Netlify provider transformation");
+    }
+    const canonical = normalized.replace(
+      approvedInsertion,
+      `${INDEX_INSERTION_PREFIX}${INDEX_INSERTION_SUFFIX}`,
+    );
+    if (NETLIFY_PROVIDER_MARKERS.some((marker) => canonical.includes(marker))) {
+      throw new Error("Unexpected additional Netlify provider transformation");
+    }
+    // The response validator still requires the entire canonical source digest.
+    return canonical;
+  }
 
   const siteIdMatches = [
     ...normalized.matchAll(new RegExp(`utm_id=(${UUID_PATTERN})`, "g")),

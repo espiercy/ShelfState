@@ -1,4 +1,4 @@
-import { CAPABILITY_DEFINITIONS } from "./topology.mjs";
+import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 
 export const STATEFUL_POLICY_METADATA = "ShelfStateStatefulPolicy";
 

@@ -2,7 +2,7 @@ import { appendFile, readFile, writeFile, mkdir, mkdtemp, cp, stat } from "node:
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, lstatSync } from "node:fs";
 import { assert, sha, canonical, equal, hash, hashObject, parseEvidenceJson, REPOSITORY } from "./schema.mjs";
 import { dispatchContext, githubClient, authenticateDispatch, requiredChecks, artifactEvidence } from "./github-evidence.mjs";
 import { createManifest, verifyManifest, candidateEvidence, validateCandidateEvidence, runtimeTarget, runtimeBinding, verifyRuntimeBinding } from "./evidence.mjs";
@@ -29,10 +29,25 @@ function run(command, args, cwd, env, capture = false) {
 function git(cwd, ...args) {
   return run("git", ["--no-replace-objects", ...args], cwd, { ...credentialFreeEnvironment(), GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null", GIT_NO_LAZY_FETCH: "1" }, true).trim();
 }
+// Only this context path is checked. No inode persistence or general filesystem
+// sandbox is claimed. The optional filesystem adapter is for isolated tests.
+export function snapshotContextFile(contextFile, io = { lstatSync, readFileSync }) {
+  let metadata;
+  try { metadata = io.lstatSync(contextFile); }
+  catch (error) {
+    if (error.code === "ENOENT") return { type: "absent" };
+    throw error;
+  }
+  const type = metadata.isSymbolicLink() ? "symbolic-link" : metadata.isFile() ? "regular" : "non-regular";
+  assert.equal(type, "regular", `Unsupported CDK context path type: ${type}`);
+  return { type, digest: hash(io.readFileSync(contextFile)) };
+}
+export function assertContextFileUnchanged(contextFile, before, io) {
+  assert.deepEqual(snapshotContextFile(contextFile, io), before, "Unexpected CDK context-file state/content change");
+}
 function npm(cwd, args, offline = false) {
   const contextFile = path.join(cwd, "cdk.context.json");
-  const snapshot = () => existsSync(contextFile) ? hash(readFileSync(contextFile)) : null;
-  const before = snapshot();
+  const before = offline ? snapshotContextFile(contextFile) : undefined;
   if (offline) {
     const pkg = JSON.parse(readFileSync(path.join(cwd, "package.json")));
     for (const env of ["dev", "prod"]) assert.equal(pkg.scripts[`infra:synth:${env}`],
@@ -42,7 +57,7 @@ function npm(cwd, args, offline = false) {
     ? run(process.execPath, [path.join(path.dirname(process.execPath), "node_modules/corepack/dist/corepack.js"), "npm", ...args], cwd, credentialFreeEnvironment())
     : run("corepack", ["npm", ...args], cwd, credentialFreeEnvironment());
   if (offline) {
-    assert.equal(snapshot(), before, "Unexpected CDK context-file change");
+    assertContextFileUnchanged(contextFile, before);
     for (const env of ["dev", "prod"]) {
       const manifest = JSON.parse(readFileSync(path.join(cwd, "cdk.out", env, "manifest.json")));
       assert.equal((manifest.missing ?? []).length, 0, "Unresolved CDK context");

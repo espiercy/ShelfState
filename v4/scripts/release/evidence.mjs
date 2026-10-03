@@ -1,6 +1,8 @@
 import { assert, object, sha, digest, environment, timestamp, text, equal, hashObject, REPOSITORY } from "./schema.mjs";
 import { inventory, validateInventory, verifyInventory } from "./artifacts.mjs";
 import { ACTION_PINS } from "./policy.mjs";
+import { runtimeTarget } from "./approved-targets.mjs";
+export { runtimeTarget } from "./approved-targets.mjs";
 
 const fields = ["repository", "candidateSha", "checkoutSha", "controllerSha", "mainSha", "workflowPath", "workflowDigest", "environment", "runId", "runAttempt", "createdAt", "nodeVersion", "npmVersion", "lockfileDigest", "configurationDigest", "baselineDigest", "previewDigest", "actionPins", "artifactId"];
 export function validateContext(c) {
@@ -33,4 +35,43 @@ export async function verifyManifest(root, manifest, expectedContext) {
   equal(manifest.context, expectedContext, "Candidate/controller/run/provenance mismatch");
   await verifyInventory(root, manifest.files);
   return { manifestDigest: hashObject(manifest), evidenceKind: "offline-byte-verification" };
+}
+
+// v1 remains available to offline rollback fixtures. Hosted proof uses this
+// separate, immutable envelope; runtime account/role values are never inputs.
+export function candidateEvidence(manifest, provenance, payloadDigest) {
+  validateManifest(manifest); digest(payloadDigest);
+  object(provenance, ["attemptStartedAt", "checks", "validationRunId", "validationRunAttempt"]);
+  timestamp(provenance.attemptStartedAt);
+  assert.match(provenance.validationRunId, /^[1-9][0-9]*$/);
+  assert.ok(Number.isSafeInteger(provenance.validationRunAttempt) && provenance.validationRunAttempt > 0);
+  assert.equal(provenance.checks.length, 2);
+  for (const [i, name] of ["V3 and repository boundary", "V4 install and verification"].entries()) {
+    const check = provenance.checks[i];
+    object(check, ["name", "id", "producer", "headSha", "conclusion"]);
+    assert.equal(check.name, name); assert.equal(check.producer, 15368);
+    assert.match(check.id, /^[1-9][0-9]*$/);
+    assert.equal(check.headSha, manifest.context.candidateSha); assert.equal(check.conclusion, "success");
+  }
+  const body = { schema: "shelfstate.candidate-offline/v2", manifest: structuredClone(manifest), provenance: structuredClone(provenance), payloadDigest };
+  return { ...body, evidenceDigest: hashObject(body) };
+}
+export function validateCandidateEvidence(value) {
+  object(value, ["schema", "manifest", "provenance", "payloadDigest", "evidenceDigest"]);
+  equal(value, candidateEvidence(value.manifest, value.provenance, value.payloadDigest), "Candidate evidence altered");
+  return value;
+}
+export function runtimeBinding(candidate, expected, account, roleArn) {
+  validateCandidateEvidence(candidate); validateContext(expected);
+  equal(candidate.manifest.context, expected, "Independent candidate context mismatch");
+  const { roleName, approvedTargetDigest } = runtimeTarget(expected.environment, account, roleArn);
+  const body = { schema: "shelfstate.runtime-binding/v2", environment: expected.environment,
+    candidateSha: expected.candidateSha, controllerSha: expected.controllerSha, runId: expected.runId, runAttempt: expected.runAttempt,
+    candidateEvidenceDigest: candidate.evidenceDigest, payloadArtifactId: expected.artifactId, payloadDigest: candidate.payloadDigest,
+    repository: REPOSITORY, approvedTargetDigest,
+    account, roleArn, roleName, audience: "sts.amazonaws.com", region: "us-west-2" };
+  return { ...body, runtimeDigest: hashObject(body) };
+}
+export function verifyRuntimeBinding(record, candidate, expected, account, roleArn) {
+  equal(record, runtimeBinding(candidate, expected, account, roleArn), "Runtime binding mismatch"); return record;
 }

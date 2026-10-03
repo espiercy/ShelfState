@@ -1053,3 +1053,95 @@ prerequisite mutations above. Hosted release-gate/OIDC enforcement remains a
 future WP-006B proof; local fixtures do not claim to establish it. The authorized
 design commit is local only, with final SHA and worktree status reported at
 handoff. WP-006B and WP-007 have not begun.
+
+### 9.13 WP-006B local workflow-activation review candidate — 2026-10-03
+
+This addendum records the subsequently authorized local implementation, not a
+reopening of finalized WP-006A or a claim of hosted activation. Earlier completion
+tables are historical. The current bundled `brace-expansion@5.0.9` security
+findings remain unresolved; the unchanged high/critical audit remains failing.
+There is no V4 deployment waiver. Local passing tests/synthesis do not make
+aggregate hosted validation green or authorize merge, OIDC, bootstrap or deploy.
+
+Human adjudication establishes two evidence stages. Prepare emits immutable
+candidate/offline evidence: exact repository, controller/workflow/candidate and
+checkout revisions, recorded main ancestry, run/attempt, successful required
+checks from producer 15368, raw inventory/digests, service-issued payload ID,
+offline configuration/lock/action pins and zero-resource assembly transition.
+Prepare has only contents-read, no environment or runtime account/role inputs.
+After native environment approval and before OIDC, proof independently validates
+the retained evidence and creates a **separate** runtime-binding record covering
+the original candidate digest, payload identity/hash, environment, account/role,
+candidate/controller/run/attempt, fixed role name/audience/region and its digest.
+No post-approval candidate manifest rewriting or repository live bindings occur.
+
+Two local manual YAML definitions (`v4-dev-release.yml` and
+`v4-production-release.yml`) call concrete controller operations. Their strict
+policy is separate from the existing validation workflow. Prepare checks exact
+main/manual context, authenticates GitHub provenance, checks detached candidate
+ancestry, runs root/security/boundary checks, clean install, unchanged audit,
+signatures, full V4 verify, credential-free synth and offline transition. Failed
+audit stops the chain; no always/continue-on-error or alternate credential path.
+The static workflow inventory is exactly validation plus these two proof files.
+
+Each proof job has exactly contents-read, actions-read and ID-token-write and its
+fixed GitHub environment; production native approval gates the entire job. The
+controller uses bounded approved GitHub GET endpoints and complete pagination.
+Artifacts bind exact run/attempt/name/window, actual upload ID and raw archive
+digest; unsafe ZIP/bundle data is rejected before extraction. Candidate scripts
+are never executed in proof. Untrusted runtime configuration is used only in proof
+and must match the independently controller-pinned AWS target before OIDC.
+
+The pinned AWS action uses its actual input `translate-env-variables: false`
+(not `aws-inputs-from-env`), keeps `output-credentials: false`, and requests 900
+seconds. Both setup-node uses explicitly select `v4/.nvmrc` and disable package
+manager caching. No release dependency cache restore/save is allowed.
+The only post-assumption AWS operation is STS GetCallerIdentity. The redacted
+result records `requestedSessionDurationSeconds: 900`; it does **not** establish
+actual issued lifetime. Separate authorized CloudTrail/readback evidence is
+required for actual lifetime and final acceptance. No IAM/CloudTrail permissions
+are added to the inert roles. Identity success is not deployment/known-good proof.
+
+The R2 adjudication permits local CDK synthesis solely for deterministic verification:
+ordinary AWS credentials/profile/config/web-identity/container sources stripped or
+isolated, metadata disabled, native CDK `--no-lookups`, no live diff, bootstrap,
+change set or deployment. Each environment remains six stacks and zero resources.
+This is not general/process-tree network isolation. The Node networking preload
+was removed; native-child connectivity and caught-fetch probes no longer violate
+the adjudicated boundary. A synthetic context-provider request must fail with
+lookups disabled. Successful outputs must contain no missing context, retain the
+unknown offline account representation and leave `cdk.context.json` unchanged.
+
+R1 replaces variable-scope provenance with **controller-pinned target identity**.
+The protected environment gate remains the job's exact environment and AWS OIDC
+subject trust. Account/role variables are untrusted inputs, not provenance-attested
+configuration. Environment-level variables remain the intended operational location
+and later live readback must verify that location; exact repository/organization
+fallback is safe only because it must match the same independent target pin.
+No PAT/admin permissions or configuration-provenance API calls are introduced.
+
+`approved-targets.mjs` contains immutable SHA-256 pins for dev and production over
+canonical `shelfstate.approved-target/v1` records: repository, environment, approved
+account, exact role ARN/name, audience and region. Pins were independently computed
+from the locally configured approved AccountAdmin account binding without AWS
+access; raw identifiers remain private. Hashes are bindings, not confidentiality.
+Any pin change requires source review. Before OIDC, the controller reconstructs
+and hashes the runtime target and requires the selected pin. Version-2 runtime
+evidence binds `approvedTargetDigest` to the immutable candidate; identity summaries
+carry that digest without asserting actual session lifetime. Incoming evidence
+cannot substitute its own expected digest. Wrong account/role/path/partition,
+environment crossover, audience/region and missing inputs fail closed.
+
+The local change set is **shared/root**, not V4-only: `.github/` and root `test/`
+require a V3 build under unchanged WP-001. The existing classifier separately
+recognizes `docs/V4_*.md`; this does not make the combined change set V4-only.
+V3 publication remains 42 files with corrected-release digest
+`a4b25c4da79431dedb37a1213d74bac55d8df42e86eecac296a7d88c06cd8caa`.
+
+Remaining gates: independent review, resolved dependency-security gate, separately
+authorized PR/merge/activation and runtime bindings, hosted run/artifact transport
+provenance, PR/ref exclusion, production waiting/rejection/cancellation/approval,
+STS identity and cross-environment denial, actual lifetime and CloudTrail proof,
+final permission-empty role readback and WP-006B acceptance. None is implied by
+fixtures. No remote mutation, federation, application deployment, rollback, or
+WP-007 is authorized by this local slice. Final local counts are reported at handoff.

@@ -1,11 +1,12 @@
 # WP-006B local release controls
 
-Status: local implementation / offline proof only / uncommitted review candidate.
+Status: local workflow-activation implementation / uncommitted review candidate.
 
-Authority: approved WP-006A checkpoint sections 9.2–9.11 and the subsequent
-human authorization for implementation exclusively beneath `v4/`. No active
-workflow, GitHub protection, AWS provider/role, bootstrap, or deployment is
-established by these files. The V3-only security exception has terminated and
+Authority: approved WP-006A checkpoint sections 9.2–9.11, approved local controls,
+and the subsequent human workflow-activation and local-synthesis adjudications.
+The two YAML files are executable definitions on an unpushed local branch;
+they are not installed on GitHub. No remote protection, provider/role, bootstrap,
+or deployment is established by this local change. The V3-only exception has terminated and
 does not apply here. The unchanged dependency audit must remain visibly failing.
 
 ## Implemented boundaries
@@ -24,10 +25,11 @@ does not apply here. The unchanged dependency audit must remain visibly failing.
   interpreted as a glob or passed to CDK.
 - `evidence.mjs`: candidate/controller/workflow/run/attempt/environment/config,
   lockfile, action pin, artifact ID, baseline and preview binding. The manifest
-  is outside the payload it hashes. Service-issued artifact identity is supplied
-  after payload upload; the separately retained evidence manifest does not hash
-  itself. A future collector must authenticate service metadata and expected
-  values independently. Supplying matching JSON twice proves no live provenance.
+  is outside the payload it hashes. The hosted v2 envelope binds authenticated
+  required-check provenance and the service-issued payload artifact ID. Its
+  digest covers the body without recursively hashing itself. The separate runtime
+  record binds controller-pinned account/role target identity to that immutable envelope.
+  Supplying matching JSON twice proves no live provenance.
 - `assemblies.mjs`: reads schema `54.0.0` without loading CDK; inventories both
   assemblies, validates file bytes, and produces deterministic offline previews.
   Only the unresolved-account six-stack, zero-resource foundation is supported
@@ -59,22 +61,21 @@ does not apply here. The unchanged dependency audit must remain visibly failing.
   There is no real known-good V4 deployment. Positive test records are synthetic.
 - `security/oidc-release-policies.mjs`: exact inert role/trust materialization
   and strict fully enumerated readback projections for role/ruleset/environments.
-  Projection adapters and live pagination/completeness proof remain unimplemented;
-  no AWS or GitHub client is included. Empty attached/inline policy lists are
+  Live settings/role readback is separate from the workflow's GitHub provenance
+  adapter. Empty attached/inline policy lists are
   mandatory. No human permission set is changed.
 
 Pure topology constants were extracted into `infrastructure/lib/capabilities.mjs`.
 Existing topology exports and guard behavior are preserved. Security processing
 and existing WP-006A design assertions no longer transitively import CDK.
 
-## Inactive workflow source format
+## Executable proof-only workflow and controllers
 
 `templates/v4-dev-release.mjs` and `templates/v4-production-release.mjs` expose
 exactly two effective, typed source objects, validated against a strict baseline.
-They are deliberately **not executable GitHub YAML**. `controller` steps are
-explicit operation/input contracts; `controller-bound-output` is an unresolved
-output binding, not a value that may be shipped as-is. They cannot be activated
-merely by copying these files into `.github/workflows/`.
+`workflow-source.mjs` lowers these objects to the exact two checked-in YAML files.
+The static release validator is separate from the unchanged validation policy.
+There are no placeholder controller operations or placeholder output values.
 
 The sources specify manual main-only dispatch, separate candidate/controller
 identity, immutable actions, explicit setup-node inputs, no package-manager
@@ -83,12 +84,88 @@ separate approval-gated OIDC jobs and identity-only proof. They contain no
 deployment command, deployment switch, application permission, or rollback
 execution. Effective-structure mutations are tested, not text searched.
 
-Later reviewed activation must implement/lower controller contracts, authentic
-GitHub run/check/artifact collectors and approval evidence, final extraction
-handling, session/CloudTrail proof, and the two real workflow files. It must
-verify pinned action source/inputs again and update the existing exact workflow
-inventory tests in the same reviewed PR. Local source validation is not evidence
-that the GitHub service accepted or executed a workflow.
+Prepare has only `contents: read`, no environment, and no OIDC. It authenticates
+public GitHub run/workflow/check metadata (no token fallback), pins recorded main
+ancestry, and checks out the candidate separately, detached with full history.
+Corepack selects npm 11.6.2. Root tests, credential tripwire, WP-001, npm ci,
+unchanged high/critical audit, registry signatures and full V4 verify must pass.
+The audit failure terminates this chain. Local controller and candidate syntheses
+are credential-isolated with native CDK `--no-lookups`, and require six stacks/zero resources per
+environment. The transition compares retained controller/candidate assemblies;
+neither is a deployed baseline. Candidate execution is credential-free, not an
+OS sandbox; only reviewed main ancestors are eligible.
+
+The payload contains assemblies and exact Git-object configuration/lock bytes,
+not executable candidate scripts. Upload returns the actual immutable artifact
+ID before `seal` creates the candidate evidence. Real values use `GITHUB_OUTPUT`.
+Candidate evidence is never rewritten after upload.
+
+Proof has exactly `contents: read`, `actions: read`, `id-token: write`, depends on
+successful prepare, and enters its fixed environment. Production's existing
+native approval gates the whole job. `pre-oidc` uses only the job token for
+authenticated metadata/artifact GETs; storage redirects receive no GitHub token.
+It rechecks current run attempt, required-check producer 15368/current validation
+attempt, artifact run/name/time/digest, candidate/controller/main ancestry, exact
+inventory and offline transition. Public metadata availability failure stops;
+there is no PAT/admin fallback. Pagination is bounded and must be complete.
+
+The transport reader accepts one fixed-name ZIP32 file (store or streaming
+deflate), checks headers, CRC, expansion limits and rejects extra entries/links
+before returning in-memory data. The canonical data bundle then validates every
+raw byte/path before writing to a fresh private staging directory. ZIP64, extra
+fields and other unsupported formats fail closed. Fixtures test protocol safety;
+actual hosted transport interoperability still needs hosted proof.
+
+The version-2 runtime-binding record contains controller-pinned account/role, exact
+environment, candidate/controller/run/attempt, candidate digest, payload ID/hash,
+fixed role name, region/audience and its own digest. It cannot replace the
+candidate evidence. The pinned credentials action consumes only validated
+outputs, with `translate-env-variables: false`, `output-credentials: false` and
+a requested duration of 900 seconds. It is followed only by STS GetCallerIdentity.
+The redacted identity result reports **requested** duration, never actual expiry
+or issued lifetime. Separately authorized CloudTrail evidence is required for
+actual lifetime and final WP-006B acceptance. Inert roles gain no permissions.
+
+### R1/R2 adjudicated boundaries
+
+The protected environment gate is the exact job environment plus AWS OIDC subject
+trust, not proof of configuration-variable origin. Account/role variables are
+untrusted runtime configuration. `approved-targets.mjs` pins SHA-256 digests of
+canonical `shelfstate.approved-target/v1` records independently of those inputs:
+repository, environment, account, exact role ARN/name, audience and region. The
+two pins were calculated locally from the existing approved AccountAdmin profile
+account binding using a separate canonicalization/hash calculation; no AWS API
+was used. Raw live identifiers are not retained in source. A digest is a binding,
+not encryption or a secret. Pin changes require controller-source review.
+
+Before any credential action, reconstructed input must match the selected pin.
+Runtime evidence and the redacted identity summary carry `approvedTargetDigest`.
+The incoming evidence cannot provide/override the expected pin. Environment-level
+variables remain the intended operational location and require later live readback;
+an exact repository/organization fallback is equivalent target identity, not a
+redirect. Wrong values fail regardless of claimed scope. No administrative token,
+permission or configuration-provenance lookup is introduced.
+
+`offline-environment.mjs` removes AWS/CDK credential/default/profile/web-identity/
+container inputs, disables EC2 metadata, points config/credentials at null devices,
+and removes inherited `NODE_OPTIONS`. It does not modify the user's AWS files.
+The obsolete networking preload was removed. There is **no general network or
+process-tree sandbox claim**: native-child networking and caught-fetch behavior
+are no longer security invariants. Native CDK `--no-lookups` must reject missing
+context instead of resolving it. The controller checks exact lookup-disabled synth
+commands, unchanged `cdk.context.json`, no assembly missing-context entries and
+unresolved offline account metadata. A synthetic SSM lookup regression proves
+native CLI failure. This is credential isolation/context-lookup prevention, not
+protection against arbitrary malicious code accessing the user's filesystem.
+
+Tests use independently precomputed synthetic target pins through test-only
+in-memory module copies; no production entry point accepts caller-supplied pins.
+
+No dependency caches are restored or saved. Workflow artifacts are not dependency
+caches. Local source validation is not evidence of hosted approval/OIDC execution.
+The GitHub adapter uses the documented [workflow-run](https://docs.github.com/en/rest/actions/workflow-runs)
+and [artifact](https://docs.github.com/en/rest/actions/artifacts) GET APIs. Action
+inputs follow the [approved credentials revision](https://github.com/aws-actions/configure-aws-credentials/blob/e1253824e5c10ff9df46874f81ed3ec929e19cfd/action.yml).
 
 ## Verification and remaining gates
 
@@ -100,7 +177,7 @@ Hosted CI still stops at audit; local results do not make the hosted aggregate
 green. No bypass, allowlist, severity downgrade or old exception is introduced.
 
 Tests use owned temporary fixtures beneath ignored `v4/cdk.out/` and remove only
-those fixtures. Real synth verification must remain credential-free, use trusted
+those fixtures (transfer tests use owned OS temporary directories). Real synth verification must remain credential-free, use trusted
 repository inputs, make no context lookups, and retain six stacks/zero resources
 per environment. No CDK or dependency versions/lockfile are changed.
 

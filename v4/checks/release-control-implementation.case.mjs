@@ -390,10 +390,10 @@ test("settings validator rejects broadened/partial controls and preserves one-hu
   }
 });
 
-test("exactly two inactive source entries validate effective job structure", async () => {
+test("exactly two source entries validate effective proof-only job structure", async () => {
   assert.deepEqual((await readdir(path.join(v4, "scripts/release/templates"))).sort(), ["v4-dev-release.mjs", "v4-production-release.mjs"]);
   for (const [env, source] of [["dev", devWorkflow], ["production", prodWorkflow]]) {
-    assert.doesNotThrow(() => validateWorkflowSource(source, env)); assert.equal(source.activation, "not-github-yaml");
+    assert.doesNotThrow(() => validateWorkflowSource(source, env)); assert.equal(source.activation, "local-yaml-review-only");
     assert.equal(source.jobs.proof.environment, env);
     assert.deepEqual(source.jobs.proof.needs, ["prepare"]);
     assert.equal(source.jobs.prepare.steps[1].with["node-version-file"], "v4/.nvmrc");
@@ -406,8 +406,8 @@ for (const [label, mutate] of [
   ["mutable action", w => { w.jobs.prepare.steps[0].uses = "actions/checkout@main"; }], ["wrong controller checkout", w => { w.jobs.proof.steps[0].with.ref = "${{ inputs.commit_sha }}"; }],
   ["automatic cache", w => { w.jobs.prepare.steps[1].with["package-manager-cache"] = true; }], ["missing cache input", w => { delete w.jobs.proof.steps[1].with["package-manager-cache"]; }],
   ["cache action", w => { w.jobs.prepare.steps.push({ uses: "actions/cache@" + sha }); }], ["ad hoc cache", w => { w.jobs.prepare.steps.push({ run: "restore-cache" }); }],
-  ["continue on error", w => { w.jobs.prepare["continue-on-error"] = true; }], ["missing audit", w => { w.jobs.prepare.steps[4].controller.inputs.v4Commands.splice(1, 1); }],
-  ["unbound artifact", w => { w.jobs.proof.steps[3].with["artifact-ids"] = "latest"; }], ["application deployment", w => { w.jobs.proof.steps.push({ run: "cdk deploy" }); }],
+  ["continue on error", w => { w.jobs.prepare["continue-on-error"] = true; }], ["missing audit controller", w => { w.jobs.prepare.steps.splice(3, 1); }],
+  ["unbound artifact", w => { w.jobs.proof.env.PAYLOAD_ID = "latest"; }], ["application deployment", w => { w.jobs.proof.steps.push({ run: "cdk deploy" }); }],
   ["automatic cancellation", w => { w.concurrency["cancel-in-progress"] = true; }],
 ]) test(`inactive workflow rejects ${label}`, () => {
   for (const [env, source] of [["dev", devWorkflow], ["production", prodWorkflow]]) {

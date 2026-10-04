@@ -1,0 +1,96 @@
+{
+  "status": "HUMAN_ADJUDICATION_REQUIRED_NOT_DEPLOYABLE",
+  "generatedIds": {
+    "choices": [
+      "staged exact-ID binding (current lifecycle policy placeholders)",
+      "separately approved bounded initial-ID patterns followed by exact-ID tightening"
+    ],
+    "initialPatterns": {
+      "cloudfront": [
+        "distribution/* (ownership tags required)",
+        "origin-access-control/*",
+        "cache-policy/*",
+        "origin-request-policy/*",
+        "response-headers-policy/*"
+      ],
+      "api": [
+        "/apis/* and selected integration/route/stage child paths"
+      ],
+      "certificate": [
+        "certificate/* (ownership tags required)"
+      ]
+    },
+    "residual": "Untagged CloudFront policy/OAC IDs cannot be name-isolated. Broader initial lifecycle patterns can reach unrelated resources. No blanket pattern policy is selected or emitted."
+  },
+  "dnsValidation": {
+    "choices": [
+      "staged exact name",
+      "bounded pattern with explicit residual-risk approval"
+    ],
+    "boundedPatternCandidate": {
+      "Sid": "CertificateValidationOnly",
+      "Effect": "Allow",
+      "Action": [
+        "route53:ChangeResourceRecordSets"
+      ],
+      "Resource": [
+        "arn:aws:route53:::hostedzone/${SELECTED_ZONE_ID}"
+      ],
+      "Condition": {
+        "ForAllValues:StringLike": {
+          "route53:ChangeResourceRecordSetsNormalizedRecordNames": [
+            "_*.dev.shelfstate.codecorax.com"
+          ]
+        },
+        "ForAllValues:StringEquals": {
+          "route53:ChangeResourceRecordSetsRecordTypes": [
+            "CNAME"
+          ],
+          "route53:ChangeResourceRecordSetsActions": [
+            "CREATE",
+            "UPSERT"
+          ]
+        },
+        "Null": {
+          "route53:ChangeResourceRecordSetsNormalizedRecordNames": "false",
+          "route53:ChangeResourceRecordSetsRecordTypes": "false",
+          "route53:ChangeResourceRecordSetsActions": "false"
+        }
+      }
+    },
+    "residual": "IAM glob is not an ACM-token grammar; record-value/alias-target restrictions need reviewed template/evidence checks. DELETE of validation CNAME is not proposed."
+  },
+  "createAndReadWildcards": [
+    {
+      "actions": [
+        "cloudfront:CreateDistribution"
+      ],
+      "conditions": "Project/Environment/ManagedBy request tags; no exact future ID",
+      "residual": "Additional tagged distributions and spend are possible"
+    },
+    {
+      "actions": [
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:CreateCachePolicy",
+        "cloudfront:CreateOriginRequestPolicy",
+        "cloudfront:CreateResponseHeadersPolicy"
+      ],
+      "conditions": "No supported name/tag creation restriction",
+      "residual": "Account-wide creation for these types; not an update/delete grant"
+    },
+    {
+      "actions": [
+        "acm:RequestCertificate"
+      ],
+      "conditions": "Exact domain set, DNS, public/non-exportable, east region, request tags",
+      "residual": "Multiple certificates for the same name are possible"
+    },
+    {
+      "actions": [
+        "logs:DescribeLogGroups"
+      ],
+      "conditions": "west endpoint only",
+      "residual": "Log-group metadata listing, not log content"
+    }
+  ]
+}

@@ -1,0 +1,203 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateStaticBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::shelfstate-v4-dev-static-${ACCOUNT_ID}-us-west-2"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "s3:LocationConstraint": "us-west-2"
+        }
+      }
+    },
+    {
+      "Sid": "ConfigureStaticBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketLocation",
+        "s3:ListBucket",
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetBucketOwnershipControls",
+        "s3:PutBucketOwnershipControls",
+        "s3:GetEncryptionConfiguration",
+        "s3:PutEncryptionConfiguration",
+        "s3:GetBucketTagging",
+        "s3:PutBucketTagging",
+        "s3:DeleteBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::shelfstate-v4-dev-static-${ACCOUNT_ID}-us-west-2"
+      ]
+    },
+    {
+      "Sid": "CreateNamedHttpApi",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:POST"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:us-west-2::/apis"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "apigateway:Request/ApiName": "shelfstate-v4-dev-health",
+          "aws:RequestTag/Project": "ShelfState",
+          "aws:RequestTag/Environment": "dev",
+          "aws:RequestTag/ManagedBy": "AWS-CDK"
+        }
+      }
+    },
+    {
+      "Sid": "ManageHttpApi",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:GET",
+        "apigateway:PATCH",
+        "apigateway:DELETE"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}"
+      ]
+    },
+    {
+      "Sid": "CreateHttpChildren",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:POST"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}/integrations",
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}/routes",
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}/stages"
+      ]
+    },
+    {
+      "Sid": "ManageHttpChildren",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:GET",
+        "apigateway:PATCH",
+        "apigateway:DELETE"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}/integrations/${INTEGRATION_ID}",
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}/routes/${ROUTE_ID}",
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}/stages/$default"
+      ]
+    },
+    {
+      "Sid": "CreateHealthFunction",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-west-2:${ACCOUNT_ID}:function:shelfstate-v4-dev-health"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Project": "ShelfState",
+          "aws:RequestTag/Environment": "dev",
+          "aws:RequestTag/ManagedBy": "AWS-CDK"
+        }
+      }
+    },
+    {
+      "Sid": "ManageHealthFunction",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:DeleteFunction",
+        "lambda:GetPolicy",
+        "lambda:RemovePermission",
+        "lambda:ListTags",
+        "lambda:TagResource",
+        "lambda:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-west-2:${ACCOUNT_ID}:function:shelfstate-v4-dev-health"
+      ]
+    },
+    {
+      "Sid": "ApiMayInvokeHealth",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:AddPermission"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-west-2:${ACCOUNT_ID}:function:shelfstate-v4-dev-health"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "lambda:Principal": "apigateway.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "HealthLogGroup",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:ListTagsForResource",
+        "logs:TagResource",
+        "logs:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-west-2:${ACCOUNT_ID}:log-group:/aws/lambda/shelfstate-v4-dev-health",
+        "arn:aws:logs:us-west-2:${ACCOUNT_ID}:log-group:/aws/lambda/shelfstate-v4-dev-health:*"
+      ]
+    },
+    {
+      "Sid": "FindLogGroupMetadata",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups"
+      ],
+      "Resource": [
+        "*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-west-2"
+        }
+      }
+    },
+    {
+      "Sid": "ReadRegionalTemplateAssets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": [
+        "arn:aws:s3:::cdk-hnb659fds-assets-${ACCOUNT_ID}-us-west-2/*"
+      ]
+    },
+    {
+      "Sid": "ResolveBootstrapVersion",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameters"
+      ],
+      "Resource": [
+        "arn:aws:ssm:us-west-2:${ACCOUNT_ID}:parameter/cdk-bootstrap/hnb659fds/version"
+      ]
+    }
+  ]
+}

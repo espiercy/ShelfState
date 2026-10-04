@@ -1,0 +1,70 @@
+[
+  {
+    "status": "LOCAL_REVIEW_ONLY_NOT_AUTHORIZED",
+    "region": "us-west-2",
+    "account": "${ACCOUNT_ID}",
+    "stackName": "CDKToolkit",
+    "terminationProtection": true,
+    "execute": false,
+    "authority": "AccountMaintenanceAdmin",
+    "explicitMfa": true,
+    "maximumSessionSeconds": 3600,
+    "parameters": {
+      "Qualifier": "hnb659fds",
+      "BootstrapVariant": "ShelfState: Dev isolated modern bootstrap",
+      "CloudFormationExecutionPolicies": "arn:aws:iam::${ACCOUNT_ID}:policy/ShelfStateV4DevCfnExecutionWest,arn:aws:iam::${ACCOUNT_ID}:policy/ShelfStateV4DevCfnExecutionWestEdge",
+      "FileAssetsBucketKmsKeyId": "AWS_MANAGED_KEY",
+      "TrustedAccounts": "",
+      "TrustedAccountsForLookup": "",
+      "FileAssetsBucketName": "",
+      "ContainerAssetsRepositoryName": "",
+      "InputPermissionsBoundary": "",
+      "UseExamplePermissionsBoundary": "false",
+      "PublicAccessBlockConfiguration": "true",
+      "DenyExternalId": "true"
+    },
+    "requiredGates": [
+      "dependency-security",
+      "WP-006B-live-proof",
+      "generated-id-adjudication",
+      "dns-validation-adjudication",
+      "policy-review",
+      "policy-creation-authorization",
+      "bootstrap-authorization"
+    ]
+  },
+  {
+    "status": "LOCAL_REVIEW_ONLY_NOT_AUTHORIZED",
+    "region": "us-east-1",
+    "account": "${ACCOUNT_ID}",
+    "stackName": "CDKToolkit",
+    "terminationProtection": true,
+    "execute": false,
+    "authority": "AccountMaintenanceAdmin",
+    "explicitMfa": true,
+    "maximumSessionSeconds": 3600,
+    "parameters": {
+      "Qualifier": "hnb659fds",
+      "BootstrapVariant": "ShelfState: Dev isolated modern bootstrap",
+      "CloudFormationExecutionPolicies": "arn:aws:iam::${ACCOUNT_ID}:policy/ShelfStateV4DevCfnExecutionEast",
+      "FileAssetsBucketKmsKeyId": "AWS_MANAGED_KEY",
+      "TrustedAccounts": "",
+      "TrustedAccountsForLookup": "",
+      "FileAssetsBucketName": "",
+      "ContainerAssetsRepositoryName": "",
+      "InputPermissionsBoundary": "",
+      "UseExamplePermissionsBoundary": "false",
+      "PublicAccessBlockConfiguration": "true",
+      "DenyExternalId": "true"
+    },
+    "requiredGates": [
+      "dependency-security",
+      "WP-006B-live-proof",
+      "generated-id-adjudication",
+      "dns-validation-adjudication",
+      "policy-review",
+      "policy-creation-authorization",
+      "bootstrap-authorization"
+    ]
+  }
+]

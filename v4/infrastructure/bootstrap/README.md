@@ -1,5 +1,7 @@
 # WP-007 local bootstrap-security proposal
 
+Snapshot note (2026-10-05): the preparation and remediation results below describe the 2026-10-04 review state, including its then-uncommitted status. The approved preparation is now locally committed at `6ddbd25e8699c949b727c2dfa342fc0f6345e5e4`; see the [current-state index](../../../docs/V4_CURRENT_STATE.md) for subsequent inventory/cleanup evidence and outstanding gates. No live-use authority follows from that commit.
+
 Status: LOCAL REVIEW ONLY — NOT AUTHORIZED FOR AWS USE
 
 **NOT DEPLOYMENT READY.** R1–R3 remediation does not resolve any live authorization or pending architecture/security gate.

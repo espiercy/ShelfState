@@ -1,5 +1,7 @@
 # V4 OIDC deployment and release-control checkpoint
 
+Snapshot note (2026-10-05): this document preserves dated WP-006 design and assessment evidence, including the original status below. It is not a current authorization ledger. See [V4_CURRENT_STATE.md](V4_CURRENT_STATE.md) for operative evidence, remaining gates and later local preparation; historical status does not authorize further action.
+
 Status: **WP-006A DESIGN COMPLETE — READY FOR REVIEW / WP-006B NOT AUTHORIZED**
 
 - Initial assessment date: 2026-09-28; resumed read-only assessment: 2026-09-29.

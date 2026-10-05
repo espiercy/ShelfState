@@ -1,5 +1,7 @@
 # ShelfState V4 Implementation Plan
 
+Snapshot note: §A and §§I–J retain the original planning/review checkpoint, not today's package status. The 2026-10-05 human-adjudicated process-continuity amendment is in §B.2. Use [V4_CURRENT_STATE.md](V4_CURRENT_STATE.md) for the current evidence index; neither that index nor this plan grants task authorization. Package scope, architecture and requirements are unchanged by this process amendment.
+
 ## A. Status
 
 **Status: APPROVED ARCHITECTURE / IMPLEMENTATION PLANNING**
@@ -50,9 +52,47 @@ This is an implementation boundary, not permission to create it now. WP-001 must
 ### B.2 Common package rules
 
 - Every package begins by confirming its authority revisions and cleanly separating pre-existing user changes.
-- Completion evidence records the package ID, commit hash, changed paths, requirement IDs, exact commands, test counts/results, relevant synth/diff/deployed-dev evidence, cost delta, and unresolved observations.
-- Real-AWS tests use namespaced synthetic identities/data in non-production and include cleanup that tolerates interrupted prior runs. Production data is never copied.
+- Completion evidence records the package/slice ID, content identity (commit hash or uncommitted path/content digests), changed paths, relevant requirement IDs, exact commands, test counts/results, applicable synth/diff/deployed-dev evidence, cost delta, and unresolved observations. Reference still-valid evidence rather than copying full reports; mark inapplicable evidence as such, not as passed.
+- Real-AWS tests use namespaced synthetic identities/data in non-production and include authorized cleanup that tolerates interrupted prior runs by reconciling known state, not blindly retrying an uncertain mutation. Production data is never copied.
 - Common stop conditions: an architecture/requirements conflict; inability to preserve ownership/atomicity; a needed deferred service; material unmodeled recurring cost; V3 deployment/runtime coupling; or a required control with no implementable verification path.
+
+#### B.2.1 Authority, sequencing and bounded operations
+
+One repo-mutating or live-state-mutating workstream at a time. Separate worktrees do not justify concurrent mutation. Unrelated design, research, read-only analysis or independent review may proceed during an external wait only when it cannot alter, invalidate or race the active state.
+
+Exact-scope human authorization remains mandatory. Local preparation precedes live mutation; independent implementation review remains required. Local preparation, review, commit, hosted acceptance and live/deployment authorization are distinct gates. None implies the next. Preserve V3/V4 isolation, visible dependency/security gates, and the release/access controls in architecture §§21, 26–27 and ADR-007/016/017. This amendment neither changes an exception nor grants one. Required CI/release checks still run at their governing gates.
+
+Human authorization may cover a bounded coherent operation: verify exact preconditions → modify the exact authorized object → submit once → observe the bounded result → verify effective state → end session. Readbacks already inside that authorization need no new approval at each step. Stop if target identity, authority, architecture or risk acceptance changes, the mutation outcome is uncertain, or an excluded action becomes necessary. Do not retry an uncertain mutation automatically.
+
+Before escalating technical friction, check relevant runbooks, repository guidance, known tool paths, authentication procedures and already-authorized read-only diagnostics. A typo, missing CLI on PATH, incorrect assertion or trailing-slash response is ordinarily diagnostic, not new authority. Never broaden permissions automatically after AccessDenied or an interface failure. If resolution needs additional authority, stop and identify the exact missing action.
+
+#### B.2.2 One current-state index and two evidence locations
+
+[V4_CURRENT_STATE.md](V4_CURRENT_STATE.md) is the single compact handoff index, **not an authorization source**. Maintain it within an authorized repository-editing slice when material state changes; a live-only/read-only task does not implicitly permit a repository write. If it lags, report the newer evidence and limitation rather than silently treating the index as live truth. Do not create parallel status files.
+
+The index records the active slice, baseline, state, reviewed content/evidence identity, blockers, accepted findings and closure, timestamped live evidence and limitations, symbolic private-handoff reference/digest, credential expiry/pending cleanup, and next permitted action or required human decision. Use explicit states as applicable: proposed, locally prepared, independently reviewed, committed, live-applied, verified, blocked, closed. Name the subject of each state: a committed preparation can still be blocked for deployment. Point to human authorization; do not infer or expand it from status.
+
+Preserve dated checkpoint/review reports as historical snapshots. Use the index to identify operative evidence and superseding decisions; add a small snapshot notice only where old status text would otherwise mislead. Do not continually rewrite history or duplicate its full reports.
+
+Repository-safe evidence contains symbols, digests, decisions, results, timestamps, limitations and evidence references. When an exact live binding must survive between authorized steps, keep a minimal private operational handoff **outside Git**, with provenance and a digest/readback mechanism for continuity. It must contain no credentials, tokens, session IDs or authentication secrets. Reference its symbolic location/digest from the index; do not copy raw private identifiers into repository evidence merely for convenience.
+
+#### B.2.3 Verification and independent review
+
+Re-run evidence when its premise has changed or can have become stale, not merely because another conversation turn occurred. Byte-based evidence can be reused while the reviewed content and relevant tool/input identity remain unchanged. Security advisories/packages, live permissions, credential expiry, remote artifact availability and platform-served content can change independently of Git. Revalidate those premises at the relevant gate; unchanged source alone is not freshness proof. Avoid unrelated full-suite reruns without invalidation, but never bypass a required CI/release rerun.
+
+Before security-sensitive infrastructure or externally constrained platform implementation, perform a short feasibility/threat preflight limited to material constraints: hard quotas, action/resource scoping, unsupported combinations, policy-evaluation interactions, alternate authorization paths, and deployment/toolchain constraints. Ordinary low-risk application edits do not need this ceremony. Predeclare the important adversarial cases for security controls from the trust boundary, not from the implementation; no arbitrary test count. Independent reviewers must invent additional cases as warranted.
+
+Independent remediation closure remains mandatory. Focused closure establishes that the original defect is reproduced/regression-covered, the correction closes it, affected adjacent bypasses were examined, and reviewed content is bound to verification evidence. Broader/full re-review is required when remediation materially changes trust, privilege, persistence, deployment behavior, architectural/foundational assumptions or a large unrelated portion of the package. Do not mechanically restart full review for a narrow correction.
+
+Keep source configuration, effective deployed state and operational proof distinct: policy text alone does not prove effective permission or successful operation. Every review asks: **Is every claim no broader than the evidence or mechanism that establishes it?** “No plausible conventional bootstrap stack was discovered” does not establish that no custom bootstrap exists. “The tested policy blocks this bypass” does not by itself establish least privilege. Narrow claims when evidence is narrower.
+
+#### B.2.4 Temporary access and process maintenance
+
+Temporary access follows: design → authorize/create → verify → use → capture evidence → expire → cleanup → close. Record issuance/expiration, tooling/session end, required expiry/state conditions, cleanup result and remaining obligations without credential/session values. Logout is not proof of revocation. Cleanup waits for required conditions and reconciles state; failed or indeterminate mutation stops automatic retry. Future explicit human authorization may include conditional cleanup within the original bounded lifecycle; this rule authorizes no cleanup retroactively. Close only after the authorized absence/effective-state and audit checks are complete.
+
+Every process control should map to a named failure mode or risk boundary. Independent review addresses missed defects/bypasses; exact scope and sequential mutation prevent authority drift and racing state; content-bound evidence prevents reviewing one state and accepting another; source/effective/operational separation prevents false assurance; expiry/cleanup discipline prevents residual access; V3 isolation prevents cross-release impact; security gates prevent unaccepted risk. Controls that only duplicate another safeguard are candidates for consolidation through appropriate review/authority, not silently dropped.
+
+Do not add another standing reviewer, generalized governance platform, blanket full-suite reruns at conversational transitions, broader IAM to reduce friction, retries of uncertain mutations, or checklists duplicating an authoritative source. Future prompts may reference these durable rules and focus on task delta, exact targets, authority, exclusions, stop conditions and completion evidence. IAM, security, deployment, production and destructive/live tasks still need task-specific explicitness. This section consolidates common mechanics; it does not replace package acceptance criteria or architecture-change review.
 
 ## C. Work-Package Index
 

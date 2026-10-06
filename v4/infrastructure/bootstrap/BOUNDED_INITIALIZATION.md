@@ -1,0 +1,114 @@
+# WP-007 bounded initialization — local security preparation
+
+Status: **LOCAL PREPARATION / R1 REMEDIATED, FOCUSED INDEPENDENT CLOSURE PENDING / NOT DEPLOYMENT READY**.
+
+Authority: human request “Implement the local-only WP-007 bounded-initialization authority package,” following the CloudFormation-native design adjudication. Starting branch `codex/wp-006b-workflow-activation`, HEAD `2f81271a4e968638bfa43da2cd4c4849dd3bf768`, clean. No commit/live use is authorized. These functions are pure models and evidence validators, not an AWS executor or proof of authentic AWS responses.
+
+## Selected design and artifact boundaries
+
+CloudFormation owns resources from creation. Temporary non-exact lifecycle reach is accepted as a design residual, not equivalent to exact-resource IAM isolation. Direct create/import and no-rollback are separately reviewed recovery alternatives, never automatic fallbacks. Historical candidates remain in the earlier README/model snapshots; the selected fields in `pending-decisions.json` supersede their undecided status.
+
+`initialization.mjs` provides eight action-class inventories, generated authority fragments, full phase execution-policy compositions, caller window caps and closure decisions. `executionPolicies` REPLACES the legacy CloudFront/API/ACM statements; it never unions wildcard creation with exact steady state. Completed regional phases may be retained only with exact steady-state grants. The two-west/one-east managed attachment structure remains. Actual bound policy size and complete effective policy/trust readback remain prerequisites to live use.
+
+Named S3, health Lambda/role/log and bootstrap-support statements retain their existing boundaries. In steady mode their creation actions are also removed. Certificate compositions have no Route 53 authority, including no automatic publication. The existing JSON execution files remain a historical/catalog input, not a policy installation instruction.
+
+## Single-stack and protected change-set path
+
+One capability stack may initialize at a time, across both regions. The existing regional execution roles/topology remain unchanged. The proposed window requires independently administered role-side caps on both deployment roles, plus complete review of every other narrower principal able to operate any stack associated with the expanded execution role. An optional session policy, caller promise, or six-stack allowlist is insufficient.
+
+1. Before expansion, verify both deployment roles' complete effective policies, attached-stack inventory, narrower-principal closure, no concurrent/pending unreviewed operation and the CloudFormation-only execution trust. The opposite regional deployment role is denied all CloudFormation/PassRole activity. Existing AccountAdmin/Operator/Recovery models deny deployment/role use; that is local model evidence, not live account-wide inventory. Account-wide administrators are excluded from the narrower-principal claim because they already possess greater authority.
+2. In **prepare**, replace the ordinary deployment allow with `callerWindowCap`; explicitly deny operations outside the exact stack, retaining only exact toolkit/support reads. Permit creation of one uniquely named change set with the exact execution role; deny ExecuteChangeSet. The cap is installed on the role, not supplied voluntarily by its caller. Do not install execution expansion until closure/readback is established.
+3. Independently inspect the prepared change set, complete changes and physical mappings, stored template, parameters, assembly and immutable/version-bound assets. Obtain the approved digest of this whole review package outside the candidate. A candidate cannot supply its own trusted pin. Only after validation replace prepare authority with **execute** authority.
+4. Execute state explicitly denies CreateChangeSet, DeleteChangeSet, direct update/create/delete/repair paths and other change-set names. Execute uses the inspected immutable change-set ID. The same name cannot be deleted/recreated by this principal. A distinct operator capable of replacing it is a closure failure. The existing release controller/workflows do not perform this protocol; a future separately reviewed adapter must bind real API evidence and the actual request to it. That adapter must explicitly bind reviewed rollback request options and prohibit inappropriate `OnStackFailure`, `DisableRollback` or equivalent settings; template/change-set identity alone does not establish rollback mode (independent-review note N2). No executor is introduced here.
+5. Only after terminal success and complete resource binding narrow execution policies. Read back effective narrowing, close the caller window, and only then consider restoring ordinary caller permissions under the authorized procedure. No next stack while the expanded role or a prior operation remains active.
+
+The cap includes explicit denies that defeat the old six-stack allow for mutation elsewhere. It does not prove absence of another unexamined principal or associated stack. If existing topology cannot close that path, STOP before live expansion; do not silently exempt a narrower operator. Likewise the local evidence validator is not an authentication mechanism.
+
+The pinned CDK general deployment path is not declared compatible with this two-stage authorization switch. Future tooling must stop between non-executing preparation and execution; direct/hotswap/repair fallback remains prohibited. No workflow activation is needed to prepare/test these controls locally.
+
+## Action inventory and residuals
+
+The executable inventory is `ACTION_INVENTORY`; all rows separate create, read/stabilization, rollback, exact steady update, replacement and outstanding proof.
+
+| Class | Minimum proposed initialization lifecycle | Residual / proof |
+|---|---|---|
+| Distribution | Create/tag; Get/GetConfig/tag read; Update to disable; Delete | Tag-on-create authorization and stabilization sequence need handler proof. Temporary tagging can label an unrelated distribution; tests expose this rather than claiming tag isolation. |
+| OAC | Create; Get/GetConfig; Delete | Untaggable account/type reach; ETag/dependency teardown. No initial Update merely for convenience. |
+| Cache policy | Create; Get/GetConfig; Delete | Same untaggable reach; detach/delete ordering. |
+| Origin-request policy | Create; Get/GetConfig; Delete | Same; include only if the reviewed resource inventory needs it. |
+| Response-headers policy | Create; Get/GetConfig; Delete | Same; reviewed exact configuration/digest required. |
+| HTTP API parent | POST `/apis` with exact name/request tags; GET/DELETE generated parent pattern | IAM wildcard can match descendant paths too. Parent initialization is not unrelated-API isolation. Unknown tag endpoint/PATCH requirements are NOT granted speculatively. |
+| HTTP API children | POST selected collections under exact API; GET/DELETE integration/route patterns and fixed stage | No REST tag inheritance assumption. No cross-API wildcard. Child tag/PATCH requirements need evidence. |
+| ACM | Exact-domain/DNS/public/non-exportable east request; creation tagging; Describe/tag read/Delete | Initial tagging/read/delete spans certificate IDs. No automatic DNS. Handler timing/pending-ID proof remains outstanding. |
+
+No account-wide resource listing is added to find resources by name. No initial OAC/policy Update, arbitrary API PATCH or tag/untag endpoint is added solely because it might help. Handler-version-specific requirements must be established before policy installation; a material new action is a stop/review, not an automatic addition. The policy models are action-class preparation, not a certified complete handler permission trace.
+
+Initial distribution/certificate lifecycle reads and rollback require the reviewed resource tags as defense in depth. This is not an ownership guarantee: the creation-tagging residual could relabel another resource, and other ShelfState/dev resources may already share the tags. The negative tests explicitly distinguish missing-tag denial from that remaining reach; untaggable policies/OAC have no invented tag condition. Tag availability at each handler call remains a live-proof item.
+
+## Template and artifact guard
+
+`initialization-guard.mjs` accepts bounded byte inputs and independently pinned review metadata. It rejects wrong target/role, unexpected logical IDs/types/count, macros at any depth, nested/custom resources, replacement, unapproved relationships, wrong domain, parameters and substituted artifacts/change sets. The guard uses a narrow four-phase synthetic contract, not a generalized CloudFormation interpreter. It does not generate application stacks. Real synthesized logical IDs/configuration and an AWS-response projection adapter must be independently reviewed when application work is authorized. Synthetic fixtures deliberately are not deployable application templates.
+
+All reviewed bytes/configuration are pinned. R1 remediation additionally compares every accepted resource's complete `Properties` against a positive semantic structure: only object-key order is normalized. Extra/missing fields, nested additions, alternate intrinsics, external specifications and changed values fail even with a separately valid review pin. Only literal top-level description and the fixed template-format version are optional. Resource attributes and all other template sections remain unsupported. This is a fail-closed validator for the supported synthetic WP-007 subset, **not a complete CloudFormation security verifier or a deployable-template contract**.
+
+| Supported resource | Complete accepted property contract |
+|---|---|
+| HTTP API parent | Exact `Name` and `ProtocolType` only, in both API phases. No quick-create `Target`/`RouteKey`, OpenAPI `Body` or `BodyS3Location`. |
+| Integration / Route / Stage | Exact API `Ref`; exact AWS_PROXY health-Lambda URI, GET `/health` integration join, and auto-deployed `$default` stage respectively. No credentials ARN, request transforms, stage variables or alternate intrinsics. |
+| Lambda permission | Exact action, health function, API service principal and reviewed API/source-path join. |
+| Distribution | Exact aliases, bound certificate, single bound S3/OAC origin, and default behavior referencing the three approved logical policies. No extra behaviors/origins, edge/function associations, alternate viewer/origin fields or policy references. |
+| OAC / cache / origin-request / response-headers policy | Exactly empty `Properties` placeholders in the existing synthetic fixture. No real configuration is yet supported. Their future deployable configurations require separately reviewed complete contracts; this remediation does not select those configurations. |
+| ACM certificate | Exact dev hostname, DNS validation and disabled export only. Previously unchecked optional `Tags` are no longer accepted; ownership/tagged deployable representations require explicit review, not arbitrary tags. |
+| A / AAAA aliases | Exact name/type/bound zone and native distribution-domain GetAtt/CloudFront hosted-zone target only. |
+
+The assembly input is an explicit review projection with a byte digest, not a claim that arbitrary CDK cloud assemblies are supported. Any adapter must preserve the raw source assembly identity as authenticated review evidence and reject unsupported members. Current zero-resource release guards stay unchanged. Resource-bearing steady updates remain gated; exact steady IAM is modeled, but no generic update executor is introduced.
+
+Stored-template readback and immutable/version-bound asset verification must occur before the execute grant. A content-hash filename is not immutable S3 storage; existing publisher access can overwrite/delete objects. The execute principal must not be able to replace reviewed asset versions; if this cannot be enforced/read back with the existing publication path, STOP rather than trusting a filename. Asset-version/reference correspondence and authenticated service readback are later adapter/live proof obligations, not facts established by synthetic JSON.
+
+## HTTP API and certificate phases
+
+Parent-first native API creation completes, captures its exact ID, then narrows. The child phase retains exact parent permissions for reads/rollback and permits child lifecycle only under that ID. Its change set cannot modify/replace the parent. Integration URI, route target and Lambda invoke SourceArn are validated. Replacing a parent invalidates child bindings and needs separate initialization authorization.
+
+East: exact `dev.shelfstate.codecorax.com`, public, `us-east-1`, DNS, export disabled, no SAN/private CA/HostedZoneId auto-validation. Recover pending certificate ARN from exact stack/logical-resource evidence; independently bind it and describe it to obtain the CNAME. Pending physical-ID availability is an outstanding live proof, not a guarantee. No name-based guessing or broad ListCertificates fallback.
+
+Publish only after separate exact-zone/exact-normalized-CNAME authorization and verification of the ACM-returned value. IAM does not constrain record value. Retain the CNAME for renewal; remove temporary DNS write authority afterward. This package grants no DNS-validation write, standing `_*.dev...` pattern or validation-record deletion. ACM's 72-hour validation timeout does not promise CloudFormation will wait that long; a future bounded procedure must fit actual handler/workflow limits.
+
+## Failure, transition and closure
+
+- Active creation, stabilization, cleanup or rollback: retain required execution authority; block next operations. Human logout/credential expiry does not remove role policies.
+- Terminal CREATE_COMPLETE/UPDATE_COMPLETE: verify complete physical IDs and ownership, replace with exact-ID policies, remove unnecessary creation grants, verify effective policy propagation/operation, close window.
+- Terminal ROLLBACK_COMPLETE/UPDATE_ROLLBACK_COMPLETE: inspect absence or reviewed remnants, retain exact authority needed for existing resources, then close. Status alone does not prove absence.
+- Failed/indeterminate rollback or AccessDenied: STOP for human recovery authorization. No automatic broadening, repair, reprovisioning, direct import or no-rollback fallback.
+- Replacement/new generated IDs: new reviewed initialization window. Keep old exact bindings until terminal cleanup; never silently replace an old ID or tighten mid-operation.
+
+`assertClosure` validates a supplied evidence projection against an independently verified expected map. It cannot establish AWS response authenticity, completeness, account ownership or effective permissions by itself. These require the authorized future readback adapter/operator. No successful local call is a live closure attestation.
+
+## Remaining gates and verification
+
+Outstanding: handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME; asset/version correspondence; effective propagation and exact-ID operation; CloudTrail; unresolved dependency audit (no V4 waiver); WP-006 hosted acceptance; bootstrap and initialization authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed.
+
+Run focused bootstrap/initialization/infrastructure and affected release/boundary checks, full composed policy-size assertions, raw-binding/credential scans and diff checks. Do not run an audit merely to relabel the recorded blocker. The historical upstream/CDK template digest and V3 publication identity remain independently checkable and unchanged by this package.
+
+Public primary references: [CloudFormation actions/condition keys](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudformation.html), [service-role reuse](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-servicerole.html), [failure options](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stack-failure-options.html), [CloudFront](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html), [API Gateway V2](https://docs.aws.amazon.com/service-authorization/latest/reference/list_apigatewayv2.html), [ACM](https://docs.aws.amazon.com/service-authorization/latest/reference/list_acm.html), [CDK DNS validation](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_certificatemanager.CertificateValidation.html). These support design semantics, not live deployment proof.
+
+### Local verification record — 2026-10-06
+
+- `node --test checks/bootstrap-initialization.case.mjs checks/bootstrap-security.case.mjs checks/infrastructure.case.mjs` from `v4/`, launched with the existing `credentialFreeEnvironment`: **88 passed, 0 failed** (36 new initialization cases, 44 bootstrap cases, 8 infrastructure cases). The infrastructure tests synthesize dev/prod with six stacks and zero resources each. No AWS credentials/lookup used.
+- Affected release/package suites (`package-boundary`, `release-control-implementation`, `workflow-activation`, `controller-provenance`, `runtime-target`, `offline-synthesis`) also ran with credential discovery disabled: **246 passed, 0 failed, 2 skipped**. The two existing Windows filesystem symlink tests skip on EPERM; mandatory mocked link/junction/type tests pass. These ran in a combined 282-case invocation with the then-34 initialization cases; two additional initialization cases passed in the final 88-case run above.
+- Root CI-policy plus WP-001 isolation: **22 passed, 0 failed**, including all six WP-001 cases. No unrelated application-suite rerun.
+- Conservative bindings (64-character generated IDs, 32-character zone ID): full composed execution-policy maximum **4,832 / 6,144** characters; caller-policy maximum **4,047 / 6,144**. The existing two-west/one-east attachment topology remains unchanged. Concrete live bindings require their own size check.
+- Tracked credential tripwire and explicit changed/new-file credential/new-binding scan: passed. The binding scan distinguishes existing synthetic negative fixtures from newly introduced identifiers; no private handoff was read. `git diff --check`: passed.
+- All 13 pending paths are V4-owned under WP-001. V3 source and existing publication both contain **42 files**, digest `a4b25c4da79431dedb37a1213d74bac55d8df42e86eecac296a7d88c06cd8caa`. Customized bootstrap bytes remain SHA-256 `8c31645f35ac96d221a07deced271376289e1a2e8723b72bf711c3b5d8b23888`.
+- Dependency fields/lockfile, workflows, existing release controller/zero-resource gate and V3 runtime are unchanged. No new audit/upstream freshness claim: recorded dependency-security failure remains unresolved/unsuppressed, with no V4 waiver.
+- No AWS authentication/account calls, live policy use, OIDC, workflow activation, bootstrap, deployment, remote mutation, stage, commit or push. This record is implementation-agent evidence, not independent-review approval.
+
+### R1 remediation verification — 2026-10-06
+
+Genuine independent review returned **C — REMEDIATION REQUIRED**: R1 identified alternate resource representations accepted under newly consistent review pins. The hash mechanism was not bypassed. This local correction is ready for focused independent closure; it is not independent approval.
+
+- Remediation delta is exactly four existing package paths: `initialization-guard.mjs`, `../../checks/bootstrap-initialization.case.mjs`, this document and `../../../docs/V4_CURRENT_STATE.md`. The pending inventory remains the original 13 paths, unstaged/uncommitted, on baseline `2f81271a4e968638bfa43da2cd4c4849dd3bf768`. The other nine prepared files, including policy/model and synthetic fixture bytes, remain unchanged.
+- Credential-free `node --test checks/bootstrap-initialization.case.mjs checks/bootstrap-security.case.mjs checks/infrastructure.case.mjs checks/package-boundary.case.mjs`: **135 passed, 0 failed, 0 skipped** — 74 initialization (38 added), 44 bootstrap, 8 infrastructure, 9 package checks. Dev/prod synthesis still proves six stacks/zero resources each. Existing transition tests and all four original positive fixtures pass unchanged.
+- Seven explicit R1 regressions reject API `Target`, API `RouteKey`, OpenAPI `Body`, external `BodyS3Location`, extra cache behavior/unrelated policy, Lambda@Edge association and integration `CredentialsArn`. Each recomputes template/assembly/change-set/review digests before validation; API cases cover both phases. Additional checks cover every resource's unknown/missing properties, nested unknown keys, invalid property containers, function associations, extra/custom origins, unrelated policy references, alternate relationship intrinsics, child transforms/stage variables, certificate tags and unsupported template/resource attributes. Benign object-key reordering and literal metadata pass.
+- `git diff --check`, whitespace checks on all pending files, tracked credential tripwire and explicit 13-file credential/new-raw-binding scan: passed. No private handoff was read. Dependency fields/lockfile and bootstrap-template bytes are unchanged. V3 source and existing publish artifact each remain 42 files with digest `a4b25c4da79431dedb37a1213d74bac55d8df42e86eecac296a7d88c06cd8caa`; all pending paths remain V4-owned under WP-001.
+- Prior release/workflow/CI and policy-size evidence is reused where inputs are unchanged; no separate size exercise, unrelated application suite or audit rerun was needed. The existing suite's size assertions also remained green. Recorded dependency-security failure remains unresolved/unsuppressed, with no V4 waiver or new upstream-freshness claim.
+- N1 remains a later live narrower-principal/stale-stack containment gate; local success does not close it. N2 is the future adapter's explicit rollback-options obligation above, not an executor implementation. Authentic uploaded artifact correspondence, handler behavior, propagation and live exact-ID proof remain outstanding. No AWS/remote operation, workflow activation, stage, commit, bootstrap or deployment occurred.

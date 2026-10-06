@@ -26,8 +26,9 @@
     "requiredGates": [
       "dependency-security",
       "WP-006B-live-proof",
-      "generated-id-adjudication",
-      "dns-validation-adjudication",
+      "single-stack-effective-containment",
+      "handler-and-rollback-proof",
+      "staged-exact-dns-live-proof",
       "policy-review",
       "policy-creation-authorization",
       "bootstrap-authorization"
@@ -60,8 +61,9 @@
     "requiredGates": [
       "dependency-security",
       "WP-006B-live-proof",
-      "generated-id-adjudication",
-      "dns-validation-adjudication",
+      "single-stack-effective-containment",
+      "handler-and-rollback-proof",
+      "staged-exact-dns-live-proof",
       "policy-review",
       "policy-creation-authorization",
       "bootstrap-authorization"

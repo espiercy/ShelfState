@@ -6,6 +6,14 @@ Status: LOCAL REVIEW ONLY — NOT AUTHORIZED FOR AWS USE
 
 **NOT DEPLOYMENT READY.** R1–R3 remediation does not resolve any live authorization or pending architecture/security gate.
 
+## Subsequent bounded-initialization adjudication — 2026-10-05
+
+The human selected CloudFormation-native, serialized single-stack bounded lifecycle initialization followed by exact-ID tightening, plus staged exact-record ACM DNS validation. See [the local authority package](BOUNDED_INITIALIZATION.md). Generated-ID strategy and DNS strategy are no longer generally undecided; effective containment, handler behavior, pending-ARN readback and live gates remain unproved.
+
+The dated proposal below is preserved as historical evidence. Its execution JSON snapshots are the **legacy statement catalog**, not complete initialization or steady-state policies to install. `initialization.mjs` replaces their generated-resource statements and removes all east Route 53 authority in its proposed phase compositions. Its role-side caller caps replace the ordinary six-stack path during a window. The customized bootstrap template/topology/provenance bytes are unchanged. No policy is installed and no proof workflow invokes the new guard.
+
+The old bounded `_*.dev.shelfstate.codecorax.com` candidate is retained only to explain the rejected alternative and its negative tests. It is not selected or merged into the new authority model. The historical unresolved-decision wording below is superseded by this section and `pending-decisions.json`'s selected fields, not erased.
+
 Baseline: `8330ec9f2afe16241815e4eb9a04ae377af67c24`. Prepared 2026-10-04.
 This directory is security preparation, not an application stack or an executable bootstrap procedure. No policy, boundary or bootstrap has been installed. No live binding is recorded here. The temporary inventory reader, existing OIDC roles, workflows and application topology are unchanged.
 

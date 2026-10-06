@@ -117,7 +117,7 @@ export function bootstrapIntent(region, account = "${ACCOUNT_ID}") {
       FileAssetsBucketKmsKeyId: "AWS_MANAGED_KEY", TrustedAccounts: "", TrustedAccountsForLookup: "",
       FileAssetsBucketName: "", ContainerAssetsRepositoryName: "", InputPermissionsBoundary: "",
       UseExamplePermissionsBoundary: "false", PublicAccessBlockConfiguration: "true", DenyExternalId: "true" },
-    requiredGates: ["dependency-security", "WP-006B-live-proof", "generated-id-adjudication", "dns-validation-adjudication", "policy-review", "policy-creation-authorization", "bootstrap-authorization"],
+    requiredGates: ["dependency-security", "WP-006B-live-proof", "single-stack-effective-containment", "handler-and-rollback-proof", "staged-exact-dns-live-proof", "policy-review", "policy-creation-authorization", "bootstrap-authorization"],
   };
 }
 
@@ -215,18 +215,24 @@ export function eastExecutionPolicy() {
   ]);
 }
 
-// Proposals, NOT merged into an effective policy. Generated IDs/record names are
-// intentionally unresolved in the policy snapshots until a human selects a process.
+// Design selected by human adjudication; still NOT effective/deployable policy.
+// Historical alternatives and legacy policy catalog are preserved for provenance.
 export function pendingDecisions() {
   return {
-    status: "HUMAN_ADJUDICATION_REQUIRED_NOT_DEPLOYABLE",
+    status: "DESIGN_SELECTED_LOCAL_PREPARATION_NOT_DEPLOYABLE",
     generatedIds: {
+      selected: "CloudFormation-native serialized single-stack bounded lifecycle initialization, then exact-ID steady state",
+      fallback: "Direct create/import and preserve-successful-resources require separate recovery review; never automatic",
+      preparation: "initialization.mjs and initialization-guard.mjs; no live executor",
       choices: ["staged exact-ID binding (current lifecycle policy placeholders)", "separately approved bounded initial-ID patterns followed by exact-ID tightening"],
       initialPatterns: { cloudfront: ["distribution/* (ownership tags required)", "origin-access-control/*", "cache-policy/*", "origin-request-policy/*", "response-headers-policy/*"], api: ["/apis/* and selected integration/route/stage child paths"], certificate: ["certificate/* (ownership tags required)"] },
-      residual: "Untagged CloudFront policy/OAC IDs cannot be name-isolated. Broader initial lifecycle patterns can reach unrelated resources. No blanket pattern policy is selected or emitted.",
+      residual: "Temporary lifecycle and creation-tagging authority can reach unrelated resources. Exact-stack caps and reviewed templates do not equal resource-level IAM isolation. Handler-specific additions remain ungranted pending proof.",
     },
-    dnsValidation: { choices: ["staged exact name", "bounded pattern with explicit residual-risk approval"], boundedPatternCandidate: route53Changes(true, true),
+    dnsValidation: { selected: "Staged exact-record validation; no automatic Route53 write by certificate stack",
+      historicalAlternativesOnly: true,
+      choices: ["staged exact name", "bounded pattern with explicit residual-risk approval"], boundedPatternCandidate: route53Changes(true, true),
       residual: "IAM glob is not an ACM-token grammar; record-value/alias-target restrictions need reviewed template/evidence checks. DELETE of validation CNAME is not proposed." },
+    liveProofsOutstanding: ["narrower-principal and attached-stack closure", "handler actions/stabilization/rollback", "pending ACM ARN and CNAME", "policy propagation and exact-ID operation", "CloudTrail attribution", "dependency security and WP-006 hosted acceptance", "bootstrap and initialization authorization"],
     createAndReadWildcards: [
       { actions: ["cloudfront:CreateDistribution"], conditions: "Project/Environment/ManagedBy request tags; no exact future ID", residual: "Additional tagged distributions and spend are possible" },
       { actions: ["cloudfront:CreateOriginAccessControl", "cloudfront:CreateCachePolicy", "cloudfront:CreateOriginRequestPolicy", "cloudfront:CreateResponseHeadersPolicy"], conditions: "No supported name/tag creation restriction", residual: "Account-wide creation for these types; not an update/delete grant" },

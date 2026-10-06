@@ -1,6 +1,9 @@
 {
-  "status": "HUMAN_ADJUDICATION_REQUIRED_NOT_DEPLOYABLE",
+  "status": "DESIGN_SELECTED_LOCAL_PREPARATION_NOT_DEPLOYABLE",
   "generatedIds": {
+    "selected": "CloudFormation-native serialized single-stack bounded lifecycle initialization, then exact-ID steady state",
+    "fallback": "Direct create/import and preserve-successful-resources require separate recovery review; never automatic",
+    "preparation": "initialization.mjs and initialization-guard.mjs; no live executor",
     "choices": [
       "staged exact-ID binding (current lifecycle policy placeholders)",
       "separately approved bounded initial-ID patterns followed by exact-ID tightening"
@@ -20,9 +23,11 @@
         "certificate/* (ownership tags required)"
       ]
     },
-    "residual": "Untagged CloudFront policy/OAC IDs cannot be name-isolated. Broader initial lifecycle patterns can reach unrelated resources. No blanket pattern policy is selected or emitted."
+    "residual": "Temporary lifecycle and creation-tagging authority can reach unrelated resources. Exact-stack caps and reviewed templates do not equal resource-level IAM isolation. Handler-specific additions remain ungranted pending proof."
   },
   "dnsValidation": {
+    "selected": "Staged exact-record validation; no automatic Route53 write by certificate stack",
+    "historicalAlternativesOnly": true,
     "choices": [
       "staged exact name",
       "bounded pattern with explicit residual-risk approval"
@@ -60,6 +65,15 @@
     },
     "residual": "IAM glob is not an ACM-token grammar; record-value/alias-target restrictions need reviewed template/evidence checks. DELETE of validation CNAME is not proposed."
   },
+  "liveProofsOutstanding": [
+    "narrower-principal and attached-stack closure",
+    "handler actions/stabilization/rollback",
+    "pending ACM ARN and CNAME",
+    "policy propagation and exact-ID operation",
+    "CloudTrail attribution",
+    "dependency security and WP-006 hosted acceptance",
+    "bootstrap and initialization authorization"
+  ],
   "createAndReadWildcards": [
     {
       "actions": [

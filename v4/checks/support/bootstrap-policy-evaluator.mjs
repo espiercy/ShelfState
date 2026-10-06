@@ -9,7 +9,7 @@ const matches = (pattern, value) => new RegExp("^" + pattern.replace(/[.+^${}()|
 
 function conditionsMatch(conditions, context) {
   for (const [operator, entries] of Object.entries(conditions ?? {})) {
-    assert.ok(["StringEquals", "StringLike", "ForAllValues:StringEquals", "ForAllValues:StringLike", "Null"].includes(operator), `Unsupported condition ${operator}`);
+    assert.ok(["StringEquals", "StringNotEquals", "StringLike", "ForAllValues:StringEquals", "ForAllValues:StringLike", "Null"].includes(operator), `Unsupported condition ${operator}`);
     for (const [key, expected] of Object.entries(entries)) {
       const present = Object.hasOwn(context, key) && context[key] !== null;
       if (operator === "Null") {
@@ -17,11 +17,16 @@ function conditionsMatch(conditions, context) {
         continue;
       }
       if (!present) {
+        if (operator === "StringNotEquals") continue;
         if (operator.startsWith("ForAllValues:")) continue; // AWS vacuous truth; Null guard must close it.
         return false;
       }
       const values = list(context[key]);
       const allowed = list(expected);
+      if (operator === "StringNotEquals") {
+        if (values.some(v => allowed.includes(v))) return false;
+        continue;
+      }
       const compare = operator.endsWith("Like") ? matches : (a, b) => a === b;
       if (operator.startsWith("ForAllValues:")) {
         if (!values.every(v => allowed.some(e => compare(e, v)))) return false;

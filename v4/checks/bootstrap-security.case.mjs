@@ -226,7 +226,9 @@ test("east exact DNS proposal and unselected bounded candidate remain distinct",
   assert.equal(allows(east, "route53:ChangeResourceRecordSets", zone, valid), true);
   for (const ctx of [dnsContext("_other.dev.shelfstate.codecorax.com", "CNAME"), dnsContext("dev.shelfstate.codecorax.com", "A"), dnsContext("_synthetic.dev.shelfstate.codecorax.com", "CNAME", "DELETE"), {}]) assert.equal(allows(east, "route53:ChangeResourceRecordSets", zone, ctx), false);
   const pending = await readJson("pending-decisions.json");
-  assert.match(pending.status, /HUMAN_ADJUDICATION/);
+  assert.equal(pending.status, "DESIGN_SELECTED_LOCAL_PREPARATION_NOT_DEPLOYABLE");
+  assert.equal(pending.dnsValidation.historicalAlternativesOnly, true);
+  assert.match(pending.dnsValidation.selected, /^Staged exact-record/);
   const candidate = bind({ Version: "2012-10-17", Statement: [pending.dnsValidation.boundedPatternCandidate] });
   assert.equal(allows(candidate, "route53:ChangeResourceRecordSets", zone, dnsContext("_not.an.acm.token.dev.shelfstate.codecorax.com", "CNAME")), true, "Document the actual glob residual, do not pretend it is a token grammar");
   assert.equal(JSON.stringify(east).includes("_*.dev"), false);

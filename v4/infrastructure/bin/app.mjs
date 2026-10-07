@@ -1,12 +1,14 @@
 import { App } from "aws-cdk-lib";
 import { resolveEnvironmentConfig } from "../lib/environment.mjs";
 import { createEnvironmentTopology } from "../lib/topology.mjs";
-import { validateFoundationAssembly } from "../lib/template-guards.mjs";
+import { validateFoundationAssembly, validateLocalApiAssembly } from "../lib/template-guards.mjs";
 
 const app = new App();
 const environmentName = app.node.tryGetContext("shelfstateEnvironment");
 const config = resolveEnvironmentConfig(environmentName, process.env);
 
-createEnvironmentTopology(app, config);
+const phase = app.node.tryGetContext("shelfstateInitializationPhase");
+createEnvironmentTopology(app, config, phase === undefined ? {} : { initializationPhase: phase });
 const assembly = app.synth();
-validateFoundationAssembly(assembly, config);
+if (phase === undefined) validateFoundationAssembly(assembly, config);
+else validateLocalApiAssembly(assembly, config, phase);

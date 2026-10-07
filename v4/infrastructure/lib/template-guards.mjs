@@ -1,4 +1,6 @@
 import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
+import assert from "node:assert/strict";
+import { assertLibraryApiTemplate } from "../bootstrap/library-api-contract.mjs";
 
 export const STATEFUL_POLICY_METADATA = "ShelfStateStatefulPolicy";
 
@@ -223,5 +225,25 @@ export function validateFoundationAssembly(assembly, config) {
     throw new Error(
       `Synthesized topology is missing capabilities: ${[...expectedCapabilities].join(", ")}.`,
     );
+  }
+}
+
+// Local inspection ONLY. The normal foundation/release validator remains empty-
+// only. This entry point accepts just the selected API phase, never arbitrary stacks.
+export function validateLocalApiAssembly(assembly, config, phase) {
+  assert.equal(config.environmentName, "dev");
+  assert.match(config.accountId ?? "", /^\d{12}$/);
+  assert.ok(["api-parent", "api-children"].includes(phase));
+  assert.equal(assembly.stacks.length, CAPABILITY_DEFINITIONS.length);
+  const seen = new Set();
+  for (const artifact of assembly.stacks) {
+    const capability = artifact.template.Metadata?.ShelfState?.Capability;
+    const definition = CAPABILITY_DEFINITIONS.find(d => d.key === capability);
+    assert.ok(definition && !seen.has(capability), "Unknown/duplicate capability"); seen.add(capability);
+    assert.equal(artifact.stackName, `shelfstate-v4-dev-${capability}`);
+    assert.equal(artifact.environment.name, `aws://${config.accountId}/${config[definition.regionSource]}`);
+    assert.equal(artifact.terminationProtection, false);
+    if (capability === "library-api") assertLibraryApiTemplate(artifact.template, config.accountId, phase);
+    else assertFoundationTemplate(artifact.template, "dev");
   }
 }

@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { object, hash, hashObject, equal, digest, parseEvidenceJson } from "../../scripts/release/schema.mjs";
 import { target } from "./initialization.mjs";
+import { LIBRARY_API_REVIEW_SCHEMA, libraryApiTypes, assertLibraryApiTemplate } from "./library-api-contract.mjs";
 
 const TYPES = Object.freeze({
   edge: { Distribution: "AWS::CloudFront::Distribution", OriginAccessControl: "AWS::CloudFront::OriginAccessControl",
@@ -13,9 +14,9 @@ const TYPES = Object.freeze({
   certificate: { Certificate: "AWS::CertificateManager::Certificate" },
 });
 
-// These are guard contracts for synthetic resource-bearing fixtures, not emitted
-// application templates. Actual CDK logical IDs/configuration need reviewed pins
-// and an intentional contract update when WP-007 application work is authorized.
+// Historical synthetic contracts stay separate from the explicit actual API
+// schema. New representations require their own complete contract, never detection
+// based on candidate fields or relaxed checks in the original synthetic schema.
 function checkTemplate(template, approval) {
   const rejectTransforms = value => {
     if (!value || typeof value !== "object") return;
@@ -77,23 +78,33 @@ function checkTemplate(template, approval) {
 export function validateInitializationBundle(approval, trustedApprovalDigest, bundle) {
   digest(trustedApprovalDigest); assert.equal(hashObject(approval), trustedApprovalDigest, "Review pin mismatch");
   object(approval, ["schema", "account", "phase", "region", "stack", "executionRole", "bindings", "mode", "templateSha256", "assemblySha256", "parametersSha256", "assets", "changeSetSha256"]);
-  assert.equal(approval.schema, "shelfstate.wp007-initialization-review/v1");
+  const actualApi = approval.schema === LIBRARY_API_REVIEW_SCHEMA;
+  assert.ok(actualApi || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
+  const expectedTypes = actualApi ? libraryApiTypes(approval.phase) : TYPES[approval.phase];
   const t = target(approval.account, approval.phase);
   assert.equal(approval.region, t.region); assert.equal(approval.stack, t.name); assert.equal(approval.executionRole, t.executionRole);
   assert.equal(approval.mode, "initialization", "Resource-bearing steady updates remain separately gated");
   const b = approval.bindings;
-  object(b, ["apiId", "healthFunctionArn", "zoneId", "certificateArn", "staticBucketDomain"]);
-  assert.match(b.apiId, /^[a-z0-9]{1,32}$/);
-  assert.equal(b.healthFunctionArn, `arn:aws:lambda:us-west-2:${t.account}:function:shelfstate-v4-dev-health`);
-  assert.match(b.zoneId, /^Z[A-Z0-9]{1,32}$/);
-  assert.match(b.certificateArn, new RegExp(`^arn:aws:acm:us-east-1:${t.account}:certificate/[a-zA-Z0-9-]{1,64}$`));
-  assert.equal(b.staticBucketDomain, `shelfstate-v4-dev-static-${t.account}-us-west-2.s3.us-west-2.amazonaws.com`);
+  if (actualApi) {
+    object(b, approval.phase === "api-children" ? ["apiId"] : [], "Phase-specific API bindings");
+    if (approval.phase === "api-children") assert.match(b.apiId, /^[a-z0-9]{1,32}$/);
+    equal(approval.assets, {}, "Inline health code has no external assets");
+  } else {
+    object(b, ["apiId", "healthFunctionArn", "zoneId", "certificateArn", "staticBucketDomain"]);
+    assert.match(b.apiId, /^[a-z0-9]{1,32}$/);
+    assert.equal(b.healthFunctionArn, `arn:aws:lambda:us-west-2:${t.account}:function:shelfstate-v4-dev-health`);
+    assert.match(b.zoneId, /^Z[A-Z0-9]{1,32}$/);
+    assert.match(b.certificateArn, new RegExp(`^arn:aws:acm:us-east-1:${t.account}:certificate/[a-zA-Z0-9-]{1,64}$`));
+    assert.equal(b.staticBucketDomain, `shelfstate-v4-dev-static-${t.account}-us-west-2.s3.us-west-2.amazonaws.com`);
+  }
   object(bundle, ["templateBytes", "assemblyBytes", "parameters", "assets", "changeSet", "executeChangeSetId"]);
   assert.equal(hash(bundle.templateBytes), approval.templateSha256, "Template byte substitution");
   assert.equal(hash(bundle.assemblyBytes), approval.assemblySha256, "Assembly byte substitution");
   assert.equal(hashObject(bundle.parameters), approval.parametersSha256, "Parameter substitution");
   equal(bundle.parameters, {}, "This bounded contract has no runtime template parameters");
-  const template = parseEvidenceJson(bundle.templateBytes); checkTemplate(template, approval);
+  const template = parseEvidenceJson(bundle.templateBytes);
+  if (actualApi) assertLibraryApiTemplate(template, approval.account, approval.phase);
+  else checkTemplate(template, approval);
   const assembly = parseEvidenceJson(bundle.assemblyBytes);
   equal(assembly, { stack: t.name, account: t.account, region: t.region, executionRole: t.executionRole, templateSha256: approval.templateSha256 }, "Assembly binding mismatch");
   object(bundle.assets, Object.keys(approval.assets), "Asset inventory mismatch");
@@ -118,7 +129,7 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
   for (const change of cs.changes) {
     object(change, ["logicalId", "type", "action", "replacement"]);
     assert.ok(!seen.has(change.logicalId), "Duplicate change"); seen.add(change.logicalId);
-    assert.equal(change.type, TYPES[approval.phase][change.logicalId], "Unexpected changed resource");
+    assert.equal(change.type, expectedTypes[change.logicalId], "Unexpected changed resource");
     assert.ok(["Add", "Modify"].includes(change.action), "Removal needs separate review");
     assert.equal(change.replacement, "False", "Replacement requires separate re-initialization review");
     if (approval.mode === "steady") assert.equal(change.action, "Modify", "Creation is not steady state");
@@ -128,7 +139,7 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
     assert.ok(!cs.changes.some(c => c.logicalId === "Api"), "Child phase cannot alter/replace parent");
   } else equal(cs.physicalResources, {}, "Unexpected pre-existing resources for initialization contract");
   if (approval.mode === "initialization") {
-    const added = Object.keys(TYPES[approval.phase]).filter(k => !(approval.phase === "api-children" && k === "Api"));
+    const added = Object.keys(expectedTypes).filter(k => !(approval.phase === "api-children" && k === "Api"));
     equal(cs.changes.map(c => c.logicalId).sort(), added.sort(), "Complete deterministic initialization change list required");
     assert.ok(cs.changes.every(c => c.action === "Add"), "Initialization requires reviewed additions");
   }

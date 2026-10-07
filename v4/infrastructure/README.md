@@ -1,8 +1,9 @@
 # ShelfState V4 CDK environment foundation
 
 WP-003 models the V4 infrastructure topology without creating AWS resources.
-Every synthesized stack is intentionally empty. Later work packages place
-approved resources into the capability boundary that owns them.
+Default dev/prod synthesis remains intentionally empty. The explicitly selected
+local WP-007 API phases below are the only resource-bearing exception; they do
+not enable the proof/release deployment path.
 
 ## Environments and accounts
 
@@ -82,3 +83,151 @@ for resources that later packages have not yet designed.
 WP-003 performs no AWS calls, creates no resources, and costs `$0`. A future
 authorized bootstrap may create usage-driven S3/ECR support storage; bootstrap
 is not part of this work package.
+
+## WP-007 library-api local slice
+
+Local preparation only, **NOT DEPLOYMENT READY**. This implements the authorized
+public `GET /api/v1/health` route, not library features or another capability.
+Traceability: WP-007; ADR-005/007/014; API-001/002 and the WP-007 health contract.
+
+The existing `api-parent` and `api-children` phases from bounded initialization
+are selected explicitly via `createEnvironmentTopology(app, config,
+{ initializationPhase })` or the existing app's `shelfstateInitializationPhase`
+context. Selection requires dev, west region and an explicit account binding.
+No account/SSM/context lookup occurs during synthesis. Tests supply only the AWS
+documentation account through local configuration. Real bindings remain outside
+Git; a future live adapter must independently verify them.
+
+| Selection | library-api resources | Other five stacks |
+|---|---|---|
+| Unselected dev/prod (normal proof path) | 0 | 0 each |
+| `api-parent` (dev only) | `Api` — 1 HTTP API | Unchanged/empty |
+| `api-children` (dev only) | `Api`, `HealthLogGroup`, `HealthRole`, `HealthFunction`, `Integration`, `Route`, `InvokePermission`, `DefaultStage` — 8 total | Unchanged/empty |
+
+Both templates retain the **identical native `Api` resource** with stable logical
+ID, exact name and ownership tags. There is no quick-create target, OpenAPI body,
+imported API or alternate phasing mechanism. Future child execution requires the
+captured physical API ID to match reviewed evidence and cannot modify/replace the
+parent. Seven additions are permitted; no API parent change is permitted.
+
+### Runtime and least privilege
+
+`backend/health.cjs` ignores input/context/environment and returns HTTP 200,
+`Content-Type: application/json`, `Cache-Control: no-store`, and exactly
+`{"status":"ok"}`. The tiny CommonJS source is inlined into the template, with
+`index.handler`, Node.js 24, ARM64, 128 MB and a three-second timeout. No SDK,
+external code asset, database, authentication or application dependency is added.
+The template pin covers the inline code bytes (LF-normalized across platforms).
+
+The dedicated named role trusts only Lambda and grants only CreateLogStream and
+PutLogEvents on the dedicated health log group's streams. It references the
+existing independently managed `ShelfStateV4DevHealthBoundary`; it does **not**
+create or change that boundary. The log group is explicitly precreated with
+seven-day nonproduction retention. Function dependencies/log configuration bind
+that group; the runtime cannot create log groups. Deployment/rollback defaults for
+these non-data dev resources remain native CloudFormation behavior, not an
+authorization to destroy resources.
+
+The integration is AWS_PROXY payload 2.0, bound by GetAtt to the exact function.
+Only `GET /api/v1/health` is declared, with explicit `NONE` authorization and
+`$default` auto-deploy stage. No CORS, authorizer, caching feature or response
+mapping is added. The Lambda resource permission binds the exact function,
+API service principal, account, API Ref, `$default` stage, GET method and health
+path; no wildcard invoke grant is used. The stage depends on route and permission.
+
+### Explicit synthesized contract additions
+
+`bootstrap/library-api-contract.mjs` independently specifies the complete emitted
+template; constructs do not synthesize from their own validator. The existing
+bundle validator selects this contract only with
+`shelfstate.wp007-library-api-review/v1` and an existing API phase. Parent bindings
+are empty; child bindings contain only the exact prior `apiId`. External assets
+and parameter overrides remain forbidden. Assembly/change-set projections are
+still local review data, not authenticated AWS evidence or an executor.
+
+| Newly accepted structure | Required purpose / closed boundary |
+|---|---|
+| Exact stack description/metadata and phase | Identifies this dev west capability, not arbitrary metadata |
+| Fixed BootstrapVersion SSM parameter and unchanged CDK version rule | Preserves pinned synthesizer's version check; only the exact bootstrap path is accepted; no synth lookup or parameter override |
+| Ownership Tags on API/stage and log/role/function | Required ownership labels, exact key/value sets and emitted array order |
+| Named log group/retention | Precreation and bounded nonproduction log storage |
+| Role trust, boundary ARN and one inline policy | Exact Lambda trust and stream-write-only identity policy; no managed policy, extra statement or boundary creation |
+| Function inline Code/runtime/handler/memory/timeout/architecture | Deterministic minimal health execution, no image/S3/layers/environment/VPC/URL extension |
+| Function Role GetAtt, LoggingConfig Ref and DependsOn | Binds exact role/group and precreation ordering |
+| Integration GetAtt/payload 2.0/timeout | Binds health code and explicit HTTP proxy event format/three-second budget |
+| Route path/authorization/Ref and Join | Exact approved public health route; no catch-all, authorizer or alternate API |
+| Permission GetAtt/account/exact SourceArn Join | Exact caller service, API, stage, method, path and function |
+| Fixed stage/tags/dependencies | Auto-deploy only after reviewed route/invoke permission; no extra stage or variables |
+
+Every resource envelope and nested property tree is compared exactly, normalizing
+object-key order only. Unknown fields, macros, alternate intrinsics, extra
+resources, code changes and relationship changes reject even under newly
+consistent pins. The old synthetic edge/certificate contracts remain unchanged;
+their placeholders still do not establish real configuration support.
+
+`validateLocalApiAssembly` is a separate local inspection entry point; the normal
+foundation and release-transition guards still reject nonempty assemblies.
+Default scripts, workflow sources, controller, hosted settings and runtime
+bindings remain unchanged. Passing local inspection cannot authorize deployment.
+
+### Evidence and remaining gates
+
+Run the new `checks/library-api.case.mjs` through `infra:test` or the existing
+credential-free test launcher. It synthesizes both phases, checks the emitted
+JSON, executes the actual inline handler in a capability-free VM, repins malicious
+candidates, checks IAM denial and confirms the release gate still rejects them.
+Adversarial tests include quick-create/OpenAPI, extra API/route/integration/stage,
+authorizers, credentials/targets, code/role/boundary/log substitution, missing
+dependencies, unknown nested keys, parent replacement and input/asset substitution.
+
+No AWS resources have been created. Eventual API/Lambda/log charges are usage-driven
+with no new fixed service charge expected; they are covered by the existing
+Personal component model, but dev usage/retention/cost must be revalidated before
+live deployment. No new execution-policy authority or composition is introduced.
+
+Still required: independent slice review; dependency-security resolution (no V4
+waiver); WP-006 hosted acceptance; bootstrap/live authorization; boundary policy
+installation/readback; narrower-principal/stale-stack closure; actual handler/tag
+calls, permissions/propagation/rollback; parent ID and change-set authenticity;
+artifact/template correspondence; direct HTTP/invocation/logging/no-store smoke;
+CloudTrail and exact-ID closure. No upstream patch availability or green audit is
+claimed: the unchanged dependency graph retains its recorded failing audit.
+
+Primary service references: [HTTP API quick-create semantics](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-apigatewayv2-api.html),
+[Lambda proxy payload configuration](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-apigatewayv2-integration.html),
+[inline CommonJS Lambda source](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-code.html).
+
+### Local verification record — 2026-10-07
+
+Baseline: `dd1dc2b6e0b7a8d0bac0eb3d8a2cc7cbee22488a`, branch
+`codex/wp-006b-workflow-activation`, clean at entry. This slice is unstaged and
+uncommitted, pending independent review; this record is not review approval.
+
+- Credential-free Node test invocation: `checks/library-api.case.mjs`,
+  `checks/bootstrap-initialization.case.mjs`, `checks/bootstrap-security.case.mjs`,
+  `checks/infrastructure.case.mjs`, `checks/package-boundary.case.mjs`,
+  `checks/release-control-implementation.case.mjs`, `checks/workflow-activation.case.mjs`,
+  `checks/controller-provenance.case.mjs`, `checks/runtime-target.case.mjs`, and
+  `checks/offline-synthesis.case.mjs`: **409 passed, 0 failed, 2 skipped** out of
+  411 tests. The two existing Windows real-symlink cases skip when link creation
+  is unavailable; mandatory mocked classification tests pass.
+- Library-api alone: **37 passed**, including both actual app-entry configurations.
+  Bounded initialization **74**, bootstrap **44**, infrastructure **8**, package
+  **9** pass. Local temp-only synth proves six stacks with API resource totals
+  **1 (parent)** / **8 (children)**, other five templates unchanged. Default
+  dev/prod remain **six stacks / zero resources**, including prod protection.
+- Root `node --test test/deployment/v3-v4-isolation.test.js test/ci-supply-chain.test.js`:
+  **22 passed, 0 failed**, including all **6 WP-001** cases. The 12 changed/new
+  paths classify V4-only; no actual Netlify run was requested or triggered.
+- `git diff --check`, tracked credential tripwire plus explicit changed/new-file
+  credential/private-binding and whitespace checks: passed. Only synthetic account
+  data is used; no private handoff read. Dependency fields/lockfile, workflow files,
+  execution policies/compositions and independent runtime-boundary policy bytes
+  remain unchanged. Existing policy-size assertions pass; no new deployment-policy
+  size/recomposition exercise is required.
+- V3 source and existing publication each retain **42 files**, digest
+  `a4b25c4da79431dedb37a1213d74bac55d8df42e86eecac296a7d88c06cd8caa`.
+- No broad application-suite/audit rerun, dependency change, security suppression,
+  AWS authentication/API call, resource creation, OIDC, workflow activation,
+  bootstrap, deployment, remote mutation, stage, commit or push. Public AWS
+  documentation reads informed the implementation, not live-account facts.

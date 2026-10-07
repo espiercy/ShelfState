@@ -1,5 +1,7 @@
 import { Stack, Tags, Validations } from "aws-cdk-lib";
 import { requiredTags, stackName } from "./naming.mjs";
+import assert from "node:assert/strict";
+import { addLibraryApi } from "./library-api.mjs";
 
 import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 export { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
@@ -19,7 +21,15 @@ function stackEnvironment(config, region) {
     : { region };
 }
 
-export function createEnvironmentTopology(app, config) {
+export function createEnvironmentTopology(app, config, options = {}) {
+  assert.ok(Object.keys(options).every(key => key === "initializationPhase"), "Unsupported topology option");
+  const phase = options.initializationPhase;
+  if (phase !== undefined) {
+    assert.equal(config.environmentName, "dev", "Initialization resources are dev-only");
+    assert.ok(["api-parent", "api-children"].includes(phase), "Unsupported initialization phase");
+    assert.match(config.accountId ?? "", /^\d{12}$/, "Explicit local account binding required; no AWS discovery");
+    assert.equal(config.primaryRegion, "us-west-2");
+  }
   const stacks = new Map();
   const tags = requiredTags(config);
 
@@ -52,6 +62,12 @@ export function createEnvironmentTopology(app, config) {
     }
 
     stacks.set(definition.key, stack);
+    if (definition.key === "library-api" && phase !== undefined) {
+      stack.templateOptions.description = "ShelfState V4 dev library-api (WP-007 local preparation)";
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
+      stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
+      addLibraryApi(stack, config, phase);
+    }
   }
 
   for (const definition of CAPABILITY_DEFINITIONS) {

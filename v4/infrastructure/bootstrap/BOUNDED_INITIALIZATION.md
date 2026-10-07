@@ -1,5 +1,15 @@
 # WP-007 bounded initialization — local security preparation
 
+Snapshot notice: the preparation and R1 records below are historical. The full
+13-path package subsequently received human approval after independent R1 closure
+and was committed as `dd1dc2b6e0b7a8d0bac0eb3d8a2cc7cbee22488a`. The separately
+authorized local [library-api slice](../README.md#wp-007-library-api-local-slice)
+extends the existing API phases to an explicitly versioned actual-synth contract:
+one parent resource, then eight total health resources at `GET /api/v1/health`.
+The original synthetic `/health` fixtures remain historical guard tests, not the
+application endpoint. That new slice is not yet independently reviewed and does
+not close any live, hosted, dependency-security or deployment gate.
+
 Status: **LOCAL PREPARATION / R1 REMEDIATED, FOCUSED INDEPENDENT CLOSURE PENDING / NOT DEPLOYMENT READY**.
 
 Authority: human request “Implement the local-only WP-007 bounded-initialization authority package,” following the CloudFormation-native design adjudication. Starting branch `codex/wp-006b-workflow-activation`, HEAD `2f81271a4e968638bfa43da2cd4c4849dd3bf768`, clean. No commit/live use is authorized. These functions are pure models and evidence validators, not an AWS executor or proof of authentic AWS responses.

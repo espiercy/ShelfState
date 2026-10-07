@@ -7,8 +7,15 @@ authorized local [library-api slice](../README.md#wp-007-library-api-local-slice
 extends the existing API phases to an explicitly versioned actual-synth contract:
 one parent resource, then eight total health resources at `GET /api/v1/health`.
 The original synthetic `/health` fixtures remain historical guard tests, not the
-application endpoint. That new slice is not yet independently reviewed and does
-not close any live, hosted, dependency-security or deployment gate.
+application endpoint. That slice subsequently received human-accepted independent
+**B — APPROVE WITH NONBLOCKING NOTES** and was committed as
+`1e1cf8a1f98423fc2bd34827f7b8160cfad1cee6`. The separately authorized local
+[edge-certificate slice](../README.md#wp-007-edge-certificate-local-slice) now
+extends the certificate phase with an explicit actual-synth contract, ownership
+tags and a local ARN output, without DNS automation or policy expansion. That
+certificate slice is pending independent review. Neither slice closes any live,
+hosted, dependency-security or deployment gate; the records below remain dated
+synthetic-preparation history, not the new actual certificate contract.
 
 Status: **LOCAL PREPARATION / R1 REMEDIATED, FOCUSED INDEPENDENT CLOSURE PENDING / NOT DEPLOYMENT READY**.
 

@@ -2,7 +2,7 @@
 
 WP-003 models the V4 infrastructure topology without creating AWS resources.
 Default dev/prod synthesis remains intentionally empty. The explicitly selected
-local WP-007 API phases below are the only resource-bearing exception; they do
+local WP-007 API and certificate phases below are the only resource-bearing exceptions; they do
 not enable the proof/release deployment path.
 
 ## Environments and accounts
@@ -85,6 +85,12 @@ authorized bootstrap may create usage-driven S3/ECR support storage; bootstrap
 is not part of this work package.
 
 ## WP-007 library-api local slice
+
+Snapshot notice: this slice's local verification record below predates its
+human-accepted independent **B — APPROVE WITH NONBLOCKING NOTES** and commit
+`1e1cf8a1f98423fc2bd34827f7b8160cfad1cee6`. Its source/template provenance,
+physical-ID and provider/rollback/propagation proof boundaries remain live gates.
+The certificate slice below does not modify the reviewed API semantics.
 
 Local preparation only, **NOT DEPLOYMENT READY**. This implements the authorized
 public `GET /api/v1/health` route, not library features or another capability.
@@ -231,3 +237,134 @@ uncommitted, pending independent review; this record is not review approval.
   AWS authentication/API call, resource creation, OIDC, workflow activation,
   bootstrap, deployment, remote mutation, stage, commit or push. Public AWS
   documentation reads informed the implementation, not live-account facts.
+
+## WP-007 edge-certificate local slice
+
+Local preparation only, **NOT DEPLOYMENT READY**, pending independent review.
+Traceability: WP-007; ADR-005/007/014; EDGE-001/002/004 and the selected staged
+exact-record validation design in `bootstrap/pending-decisions.json`.
+
+### Feasibility, scope and exact representation
+
+The pinned CDK supports manual DNS validation without a hosted-zone parameter
+(`aws-certificatemanager/lib/certificate.d.ts`, `CertificateValidation.fromDns`).
+The implementation uses the smaller L1 `CfnCertificate`, not a DNS convenience
+construct. The actual emitted template contains exactly:
+
+| Structure | Approved emitted value |
+|---|---|
+| Stack / region | `shelfstate-v4-dev-edge-certificate` / `us-east-1` |
+| Resource logical ID / type | `Certificate` / `AWS::CertificateManager::Certificate` |
+| DomainName | `dev.shelfstate.codecorax.com` |
+| ValidationMethod / CertificateExport | `DNS` / `DISABLED` |
+| Ownership Tags | Environment=dev, ManagedBy=AWS-CDK, Project=ShelfState |
+| Resource metadata | ShelfStateStatefulPolicy=destroy-approved (existing dev rollback/delete convention, not live authorization) |
+| Output | `CertificateArn: { Value: { Ref: "Certificate" } }`, no Export |
+
+Omitting CertificateAuthorityArn selects public issuance. No additional SAN,
+DomainValidationOptions/HostedZoneId, DNS record, custom resource, key-algorithm
+override or transparency override is supplied. ACM defaults to RSA_2048 and
+enabled transparency; even explicit optional settings are unsupported until
+reviewed. There are no cross-region tokens, `crossRegionReferences`, ImportValue
+or automatic bridges. The existing topology dependency is ordering only.
+
+Select the existing `certificate` initialization phase explicitly through
+`createEnvironmentTopology` or `shelfstateInitializationPhase`, using dev and an
+explicit local account input. The one phase populates only edge-certificate;
+the other five templates equal the empty baseline. API parent/children remain
+separate supported selectors with 1/8 resources. Default dev/prod stay 6/0.
+Synthesis neither discovers an account nor reads AWS/SSM/context. The emitted
+fixed bootstrap-version parameter remains a future deployment input, not a synth
+lookup. No production certificate is implemented.
+
+### Guard and unchanged authority
+
+`bootstrap/edge-certificate-contract.mjs` defines the complete actual-synth
+positive contract separately from constructs. The initialization validator accepts
+it only under `shelfstate.wp007-edge-certificate-review/v1`, phase `certificate`,
+east target and exact execution role. Initial bindings/assets/parameter overrides
+are empty; only one reviewed native certificate Add is supported. Replacement,
+steady updates, guessed physical bindings and alternate schemas cannot bypass it.
+Every envelope/property/tag/output is closed under newly consistent review pins.
+`validateLocalCertificateAssembly` is isolated from normal foundation and release
+acceptance, which continue to reject all resource-bearing assemblies.
+
+No IAM policy/action inventory/composition changes. Existing initialization has
+RequestCertificate, AddTagsToCertificate, DescribeCertificate,
+ListTagsForCertificate and DeleteCertificate. Requests are constrained to the
+exact domain, public/DNS/non-exportable/east posture and ownership tags. Initial
+creation-tagging/read/delete still has the previously accepted generated-ID
+residual reach, not an ownership-isolation guarantee. No provider call is guessed.
+Steady mode removes RequestCertificate and uses the verified exact certificate ID
+for existing read/update/tag/delete actions. Neither full certificate composition
+contains any Route 53 authority. The historical bounded-pattern candidate is not
+installed or selected by this slice.
+
+### Pending identity, DNS handoff and remaining live gates
+
+The stable `Certificate` logical ID and local Ref output prepare explicit ARN
+handoff, not a promise that an incomplete stack exposes either value. Future live
+work must establish an authentic account/east/exact-stack-to-certificate binding,
+recover the ARN while pending through an actually supported readback mechanism,
+then describe that exact certificate and obtain the returned validation CNAME.
+No broad ListCertificates fallback, name guessing or fabricated ARN/CNAME is used.
+
+Separately authorized DNS work must validate the returned exact certificate/name,
+normalized CNAME name/value and approved public-zone correspondence, authorize
+only that exact record, publish/read back, retain it for renewal, then remove
+temporary write authority. IAM does not constrain the record value. No standing
+`_*.dev.shelfstate.codecorax.com` grant is introduced. Renewal uses the retained
+record; continuing certificate-stack DNS write authority is not required.
+CloudFormation may remain CREATE_IN_PROGRESS while validation is pending; actual
+pending-ID/CNAME availability and handler timeout must be proven, not inferred
+from ACM's validation window. Output availability does not attest issuance.
+
+An issued certificate ARN is later independently verified and supplied explicitly
+to edge-delivery, never consumed automatically cross-region. Live principal/stale-
+stack containment, handler calls/rollback/propagation, reviewed template fidelity,
+DNS timing/collisions/issuance/renewal, CloudTrail and exact-ID closure remain
+unproved. Dependency security, WP-006 hosted acceptance and bootstrap/deployment
+authorization remain outstanding. No V4 waiver or successful audit is claimed.
+
+Cost: local preparation $0; no incremental ACM service charge expected for this
+non-exportable public certificate, consistent with the Personal model. No new
+hosted zone or DNS resource is created. Revalidate the current service/cost and
+live-binding premises before separately authorized deployment.
+
+Primary references: [manual DNS validation without hosted zone](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_certificatemanager.CertificateValidation.html),
+[native certificate properties, defaults and ARN Ref](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-certificatemanager-certificate.html).
+
+### Certificate local verification — 2026-10-07
+
+Baseline `1e1cf8a1f98423fc2bd34827f7b8160cfad1cee6`, branch
+`codex/wp-006b-workflow-activation`, clean at entry. The prior index's pending
+library-api review was superseded by human-accepted review and that commit;
+implementation-plan B.2.2 permits reporting lagging evidence, not inventing a
+new gate. This task explicitly authorizes only the next local certificate slice.
+
+- Credential-free Node tests: `edge-certificate`, `library-api`,
+  `bootstrap-initialization`, `bootstrap-security`, `infrastructure`, and
+  `package-boundary` (`checks/*.case.mjs`): **201 passed, 0 failed**. Includes
+  **29 new certificate tests**, 37 unchanged API tests, 74 initialization, 44
+  bootstrap, 8 infrastructure and 9 package tests. Tests inspect emitted JSON,
+  exercise actual app entry, and repin adversarial templates/evidence.
+- Affected release suites (`release-control-implementation`, `workflow-activation`,
+  `controller-provenance`, `runtime-target`, `offline-synthesis`): **237 passed,
+  0 failed, 2 existing Windows real-symlink skips**. Mocked classification tests
+  remain mandatory/passing. Combined affected V4 total: **438 passed / 2 skips**.
+- CI-policy and WP-001 isolation: **22 passed**, including all six WP-001 cases.
+  Normal dev/prod: **6 stacks / 0 resources**; API parent/children: **1 / 8**;
+  certificate: **1 resource** and five unchanged empty templates. No general
+  resource-bearing release support, policy expansion or dependency change.
+- Existing policy-size assertions pass; policy/composition bytes are unchanged,
+  so a new composition-size exercise is not required. Tracked credential tripwire,
+  explicit changed/new-file credential/private-binding and whitespace checks,
+  and `git diff --check` pass. The private-binding scan permits only the explicit
+  `ZTESTONLY` synthetic test ARN. No private handoff is read. All 11 pending paths
+  classify V4-only, nothing staged. V3 source and existing publication each remain
+  **42 files**, digest
+  `a4b25c4da79431dedb37a1213d74bac55d8df42e86eecac296a7d88c06cd8caa`.
+- The recorded audit failure stays unresolved/unsuppressed; no upstream refresh,
+  audit rerun, dependency remediation or V4 waiver. No AWS authentication/API call,
+  DNS/public-DNS query, live mutation, OIDC, workflow activation, bootstrap,
+  deployment, stage, commit or push. Public documentation reads only.

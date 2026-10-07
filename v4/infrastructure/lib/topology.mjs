@@ -2,6 +2,7 @@ import { Stack, Tags, Validations } from "aws-cdk-lib";
 import { requiredTags, stackName } from "./naming.mjs";
 import assert from "node:assert/strict";
 import { addLibraryApi } from "./library-api.mjs";
+import { addEdgeCertificate } from "./edge-certificate.mjs";
 
 import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 export { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
@@ -26,9 +27,10 @@ export function createEnvironmentTopology(app, config, options = {}) {
   const phase = options.initializationPhase;
   if (phase !== undefined) {
     assert.equal(config.environmentName, "dev", "Initialization resources are dev-only");
-    assert.ok(["api-parent", "api-children"].includes(phase), "Unsupported initialization phase");
+    assert.ok(["api-parent", "api-children", "certificate"].includes(phase), "Unsupported initialization phase");
     assert.match(config.accountId ?? "", /^\d{12}$/, "Explicit local account binding required; no AWS discovery");
     assert.equal(config.primaryRegion, "us-west-2");
+    assert.equal(config.edgeCertificateRegion, "us-east-1");
   }
   const stacks = new Map();
   const tags = requiredTags(config);
@@ -62,11 +64,17 @@ export function createEnvironmentTopology(app, config, options = {}) {
     }
 
     stacks.set(definition.key, stack);
-    if (definition.key === "library-api" && phase !== undefined) {
+    if (definition.key === "library-api" && ["api-parent", "api-children"].includes(phase)) {
       stack.templateOptions.description = "ShelfState V4 dev library-api (WP-007 local preparation)";
       stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
       stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
       addLibraryApi(stack, config, phase);
+    }
+    if (definition.key === "edge-certificate" && phase === "certificate") {
+      stack.templateOptions.description = "ShelfState V4 dev edge-certificate (WP-007 local preparation)";
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
+      stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
+      addEdgeCertificate(stack, config);
     }
   }
 

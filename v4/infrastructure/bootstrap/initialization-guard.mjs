@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { object, hash, hashObject, equal, digest, parseEvidenceJson } from "../../scripts/release/schema.mjs";
 import { target } from "./initialization.mjs";
 import { LIBRARY_API_REVIEW_SCHEMA, libraryApiTypes, assertLibraryApiTemplate } from "./library-api-contract.mjs";
+import { EDGE_CERTIFICATE_REVIEW_SCHEMA, edgeCertificateTypes, assertEdgeCertificateTemplate } from "./edge-certificate-contract.mjs";
 
 const TYPES = Object.freeze({
   edge: { Distribution: "AWS::CloudFront::Distribution", OriginAccessControl: "AWS::CloudFront::OriginAccessControl",
@@ -79,8 +80,9 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
   digest(trustedApprovalDigest); assert.equal(hashObject(approval), trustedApprovalDigest, "Review pin mismatch");
   object(approval, ["schema", "account", "phase", "region", "stack", "executionRole", "bindings", "mode", "templateSha256", "assemblySha256", "parametersSha256", "assets", "changeSetSha256"]);
   const actualApi = approval.schema === LIBRARY_API_REVIEW_SCHEMA;
-  assert.ok(actualApi || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
-  const expectedTypes = actualApi ? libraryApiTypes(approval.phase) : TYPES[approval.phase];
+  const actualCertificate = approval.schema === EDGE_CERTIFICATE_REVIEW_SCHEMA;
+  assert.ok(actualApi || actualCertificate || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
+  const expectedTypes = actualApi ? libraryApiTypes(approval.phase) : actualCertificate ? edgeCertificateTypes(approval.phase) : TYPES[approval.phase];
   const t = target(approval.account, approval.phase);
   assert.equal(approval.region, t.region); assert.equal(approval.stack, t.name); assert.equal(approval.executionRole, t.executionRole);
   assert.equal(approval.mode, "initialization", "Resource-bearing steady updates remain separately gated");
@@ -89,6 +91,9 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
     object(b, approval.phase === "api-children" ? ["apiId"] : [], "Phase-specific API bindings");
     if (approval.phase === "api-children") assert.match(b.apiId, /^[a-z0-9]{1,32}$/);
     equal(approval.assets, {}, "Inline health code has no external assets");
+  } else if (actualCertificate) {
+    object(b, [], "No generated certificate/zone binding exists before initialization");
+    equal(approval.assets, {}, "Native certificate has no external assets");
   } else {
     object(b, ["apiId", "healthFunctionArn", "zoneId", "certificateArn", "staticBucketDomain"]);
     assert.match(b.apiId, /^[a-z0-9]{1,32}$/);
@@ -104,6 +109,7 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
   equal(bundle.parameters, {}, "This bounded contract has no runtime template parameters");
   const template = parseEvidenceJson(bundle.templateBytes);
   if (actualApi) assertLibraryApiTemplate(template, approval.account, approval.phase);
+  else if (actualCertificate) assertEdgeCertificateTemplate(template, approval.account, approval.phase);
   else checkTemplate(template, approval);
   const assembly = parseEvidenceJson(bundle.assemblyBytes);
   equal(assembly, { stack: t.name, account: t.account, region: t.region, executionRole: t.executionRole, templateSha256: approval.templateSha256 }, "Assembly binding mismatch");

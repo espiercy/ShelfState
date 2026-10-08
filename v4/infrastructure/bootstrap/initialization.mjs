@@ -5,6 +5,7 @@ import { equal, object } from "../../scripts/release/schema.mjs";
 
 export const PHASES = Object.freeze({
   edge: { region: "us-west-2", capability: "edge-delivery" },
+  "edge-static": { region: "us-west-2", capability: "edge-delivery" },
   "api-parent": { region: "us-west-2", capability: "library-api" },
   "api-children": { region: "us-west-2", capability: "library-api" },
   certificate: { region: "us-east-1", capability: "edge-certificate" },
@@ -57,8 +58,11 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
   const t = target(account, phase); assert.ok(["initialization", "steady"].includes(mode));
   const initial = mode === "initialization", statements = [];
   const add = (sid, actions, resources, conditions) => statements.push(allow(sid, [...new Set(actions)], resources, conditions));
-  for (const row of ACTION_INVENTORY.filter(r => r.phase === phase)) {
-    if (phase === "edge") {
+  const inventory = ACTION_INVENTORY.filter(r => phase === "edge-static"
+    ? r.phase === "edge" && ["distribution", "origin-access-control", "response-headers-policy"].includes(r.kind)
+    : r.phase === phase);
+  for (const row of inventory) {
+    if (phase === "edge" || phase === "edge-static") {
       const resource = `arn:aws:cloudfront::${account}:${row.type}/${initial ? "*" : id(bindings[row.id])}`;
       if (initial) {
         add(`Create${row.id}`, row.create.filter(a => a !== "cloudfront:TagResource"), ["*"], row.kind === "distribution" ? { StringEquals: ownership } : undefined);
@@ -101,12 +105,14 @@ export function assertGeneratedAuthority(candidate, account, phase, mode, bindin
 // never overlaid. Previously completed phases enter only as exact steady grants.
 export function executionPolicies(account, phase, mode, bindings, retainedPhases = []) {
   const t = target(account, phase);
+  if (phase === "edge-static") assert.equal(retainedPhases.length, 0, "Static-only window cannot retain unrelated phase authority");
   assert.equal(new Set(retainedPhases).size, retainedPhases.length);
   assert.ok(!retainedPhases.includes(phase));
   for (const retained of retainedPhases) assert.equal(target(account, retained).region, t.region);
   if (phase === "api-children") assert.ok(retainedPhases.includes("api-parent"), "Exact parent authority must survive child phase rollback");
   const base = t.region === "us-west-2" ? westExecutionPolicy() : eastExecutionPolicy();
-  const original = base.Statement.filter(s => !s.Action.some(a => /^(cloudfront|apigateway|acm):/.test(a)) &&
+  const original = base.Statement.filter(s => (phase !== "edge-static" || ["CreateStaticBucket", "ConfigureStaticBucket", "ReadRegionalTemplateAssets", "ResolveBootstrapVersion"].includes(s.Sid)) &&
+    !s.Action.some(a => /^(cloudfront|apigateway|acm):/.test(a)) &&
     !(t.region === "us-east-1" && s.Action.some(a => a.startsWith("route53:"))));
   // Named resource creation also ceases after initialization. Independently
   // reviewed config/update/delete permissions remain on exact named resources.

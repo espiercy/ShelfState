@@ -13,9 +13,18 @@ application endpoint. That slice subsequently received human-accepted independen
 [edge-certificate slice](../README.md#wp-007-edge-certificate-local-slice) now
 extends the certificate phase with an explicit actual-synth contract, ownership
 tags and a local ARN output, without DNS automation or policy expansion. That
-certificate slice is pending independent review. Neither slice closes any live,
-hosted, dependency-security or deployment gate; the records below remain dated
-synthetic-preparation history, not the new actual certificate contract.
+certificate slice received human-accepted independent **B — APPROVE WITH
+NONBLOCKING NOTES** and was committed at
+`522d72578f4d0aa3dc027fb57bf6842db662d891`. Its evidence-authentication and
+pending-validation/provider notes remain deferred live-proof gates. The local
+[static-edge slice](../README.md#wp-007-static-edge-delivery-local-slice) is
+implemented but uncommitted; its full independent review returned
+**C — REMEDIATION REQUIRED** solely for documentation R1, now under focused
+documentation-only remediation. No implementation/security defect was found.
+None of these local acceptances closes the dependency-security, hosted,
+bootstrap-authorization, provider, physical-ID, DNS or deployment gates. The
+records below remain dated synthetic-preparation history, not the new actual
+certificate/static contracts; all preparation remains **NOT DEPLOYMENT READY**.
 
 Status: **LOCAL PREPARATION / R1 REMEDIATED, FOCUSED INDEPENDENT CLOSURE PENDING / NOT DEPLOYMENT READY**.
 
@@ -63,6 +72,17 @@ No account-wide resource listing is added to find resources by name. No initial 
 Initial distribution/certificate lifecycle reads and rollback require the reviewed resource tags as defense in depth. This is not an ownership guarantee: the creation-tagging residual could relabel another resource, and other ShelfState/dev resources may already share the tags. The negative tests explicitly distinguish missing-tag denial from that remaining reach; untaggable policies/OAC have no invented tag condition. Tag availability at each handler call remains a live-proof item.
 
 ## Template and artifact guard
+
+Current actual-synth contracts now also include the separately authorized local
+`edge-static` phase: [static edge representation, policies and limitations](../README.md#wp-007-static-edge-delivery-local-slice).
+It is a strict five-resource static-only subset with its own review schema, not a
+relaxation of the historical synthetic `edge` placeholder below. Only distribution,
+OAC and response-header generated authority is selected; no custom cache/origin
+request policy, DNS, API or certificate authority is added. Exact named bucket
+control/support remains. No prior-phase authority may be retained in this isolated
+static window. The supplied reviewed east certificate ARN is locally bound but
+does not establish live provenance. All original live-containment/closure gates
+and **NOT DEPLOYMENT READY** status remain.
 
 `initialization-guard.mjs` accepts bounded byte inputs and independently pinned review metadata. It rejects wrong target/role, unexpected logical IDs/types/count, macros at any depth, nested/custom resources, replacement, unapproved relationships, wrong domain, parameters and substituted artifacts/change sets. The guard uses a narrow four-phase synthetic contract, not a generalized CloudFormation interpreter. It does not generate application stacks. Real synthesized logical IDs/configuration and an AWS-response projection adapter must be independently reviewed when application work is authorized. Synthetic fixtures deliberately are not deployable application templates.
 

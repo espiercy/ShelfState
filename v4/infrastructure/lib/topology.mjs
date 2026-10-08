@@ -3,6 +3,8 @@ import { requiredTags, stackName } from "./naming.mjs";
 import assert from "node:assert/strict";
 import { addLibraryApi } from "./library-api.mjs";
 import { addEdgeCertificate } from "./edge-certificate.mjs";
+import { addStaticEdge } from "./static-edge.mjs";
+import { assertStaticEdgeBindings } from "../bootstrap/static-edge-contract.mjs";
 
 import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 export { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
@@ -23,11 +25,13 @@ function stackEnvironment(config, region) {
 }
 
 export function createEnvironmentTopology(app, config, options = {}) {
-  assert.ok(Object.keys(options).every(key => key === "initializationPhase"), "Unsupported topology option");
+  assert.ok(Object.keys(options).every(key => ["initializationPhase", "initializationBindings"].includes(key)), "Unsupported topology option");
   const phase = options.initializationPhase;
+  if (phase === "edge-static") assertStaticEdgeBindings(options.initializationBindings, config.accountId);
+  else assert.ok(!Object.hasOwn(options, "initializationBindings"), "External bindings belong only to static edge phase");
   if (phase !== undefined) {
     assert.equal(config.environmentName, "dev", "Initialization resources are dev-only");
-    assert.ok(["api-parent", "api-children", "certificate"].includes(phase), "Unsupported initialization phase");
+    assert.ok(["api-parent", "api-children", "certificate", "edge-static"].includes(phase), "Unsupported initialization phase");
     assert.match(config.accountId ?? "", /^\d{12}$/, "Explicit local account binding required; no AWS discovery");
     assert.equal(config.primaryRegion, "us-west-2");
     assert.equal(config.edgeCertificateRegion, "us-east-1");
@@ -75,6 +79,12 @@ export function createEnvironmentTopology(app, config, options = {}) {
       stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
       stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
       addEdgeCertificate(stack, config);
+    }
+    if (definition.key === "edge-delivery" && phase === "edge-static") {
+      stack.templateOptions.description = "ShelfState V4 dev edge-delivery (WP-007 local preparation)";
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
+      stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
+      addStaticEdge(stack, config, options.initializationBindings);
     }
   }
 

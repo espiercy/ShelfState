@@ -1,9 +1,11 @@
 # ShelfState V4 CDK environment foundation
 
 WP-003 models the V4 infrastructure topology without creating AWS resources.
-Default dev/prod synthesis remains intentionally empty. The explicitly selected
-local WP-007 API and certificate phases below are the only resource-bearing exceptions; they do
-not enable the proof/release deployment path.
+Default dev/prod proof synthesis remains six stacks / zero resources. The
+explicitly selected local-only WP-007 API, certificate and static-edge phases
+below are resource-bearing synthesis exceptions. They do not enable deployment:
+the ordinary proof/release path remains non-deploying and rejects unauthorized
+resource-bearing assemblies.
 
 ## Environments and accounts
 
@@ -240,7 +242,11 @@ uncommitted, pending independent review; this record is not review approval.
 
 ## WP-007 edge-certificate local slice
 
-Local preparation only, **NOT DEPLOYMENT READY**, pending independent review.
+Local preparation only, **NOT DEPLOYMENT READY**. Independently reviewed with
+**B — APPROVE WITH NONBLOCKING NOTES** and committed at
+`522d72578f4d0aa3dc027fb57bf6842db662d891`. Evidence-authentication and
+pending-validation/provider notes remain deferred live-proof gates, not resolved
+by that local acceptance.
 Traceability: WP-007; ADR-005/007/014; EDGE-001/002/004 and the selected staged
 exact-record validation design in `bootstrap/pending-decisions.json`.
 
@@ -368,3 +374,176 @@ new gate. This task explicitly authorizes only the next local certificate slice.
   audit rerun, dependency remediation or V4 waiver. No AWS authentication/API call,
   DNS/public-DNS query, live mutation, OIDC, workflow activation, bootstrap,
   deployment, stage, commit or push. Public documentation reads only.
+
+## WP-007 static edge-delivery local slice
+
+**Locally prepared / full review C — REMEDIATION REQUIRED; documentation R1 under
+focused remediation — NOT DEPLOYMENT READY.** No implementation/security defect
+was found; the 14-path package remains uncommitted. This
+adds only `edge-static` in the west `edge-delivery` stack. Normal dev/prod synth
+still means six empty stacks. API parent/children and east certificate selectors
+are unchanged. This is not a resource-bearing release-workflow authorization.
+
+Exactly five native resources are supported:
+
+| Logical ID | Resource and constraint |
+|---|---|
+| `StaticBucket` | S3, exact account-bound dev name, all four public-access blocks, BucketOwnerEnforced (no ACLs), AES256 SSE-S3, Retain on deletion/replacement; no website, KMS, versioning, expiry or auto-delete helper. |
+| `OriginAccessControl` | S3 origin type; `always` SigV4 signing. No OAI. |
+| `ResponseHeadersPolicy` | Custom initial static-proof security headers and viewer `Cache-Control: no-cache`; no CORS, analytics or header-removal behavior. |
+| `Distribution` | One regional private S3 REST origin, one default GET/HEAD behavior, HTTPS redirect, TLSv1.2_2021/SNI, exact dev alias, explicit east certificate binding; index.html root. No API, functions, WAF, logs, custom errors, shield or DNS. Pay-as-you-go, no subscription configuration. |
+| `StaticBucketPolicy` | Only Allow is CloudFront service `s3:GetObject` on this bucket's objects, conditioned on this distribution's native Ref-derived ARN. Separate all-principal Deny covers insecure bucket/object transport. Policy deletes normally; retained bucket stays blocked/private. |
+
+Native intrinsic references bind bucket/OAC/header policy/distribution. In
+particular the distribution ID need not be guessed to construct the bucket
+grant. Distribution creation precedes its exact-ARN bucket policy; live origin
+access must be checked after policy propagation. There is deliberately no reverse
+dependency cycle or publication resource. A retained bucket may survive failed
+creation/rollback; status alone never proves cleanup or authorizes reuse/deletion.
+
+### Explicit certificate handoff and local selector
+
+The existing explicit literal certificate-ARN review model is carried into the
+actual phase as the only `initializationBindings` member, `certificateArn`.
+It must be a same-account `us-east-1` ACM certificate ARN, and the template must
+match the independently pinned binding exactly. Only this phase accepts that
+option. The app's local context counterpart is `shelfstateInitializationBindings`
+(object), alongside `shelfstateInitializationPhase: edge-static`. Tests use only
+the documentation account and synthetic certificate ID. There is no environment
+discovery, private-handoff read, ARN guess, automatic east-stack consumption,
+`crossRegionReferences`, import/export, SSM certificate bridge or custom resource.
+
+A well-formed ARN does **not** prove issuance, domain coverage, ownership, AWS
+physical origin or readback freshness. Those must be authenticated under future
+live authorization. Candidate-generated replacement pins are not trusted review.
+
+### Policies and inert content
+
+Architecture §§16.3–16.4 and WP-007 require explicit caching and initial custom
+security headers, but do not select custom cache/origin-request policies. The
+historical bounded-initialization fixture's three policy placeholders were not
+deployable choices. For this single inert page, AWS managed **CachingDisabled**
+(`4135ea2d-6df8-44a3-9df3-4b5a84be39ad`) has min/default/max TTL zero and needs no
+new generated cache policy. No origin-request policy is needed: no cookies,
+query forwarding, authentication or CORS flow exists. Managed CachingOptimized's
+positive minimum TTL would defeat no-cache revalidation; managed
+UseOriginCacheControlHeaders introduces unnecessary host/header/cookie forwarding.
+Neither is selected. Hashed immutable-asset caching remains future work.
+
+The custom response-header policy is required by the architecture: static-only
+CSP `default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+nosniff, DENY framing, no-referrer, and one-year HSTS without includeSubdomains or
+preload. Each overrides origin values. Viewer `Cache-Control: no-cache` forces
+entry revalidation independently of future S3 publication metadata; this does
+not enable edge caching. Final WP-026 CSP/CORS/API/auth qualification is not
+claimed or implemented. Changes needed for the real application require review.
+
+The WP-007/M1 inert-origin proof permits the minimal local
+`frontend/static-proof/index.html`: only a non-production heading/paragraph,
+title/charset/viewport, no scripts/styles/assets/data/manifest/worker/V3 shell.
+Existing build/publication scripts are untouched. The page is **not** uploaded,
+included as a CDK deployment asset, or copied by the toolchain-boundary build.
+Future publication needs separate bounded authorization and byte/content-type
+verification; until then the bucket has no page and no successful HTTP claim.
+
+### Guard and authority effects
+
+`static-edge-contract.mjs` is an independent positive contract for all five
+complete emitted resource structures, topology/bootstrap envelope, tags,
+intrinsics, headers, retention and bucket policy. Unknown behavior-bearing fields
+are rejected, including under freshly consistent template/assembly/change-set/
+review hashes. The separate `shelfstate.wp007-static-edge-review/v1` schema accepts
+only this phase, exact target/role, reviewed certificate binding, no parameters or
+external assets and five unconditional Add operations. The old synthetic `edge`
+schema is unchanged; it cannot accept the actual static representation. Ordinary
+foundation/release validation still rejects the resource-bearing assembly.
+
+`edge-static` initialization selects **only** the already-adjudicated distribution,
+OAC and response-headers action classes. No cache-policy/origin-request-policy,
+API, Lambda, IAM runtime, log, Route53 or ACM authority remains in this phase's
+composition. Exact named S3 bucket/configuration and existing regional template/
+bootstrap support are retained. No object publication/deletion is granted.
+Two-west attachment shape remains, with no new permission class. Completed prior
+phase grants cannot be unioned into this isolated static window. After verified
+physical readback, all three generated classes narrow to exact IDs and creation
+grants (including bucket creation) disappear. Existing caller-window cap, terminal
+closure, retained-remnant and replacement rules still apply; no executor exists.
+
+Temporary creation `Resource: *`, same-account generated-ID OAC/header lifecycle
+wildcards, distribution tag/relabel reach and exact named bucket-policy control
+remain residual authority, **not** IAM-enforced unrelated-resource isolation.
+The accepted single-stack reviewed-template window and narrower-principal/stale-
+stack containment must be proven live before installation. PutBucketPolicy IAM
+cannot enforce policy contents; the positive template contract and authenticated
+execution provenance are essential. A missing handler action must stop for review,
+never be granted automatically. Exact IDs do not make policy contents harmless.
+
+Remaining live proofs: independently issued/correct east certificate; actual
+provider calls/tag timing, OAC signing/private-origin denial and HTTPS headers;
+source/stored-template/execution-role/physical-ID authenticity; live principal
+containment, propagation, stabilization/rollback/retained remnants and CloudTrail;
+exact-ID closure; separately authorized DNS/publication/browser proof. Dependency
+security and WP-006 hosted acceptance remain unresolved. Bootstrap/deployment
+authorization has not occurred. No V4 waiver is implied by local success.
+
+Cost: local preparation adds no AWS charge. Proposed S3/CloudFront pay-as-you-go
+usage is already within the Personal architecture; no new fixed-price service,
+customer KMS key, logging pipeline or flat-rate plan. CachingDisabled can increase
+S3 reads relative to caching; acceptable only for the bounded inert proof, not a
+final cost/performance claim. Revalidate usage/current pricing and the Personal
+model at the separately authorized live gate; no promotional free-tier premise.
+
+Primary references: [S3/OAC signing and exact-distribution bucket grant](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html),
+[managed cache policies](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html),
+[native default behavior](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-cloudfront-distribution-defaultcachebehavior.html),
+[native security headers](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-cloudfront-responseheaderspolicy-securityheadersconfig.html).
+
+### Static edge local verification — 2026-10-07
+
+Starting branch `codex/wp-006b-workflow-activation`, HEAD
+`522d72578f4d0aa3dc027fb57bf6842db662d891`, clean at entry. Gate check: the index's
+pending certificate review was superseded by human-accepted independent review
+and that commit; no additional prerequisite blocks this explicitly authorized
+local slice. This evidence is implementation-agent verification, not approval.
+
+- Credential-free `node --test` covering `static-edge`, `edge-certificate`,
+  `library-api`, `bootstrap-initialization`, `bootstrap-security`, `infrastructure`
+  and `package-boundary` (`checks/*.case.mjs`): **277 passed, 0 failed**. Static
+  suite independently rerun: **73/73**. The initialization fixture remains
+  historical-only; the new phase rejects that schema and uses the actual native
+  template. All prior synthetic positive/negative cases are preserved.
+- Attacks repin template/assembly/change-set/review bytes before rejection:
+  public ACL/policy/access blocks, website/custom/unrelated origins, OAC/OAI/
+  signing, bucket principal/action/resource/condition, certificate/alias/HTTPS/
+  methods, extra origins/behaviors, edge functions, custom helpers/deployment/
+  auto-delete, KMS, cross-region indirection, extra policies, caching/CORS/header
+  weakening, retention and resource substitution. Recursive missing/unknown-key
+  checks cover the entire actual template, not only a blacklist. A candidate's
+  self-repinned certificate substitution fails against the original trusted pin;
+  a genuinely new reviewed ARN still needs live provenance.
+- Affected release suites (`release-control-implementation`, `workflow-activation`,
+  `controller-provenance`, `runtime-target`, `offline-synthesis`): **237 passed,
+  0 failed, 2 existing Windows real-symlink skips**. Combined affected V4:
+  **514 passed / 2 skips**. Normal release acceptance rejects static resources.
+- Root CI-policy and WP-001 deployment-isolation suites: **22 passed**, including
+  all six WP-001 cases. No unrelated application suite was rerun.
+- Static phase: **6 stacks / 5 resources**, five other stacks unchanged/empty.
+  Prior default dev/prod: **6 / 0 each**; API parent/children: **1 / 8**; east
+  certificate: **1**. All **30** prior phase templates (five selections × six
+  stacks) match their captured pre-edit JSON-content SHA-256 identities exactly.
+- Conservative 64-character generated-ID bindings: static execution attachments
+  are **1,101 / 1,792** characters in initialization and **883 / 1,173** in steady
+  mode; caller-cap maximum **4,029**, all below 6,144. Existing composition-size
+  checks pass. No approved policy JSON/action class/attachment topology is expanded.
+- Tracked credential tripwire, explicit changed/new-file credential/new-binding
+  scan (distinguishing pre-existing synthetic fixtures), whitespace scan and
+  `git diff --check`: passed. No private handoff read. Dependency configuration,
+  lockfile, existing build/publication, workflows and V3 runtime unchanged.
+  Package script change only adds the static suite to `infra:test`.
+- All **14** pending paths are V4-owned under WP-001; nothing staged/committed.
+  V3 source and existing publication each remain **42 files**, digest
+  `a4b25c4da79431dedb37a1213d74bac55d8df42e86eecac296a7d88c06cd8caa`.
+- Known dependency-security audit remains unresolved/failing and unsuppressed;
+  no new audit/upstream freshness claim, dependency change or V4 waiver. No AWS
+  credentials, authentication, account API call, live CDK, DNS query, publication,
+  workflow activation, OIDC, bootstrap, deployment, remote mutation, commit or push.

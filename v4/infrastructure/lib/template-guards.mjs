@@ -2,6 +2,7 @@ import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 import assert from "node:assert/strict";
 import { assertLibraryApiTemplate } from "../bootstrap/library-api-contract.mjs";
 import { assertEdgeCertificateTemplate } from "../bootstrap/edge-certificate-contract.mjs";
+import { assertStaticEdgeTemplate } from "../bootstrap/static-edge-contract.mjs";
 
 export const STATEFUL_POLICY_METADATA = "ShelfStateStatefulPolicy";
 
@@ -272,6 +273,32 @@ export function validateLocalCertificateAssembly(assembly, config, phase) {
     assertNoDeferredInfrastructure(artifact.template);
     assertStatefulResourceSafeguards(artifact.template, "dev");
     if (capability === "edge-certificate") assertEdgeCertificateTemplate(artifact.template, config.accountId, phase);
+    else assertFoundationTemplate(artifact.template, "dev");
+  }
+}
+
+// This separate inspection path never broadens ordinary proof/release acceptance.
+export function validateLocalStaticEdgeAssembly(assembly, config, phase, bindings) {
+  assert.equal(config.environmentName, "dev");
+  assert.match(config.accountId ?? "", /^\d{12}$/);
+  assert.equal(config.primaryRegion, "us-west-2");
+  assert.equal(config.edgeCertificateRegion, "us-east-1");
+  assert.equal(phase, "edge-static");
+  assert.equal(assembly.stacks.length, CAPABILITY_DEFINITIONS.length);
+  const seen = new Set();
+  for (const artifact of assembly.stacks) {
+    const metadata = artifact.template.Metadata?.ShelfState;
+    const capability = metadata?.Capability;
+    const definition = CAPABILITY_DEFINITIONS.find(d => d.key === capability);
+    assert.ok(definition && !seen.has(capability), "Unknown/duplicate capability"); seen.add(capability);
+    assert.equal(metadata.Environment, "dev");
+    assert.equal(metadata.Region, config[definition.regionSource]);
+    assert.equal(artifact.stackName, `shelfstate-v4-dev-${capability}`);
+    assert.equal(artifact.environment.name, `aws://${config.accountId}/${config[definition.regionSource]}`);
+    assert.equal(artifact.terminationProtection, false);
+    assertNoDeferredInfrastructure(artifact.template);
+    assertStatefulResourceSafeguards(artifact.template, "dev");
+    if (capability === "edge-delivery") assertStaticEdgeTemplate(artifact.template, config.accountId, phase, bindings);
     else assertFoundationTemplate(artifact.template, "dev");
   }
 }

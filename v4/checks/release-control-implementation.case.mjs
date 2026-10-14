@@ -58,7 +58,7 @@ async function assemblyFixture(root, env = "dev") {
     artifacts[id] = { type: "aws:cloudformation:stack", environment: `aws://unknown-account/${region}`,
       properties: { templateFile, stackName: `shelfstate-v4-${cdkEnv}-${capability.key}`, terminationProtection: env === "production" }, dependencies: [] };
   }
-  await json(path.join(root, "manifest.json"), { version: "54.0.0", artifacts, minimumCliVersion: "2.1141.0" });
+  await json(path.join(root, "manifest.json"), { version: "54.0.0", artifacts, minimumCliVersion: "2.1144.0" });
   return rememberFixture(root, env);
 }
 async function reviseTemplate(snapshot, fn, stack = 0) {

@@ -86,6 +86,97 @@ WP-003 performs no AWS calls, creates no resources, and costs `$0`. A future
 authorized bootstrap may create usage-driven S3/ECR support storage; bootstrap
 is not part of this work package.
 
+## Dependency remediation local candidate — 2026-10-09
+
+Starting checkpoint: branch `codex/wp-006b-workflow-activation`, HEAD
+`904cd4715862661ed7afba806c88e138d5996e3a`, clean worktree and empty index.
+This separately authorized local-only slice changes no resource, policy, trust,
+workflow, API-routing, V3 or live state. The candidate remains unstaged and
+uncommitted; independent review and hosted acceptance are separate gates.
+
+- The direct `aws-cdk-lib` pin is `2.273.0`; `constructs@10.8.1` and the
+  `aws-cdk@2.1141.0` CLI pin are unchanged. Required lock resolution advances
+  `@aws-cdk/cloud-assembly-schema` `54.23.0 → 54.26.0` and the library's bundled
+  `@aws/cloudformation-validate` `1.9.0-beta → 1.12.1`. The bundled
+  `minimatch@10.2.5` resolves its embedded `brace-expansion` from `5.0.9` to
+  `5.0.12`; no suppression, allowlist or unrelated upgrade is present.
+- Official npm metadata and a fresh isolated tarball agree on SHA-1
+  `8538bfa847dccb6668260cf5684d6c29bad7fce1` and SRI
+  `sha512-H7hBQHnKn0ZBbpnWRL1Hn0GunSQUsYaLqOk2xIqV0HWr3qbYMwTEZT0HbJBUSxeUdzp1nz0AE2LN3K6qvYr4Zg==`.
+  The tarball declares `aws-cdk-lib@2.273.0` and contains the bundled
+  `brace-expansion@5.0.12`. Registry metadata exposes two signature records
+  under key ID `SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U`.
+  It exposes no `dist.attestations` or `gitHead`; the repository URL is a source
+  pointer, not package provenance.
+- Clean `npm@11.6.2 ci` succeeded. `npm audit --audit-level=low --json` reports
+  zero vulnerabilities at every severity. `npm audit signatures` verifies
+  registry signatures for all 26 audited packages and nine graph-wide
+  attestations, with no verification failures. Those nine attestations are
+  not attributable to the direct CDK release by the command output and do not
+  replace its absent registry provenance attestation.
+- Full `npm run verify` passes: **549 passed / 2 existing Windows real-symlink
+  skips**, with synth, preview and inert build successful. The mocked mandatory
+  filesystem classifications pass. V3's 42-file build isolation, tracked
+  credential/personal-identifier checks, release/foundation guards and all five
+  6,144-character policy-size assertions pass.
+- Equivalent pre/post synth captured dev, prod, `api-parent`, `api-children`,
+  `certificate` and `edge-static`: all **36 templates are byte-identical** and
+  assembly schema remains `54.0.0`. `minimumCliVersion` changes exactly
+  `2.1141.0 → 2.1144.0`; the exact reader/fixture guards now require that value.
+  The pinned CLI successfully synthesizes both normal environments with the
+  resolved schema consumer `54.26.0`. Other assembly differences are diagnostic:
+  one new recommended CloudFront feature flag, construct/plugin version labels
+  and validation stack-trace formatting. No resource, behavior, privilege or
+  trust-boundary difference exists. Deployment compatibility/live behavior was
+  not exercised and remains separately gated.
+
+### Dependency remediation revalidation — 2026-10-13
+
+Resumed the existing eight unstaged paths at the same baseline HEAD, rather than
+reapplying the upgrade. All eight raw-byte hashes matched the retained candidate
+before this documentation refresh. No additional dependency or executable change
+was made during revalidation. The prior reliability assessment was not acceptance
+of this dependency candidate; a separate genuine independent review is required.
+
+- Fresh official registry/tarball read (2026-10-14 00:50 UTC; October 13 Phoenix)
+  reproduced the SHA-1/SRI above and verified both registry signature records
+  cryptographically using the published npm signing key. The installed bundle
+  is also `brace-expansion@5.0.12`. Direct-package `dist.attestations` and `gitHead`
+  remain absent: integrity and registry authentication are proven, not direct
+  source/build provenance. Graph-wide attestation totals do not fill that gap.
+- A new `npm@11.6.2 ci`, all-severity vulnerability audit and signature audit
+  pass: **0 vulnerabilities**, **26 signatures**, **9 available attestations**.
+  Full V4 verification repeats **549 passed, 0 failed, 2 existing Windows symlink
+  skips**. Root tests: **197/197**; CI/WP-001: **22/22**. Credential tripwire,
+  five managed-policy size checks and whitespace checks pass. This is local
+  security evidence, not hosted aggregate-CI acceptance or a security exception.
+- Exported committed V4 source and its original lockfile to an isolated directory,
+  installed that lock without lifecycle scripts, and synthesized both dependency
+  states with the same local harness/inputs. Dev/prod and all four resource phases
+  reproduce **36 raw-byte-identical templates**. Each has six stacks; aggregate
+  resource counts are respectively **0, 0, 1, 8, 1, 5**. No expectation, resource,
+  IAM policy or bootstrap-template pin was regenerated.
+- Non-template differences were inspected exhaustively: the new recommended
+  CloudFront HTTPS flag (not activated by this change), manifest minimum CLI,
+  library/plugin version labels, source-location paths and validation trace
+  formatting. Existing validation findings/acknowledgments are otherwise equal;
+  no new suppression was added. Assembly schema remains `54.0.0`.
+- Explicit schema validation passes for all six candidate assemblies, and the
+  unchanged CLI `2.1141.0` reads each prebuilt assembly with credential-free
+  `cdk list --app <local-assembly> --no-lookups`. Its installed manifest loader
+  gates on supported schema major; `minimumCliVersion` is used in the schema-
+  mismatch diagnostic, not a separate semantic-version rejection. This explains
+  the observed local compatibility despite the emitted `2.1144.0` minimum. The
+  release reader's exact value changed only after inspecting that emitted delta;
+  unknown schema/fields, nonempty release templates and lookup evidence remain
+  rejected. This does not prove live deployment or general forward compatibility;
+  those remain separately gated. No CLI or bootstrap provenance pin was changed.
+- V3 source/publication remain **42 files**, SHA-256
+  `a4b25c4da79431dedb37a1213d74bac55d8df42e86eecac296a7d88c06cd8caa`.
+  WP-001 classifies the exact candidate as V4-only. Workflows, live configuration,
+  direct CLI/constructs pins and API routing remain unchanged. No staging, commit,
+  push, AWS authentication, hosted run, bootstrap, deployment or publication.
+
 ## WP-007 library-api local slice
 
 Snapshot notice: this slice's local verification record below predates its
@@ -377,9 +468,10 @@ new gate. This task explicitly authorizes only the next local certificate slice.
 
 ## WP-007 static edge-delivery local slice
 
-**Locally prepared / full review C — REMEDIATION REQUIRED; documentation R1 under
-focused remediation — NOT DEPLOYMENT READY.** No implementation/security defect
-was found; the 14-path package remains uncommitted. This
+**Locally prepared, independently closed and committed at
+`904cd4715862661ed7afba806c88e138d5996e3a` — NOT DEPLOYMENT READY.** The supplied
+focused independent closure resolved the prior documentation-only R1; no
+implementation/security defect was found. This
 adds only `edge-static` in the west `edge-delivery` stack. Normal dev/prod synth
 still means six empty stacks. API parent/children and east certificate selectors
 are unchanged. This is not a resource-bearing release-workflow authorization.
@@ -483,7 +575,7 @@ provider calls/tag timing, OAC signing/private-origin denial and HTTPS headers;
 source/stored-template/execution-role/physical-ID authenticity; live principal
 containment, propagation, stabilization/rollback/retained remnants and CloudTrail;
 exact-ID closure; separately authorized DNS/publication/browser proof. Dependency
-security and WP-006 hosted acceptance remain unresolved. Bootstrap/deployment
+security hosted acceptance and WP-006 hosted acceptance remain unresolved. Bootstrap/deployment
 authorization has not occurred. No V4 waiver is implied by local success.
 
 Cost: local preparation adds no AWS charge. Proposed S3/CloudFront pay-as-you-go
@@ -499,6 +591,12 @@ Primary references: [S3/OAC signing and exact-distribution bucket grant](https:/
 [native security headers](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-cloudfront-responseheaderspolicy-securityheadersconfig.html).
 
 ### Static edge local verification — 2026-10-07
+
+Snapshot reconciliation (2026-10-09): the dated implementation record below
+predates the supplied focused independent closure and commit
+`904cd4715862661ed7afba806c88e138d5996e3a`. Its prior uncommitted/dependency-
+blocked wording is historical. The local dependency remediation is recorded in
+the separate section above and does not authorize API routing or live work.
 
 Starting branch `codex/wp-006b-workflow-activation`, HEAD
 `522d72578f4d0aa3dc027fb57bf6842db662d891`, clean at entry. Gate check: the index's

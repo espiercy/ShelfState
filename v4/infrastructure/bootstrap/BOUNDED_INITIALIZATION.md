@@ -17,16 +17,16 @@ certificate slice received human-accepted independent **B — APPROVE WITH
 NONBLOCKING NOTES** and was committed at
 `522d72578f4d0aa3dc027fb57bf6842db662d891`. Its evidence-authentication and
 pending-validation/provider notes remain deferred live-proof gates. The local
-[static-edge slice](../README.md#wp-007-static-edge-delivery-local-slice) is
-implemented but uncommitted; its full independent review returned
-**C — REMEDIATION REQUIRED** solely for documentation R1, now under focused
-documentation-only remediation. No implementation/security defect was found.
-None of these local acceptances closes the dependency-security, hosted,
+[static-edge slice](../README.md#wp-007-static-edge-delivery-local-slice)
+subsequently received the supplied focused independent closure and was committed
+at `904cd4715862661ed7afba806c88e138d5996e3a`; no implementation/security defect
+was found. The separate 2026-10-09 local dependency-remediation candidate does
+not close hosted acceptance. None of these local acceptances closes hosted,
 bootstrap-authorization, provider, physical-ID, DNS or deployment gates. The
 records below remain dated synthetic-preparation history, not the new actual
 certificate/static contracts; all preparation remains **NOT DEPLOYMENT READY**.
 
-Status: **LOCAL PREPARATION / R1 REMEDIATED, FOCUSED INDEPENDENT CLOSURE PENDING / NOT DEPLOYMENT READY**.
+Status: **LOCAL PREPARATION / REVIEWS CLOSED FOR COMMITTED SLICES / NOT DEPLOYMENT READY**.
 
 Authority: human request “Implement the local-only WP-007 bounded-initialization authority package,” following the CloudFormation-native design adjudication. Starting branch `codex/wp-006b-workflow-activation`, HEAD `2f81271a4e968638bfa43da2cd4c4849dd3bf768`, clean. No commit/live use is authorized. These functions are pure models and evidence validators, not an AWS executor or proof of authentic AWS responses.
 
@@ -122,9 +122,9 @@ Publish only after separate exact-zone/exact-normalized-CNAME authorization and 
 
 ## Remaining gates and verification
 
-Outstanding: handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME; asset/version correspondence; effective propagation and exact-ID operation; CloudTrail; unresolved dependency audit (no V4 waiver); WP-006 hosted acceptance; bootstrap and initialization authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed.
+Outstanding: handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME; asset/version correspondence; effective propagation and exact-ID operation; CloudTrail; independent review and hosted acceptance of the local dependency remediation (no V4 waiver); WP-006 hosted acceptance; bootstrap and initialization authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed.
 
-Run focused bootstrap/initialization/infrastructure and affected release/boundary checks, full composed policy-size assertions, raw-binding/credential scans and diff checks. Do not run an audit merely to relabel the recorded blocker. The historical upstream/CDK template digest and V3 publication identity remain independently checkable and unchanged by this package.
+Run focused bootstrap/initialization/infrastructure and affected release/boundary checks, full composed policy-size assertions, raw-binding/credential scans and diff checks. The separately authorized 2026-10-09 dependency remediation reran the audit and preserves the older records below as dated evidence rather than relabeling them. The historical upstream/CDK template digest and V3 publication identity remain independently checkable and unchanged by this package.
 
 Public primary references: [CloudFormation actions/condition keys](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudformation.html), [service-role reuse](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-servicerole.html), [failure options](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stack-failure-options.html), [CloudFront](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html), [API Gateway V2](https://docs.aws.amazon.com/service-authorization/latest/reference/list_apigatewayv2.html), [ACM](https://docs.aws.amazon.com/service-authorization/latest/reference/list_acm.html), [CDK DNS validation](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_certificatemanager.CertificateValidation.html). These support design semantics, not live deployment proof.
 

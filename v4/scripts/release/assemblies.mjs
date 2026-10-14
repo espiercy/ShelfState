@@ -92,7 +92,7 @@ export async function readAssembly(root, env) {
   const manifest = await json("manifest.json");
   allowedKeys(manifest, ["version", "artifacts", "minimumCliVersion", "missing"], "assembly");
   assert.equal(manifest.version, assemblyVersion, "Unsupported assembly schema");
-  if (Object.hasOwn(manifest, "minimumCliVersion")) assert.equal(manifest.minimumCliVersion, "2.1141.0", "Unsupported assembly CLI requirement");
+  if (Object.hasOwn(manifest, "minimumCliVersion")) assert.equal(manifest.minimumCliVersion, "2.1144.0", "Unsupported assembly CLI requirement");
   assert.ok(!Object.hasOwn(manifest, "missing") || (Array.isArray(manifest.missing) && manifest.missing.length === 0), "AWS context lookup evidence unsupported");
   map(manifest.artifacts, "artifacts");
   const stacks = [], assets = [], assetManifests = {}, additionalMetadata = {};

@@ -20,13 +20,16 @@ pending-validation/provider notes remain deferred live-proof gates. The local
 [static-edge slice](../README.md#wp-007-static-edge-delivery-local-slice)
 subsequently received the supplied focused independent closure and was committed
 at `904cd4715862661ed7afba806c88e138d5996e3a`; no implementation/security defect
-was found. The separate 2026-10-09 local dependency-remediation candidate does
-not close hosted acceptance. None of these local acceptances closes hosted,
+was found. The dependency remediation was independently approved and committed
+at `de0eba0bba1385447a8236bd47171f1ee7bcaef3`, without closing hosted acceptance.
+The separately authorized local API-origin routing candidate is described below.
+After narrow phase-marker remediation, focused independent closure returned
+**A — APPROVE**. None of these local acceptances closes hosted,
 bootstrap-authorization, provider, physical-ID, DNS or deployment gates. The
 records below remain dated synthetic-preparation history, not the new actual
 certificate/static contracts; all preparation remains **NOT DEPLOYMENT READY**.
 
-Status: **LOCAL PREPARATION / REVIEWS CLOSED FOR COMMITTED SLICES / NOT DEPLOYMENT READY**.
+Status: **LOCAL PREPARATION / REVIEWS CLOSED FOR COMMITTED SLICES AND ROUTING CANDIDATE / NOT DEPLOYMENT READY**.
 
 Authority: human request “Implement the local-only WP-007 bounded-initialization authority package,” following the CloudFormation-native design adjudication. Starting branch `codex/wp-006b-workflow-activation`, HEAD `2f81271a4e968638bfa43da2cd4c4849dd3bf768`, clean. No commit/live use is authorized. These functions are pure models and evidence validators, not an AWS executor or proof of authentic AWS responses.
 
@@ -84,6 +87,24 @@ static window. The supplied reviewed east certificate ARN is locally bound but
 does not establish live provenance. All original live-containment/closure gates
 and **NOT DEPLOYMENT READY** status remain.
 
+The separately selected local `edge-routing` phase extends that same prospective
+initial five-resource edge template with one API custom origin and one ordered
+`/api/*` behavior. It does not model a steady update to, or prove the existence
+of, a previously deployed static distribution. Its only external bindings are
+the reviewed certificate ARN and API ID; their format is checked, but authentic
+physical-resource provenance, certificate state/domain coverage and API ownership
+remain live readback gates. The positive routing contract removes only the API
+origin/behavior and restores the `edge-static` phase marker before requiring the
+unchanged complete static contract, then separately requires the exact API
+semantics. No logical ID or resource is added.
+
+`edge-routing` selects exactly the same distribution, OAC and response-headers
+generated action classes and the same named S3/support authority as `edge-static`.
+It adds no API Gateway, Lambda, IAM, Route 53, custom-policy or publication
+action. The isolated-window, prepare/execute, exact-ID narrowing and closure
+requirements are unchanged. This local representation is not evidence that the
+current generic CDK flow can safely perform the future initial transaction.
+
 `initialization-guard.mjs` accepts bounded byte inputs and independently pinned review metadata. It rejects wrong target/role, unexpected logical IDs/types/count, macros at any depth, nested/custom resources, replacement, unapproved relationships, wrong domain, parameters and substituted artifacts/change sets. The guard uses a narrow four-phase synthetic contract, not a generalized CloudFormation interpreter. It does not generate application stacks. Real synthesized logical IDs/configuration and an AWS-response projection adapter must be independently reviewed when application work is authorized. Synthetic fixtures deliberately are not deployable application templates.
 
 All reviewed bytes/configuration are pinned. R1 remediation additionally compares every accepted resource's complete `Properties` against a positive semantic structure: only object-key order is normalized. Extra/missing fields, nested additions, alternate intrinsics, external specifications and changed values fail even with a separately valid review pin. Only literal top-level description and the fixed template-format version are optional. Resource attributes and all other template sections remain unsupported. This is a fail-closed validator for the supported synthetic WP-007 subset, **not a complete CloudFormation security verifier or a deployable-template contract**.
@@ -122,7 +143,7 @@ Publish only after separate exact-zone/exact-normalized-CNAME authorization and 
 
 ## Remaining gates and verification
 
-Outstanding: handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME; asset/version correspondence; effective propagation and exact-ID operation; CloudTrail; independent review and hosted acceptance of the local dependency remediation (no V4 waiver); WP-006 hosted acceptance; bootstrap and initialization authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed.
+Outstanding: handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME/API ID; asset/version correspondence; effective propagation and exact-ID operation; CloudTrail; dependency-security and WP-006 hosted acceptance; bootstrap and initialization authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed.
 
 Run focused bootstrap/initialization/infrastructure and affected release/boundary checks, full composed policy-size assertions, raw-binding/credential scans and diff checks. The separately authorized 2026-10-09 dependency remediation reran the audit and preserves the older records below as dated evidence rather than relabeling them. The historical upstream/CDK template digest and V3 publication identity remain independently checkable and unchanged by this package.
 

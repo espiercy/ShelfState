@@ -58,4 +58,5 @@ export function addStaticEdge(stack, config, bindings) {
   // Policy is deleted normally; retained bucket never becomes public. No object
   // deletion authority/helper is introduced. Distribution must precede its ARN
   // bound grant, so temporary lack of origin access is a live sequencing gate.
+  return Object.freeze({ distribution });
 }

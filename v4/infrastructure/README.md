@@ -645,3 +645,105 @@ local slice. This evidence is implementation-agent verification, not approval.
   no new audit/upstream freshness claim, dependency change or V4 waiver. No AWS
   credentials, authentication, account API call, live CDK, DNS query, publication,
   workflow activation, OIDC, bootstrap, deployment, remote mutation, commit or push.
+
+## WP-007 API-origin routing local slice
+
+**Independently approved local candidate — NOT DEPLOYMENT READY.** Starting
+checkpoint: branch `codex/wp-006b-workflow-activation`, HEAD
+`de0eba0bba1385447a8236bd47171f1ee7bcaef3`, clean worktree/empty index/no
+untracked files. This separately authorized slice adds only the explicit local
+`edge-routing` selector and its positive contract. It does not modify the
+accepted `edge-static` selector or claim that any prior edge/API resource exists.
+
+The selected template is a prospective initial combined edge stack. It preserves
+the same five logical resources (`StaticBucket`, `OriginAccessControl`,
+`ResponseHeadersPolicy`, `Distribution`, `StaticBucketPolicy`) and changes only
+the distribution relative to the static representation:
+
+- A second origin, ID `api`, uses the explicit API-ID binding at
+  `<apiId>.execute-api.us-west-2.amazonaws.com`. It is a custom origin with
+  `https-only` origin communication and only `TLSv1.2` enabled.
+- Exactly one ordered behavior matches `/api/*`, targets `api`, accepts/caches
+  only GET/HEAD, and requires HTTPS from viewers. It attaches AWS managed
+  CachingDisabled (`4135ea2d-6df8-44a3-9df3-4b5a84be39ad`) and managed
+  AllViewerExceptHostHeader (`b689b0a8-53d0-40ab-baf2-68738e2966ac`). The latter
+  removes the viewer `Host` and lets CloudFront send the API origin domain.
+- The API behavior deliberately has no response-headers policy, so it cannot
+  overwrite the health handler's `Cache-Control: no-store`. It has no origin
+  path, custom headers, CORS, WAF, edge functions, DNS or publication helper.
+
+AWS documents CachingDisabled as min/default/max TTL zero and describes
+AllViewerExceptHostHeader as intended for API Gateway, replacing the viewer Host
+with the origin domain. CloudFormation documents `https-only` for origin/viewer
+communication, the GET/HEAD allowed-method set, and explicit origin SSL protocols.
+Primary references: [managed cache policies](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html),
+[managed origin-request policies](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-origin-request-policies.html),
+[cache behavior](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-cloudfront-distribution-cachebehavior.html),
+[custom origin](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-cloudfront-distribution-customoriginconfig.html).
+
+### Binding, contract and authority boundaries
+
+`shelfstateInitializationPhase: edge-routing` requires exactly
+`shelfstateInitializationBindings: { certificateArn, apiId }`. The certificate
+must have the same-account east ACM ARN shape; the API ID must be lower-case
+alphanumeric and at most 32 characters. These are representation checks only.
+They do not establish issuance, domain coverage, API ownership, physical ID,
+deployment history or readback freshness. Candidate self-repinning cannot change
+an independently trusted review pin.
+
+`edge-routing-contract.mjs` first requires the original exact `edge-routing`
+phase marker and exact API origin/behavior, then projects out only the routing
+additions, restores the `edge-static` phase marker, and
+passes the remainder through the unchanged complete static contract. Unknown or
+missing keys, alternate intrinsics, wrong regions/TLS/path/policies/methods,
+Host forwarding, extra origins/behaviors, origin path/custom headers, response
+header overrides and function associations fail even under freshly consistent
+template/assembly/change-set/review hashes. Ordinary foundation/release guards
+still reject this resource-bearing assembly.
+
+The phase selects exactly the same three generated CloudFront action classes
+(distribution, OAC, response-headers policy) and same named S3/support statements
+as `edge-static`. Initialization/steady policy documents and caller caps are
+byte-equivalent; there is no API Gateway/Lambda/IAM/Route 53 authority and no new
+service action or attachment. Existing residual initial wildcard/tag reach,
+narrower-principal containment, exact-ID narrowing and closure requirements remain.
+
+### Local verification and review — 2026-10-16
+
+- Dedicated routing suite: **42 passed, 0 failed**. Combined infrastructure /
+  bootstrap / prior phase suite: **313 passed, 0 failed** under Node 24.13.0 and
+  pinned npm 11.6.2. Conservative policy-size checks remain under 6,144 bytes.
+- Full `npm run verify`: package **9**, contract **1**, human security **17**,
+  release design **17**, release implementation/activation **237 passed with 2
+  existing Windows symlink skips**, and infrastructure **313**; synth/preview/
+  build passed. Total: **594 passed, 0 failed, 2 platform skips**.
+- Routing selector: **6 stacks / 5 resources**, only west `edge-delivery`
+  resource-bearing. Default dev/prod stay **6 / 0** each. API parent/children,
+  certificate and `edge-static` selectors retain all **36** captured starting
+  JSON-content SHA-256 identities. The routing contract proves the static
+  projection byte-identical to `edge-static` apart from its phase marker and the
+  two explicit routing additions.
+- Root regression / CI / WP-001 / V3 isolation: **197 passed, 0 failed**. The
+  initial sandboxed run's two temporary-Git permission failures passed when the
+  same suite was rerun with local temp-directory access. Tracked-file credential
+  tripwire passed. No V3 file changed.
+- Fresh registry checks on the unchanged lock: audit found **0 vulnerabilities**;
+  **26** packages have verified registry signatures and **9** have verified
+  attestations. This does not change the recorded limitation that graph-wide
+  attestations are not direct `aws-cdk-lib` provenance evidence.
+- Genuine independent review found one fail-closed defect: the static projection
+  did not first validate the candidate's original routing phase marker. The
+  correction added that assertion and wrong/static/missing-marker adversarial
+  tests without changing the template, resource inventory, authority or trust
+  boundaries. Focused independent closure returned **A — APPROVE**.
+
+Deferred live proof: authenticate both physical bindings; verify certificate
+issuance/domain coverage and the exact API; independently review stored template,
+immutable assets, handler/provider call trace and rollback options; prove origin
+TLS/Host/path forwarding, uncached health response, direct execute-api safety,
+OAC/private S3 behavior, propagation, CloudTrail, containment and exact-ID
+closure; separately authorize DNS alias, static publication and browser/V3
+service-worker isolation proof. Hosted assembly-reader/controller transition and
+CLI compatibility acceptance also remain open. No AWS authentication/API call,
+workflow activation, bootstrap, deployment, publication, DNS mutation, stage,
+commit, push or other remote/live mutation occurred.

@@ -23,9 +23,9 @@ test("eight action classes distinguish rollback/update and preserve handler proo
 
 for (const phase of Object.keys(PHASES)) {
   test(`${phase}: reviewed synthetic assembly passes without enabling deployment`, () => {
-    // Actual static edge has no historical synthetic representation. Its positive
-    // emitted-template fixture lives in static-edge.case.mjs instead.
-    if (phase === "edge-static") return assert.throws(() => check(fixture(phase)), /Unsupported phase for review schema/);
+    // Actual edge phases have no historical synthetic representation. Their
+    // positive emitted-template fixtures live in their dedicated suites.
+    if (["edge-static", "edge-routing"].includes(phase)) return assert.throws(() => check(fixture(phase)), /Unsupported phase for review schema/);
     assert.equal(check(fixture(phase)).status, "LOCAL_REVIEW_VALIDATED_NOT_DEPLOYMENT_AUTHORIZATION");
   });
   test(`${phase}: exact single-stack cap defeats old six-stack allow and opposite-region role`, () => {
@@ -165,7 +165,7 @@ test("R1 rejects integration CredentialsArn under a new valid pin", () => {
 });
 
 // Novel fields and deletions exercise EVERY resource, including empty placeholders.
-for (const phase of Object.keys(PHASES).filter(p => p !== "edge-static")) {
+for (const phase of Object.keys(PHASES).filter(p => !["edge-static", "edge-routing"].includes(p))) {
   const resources = JSON.parse(fixture(phase).bundle.templateBytes).Resources;
   for (const [logicalId, resource] of Object.entries(resources)) {
     test(`${phase}/${logicalId}: closed property set and required values`, () => {

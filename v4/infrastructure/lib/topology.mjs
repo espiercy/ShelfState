@@ -5,6 +5,8 @@ import { addLibraryApi } from "./library-api.mjs";
 import { addEdgeCertificate } from "./edge-certificate.mjs";
 import { addStaticEdge } from "./static-edge.mjs";
 import { assertStaticEdgeBindings } from "../bootstrap/static-edge-contract.mjs";
+import { addEdgeRouting } from "./edge-routing.mjs";
+import { assertEdgeRoutingBindings } from "../bootstrap/edge-routing-contract.mjs";
 
 import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 export { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
@@ -28,10 +30,11 @@ export function createEnvironmentTopology(app, config, options = {}) {
   assert.ok(Object.keys(options).every(key => ["initializationPhase", "initializationBindings"].includes(key)), "Unsupported topology option");
   const phase = options.initializationPhase;
   if (phase === "edge-static") assertStaticEdgeBindings(options.initializationBindings, config.accountId);
-  else assert.ok(!Object.hasOwn(options, "initializationBindings"), "External bindings belong only to static edge phase");
+  else if (phase === "edge-routing") assertEdgeRoutingBindings(options.initializationBindings, config.accountId);
+  else assert.ok(!Object.hasOwn(options, "initializationBindings"), "External bindings belong only to explicit edge phases");
   if (phase !== undefined) {
     assert.equal(config.environmentName, "dev", "Initialization resources are dev-only");
-    assert.ok(["api-parent", "api-children", "certificate", "edge-static"].includes(phase), "Unsupported initialization phase");
+    assert.ok(["api-parent", "api-children", "certificate", "edge-static", "edge-routing"].includes(phase), "Unsupported initialization phase");
     assert.match(config.accountId ?? "", /^\d{12}$/, "Explicit local account binding required; no AWS discovery");
     assert.equal(config.primaryRegion, "us-west-2");
     assert.equal(config.edgeCertificateRegion, "us-east-1");
@@ -85,6 +88,12 @@ export function createEnvironmentTopology(app, config, options = {}) {
       stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
       stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
       addStaticEdge(stack, config, options.initializationBindings);
+    }
+    if (definition.key === "edge-delivery" && phase === "edge-routing") {
+      stack.templateOptions.description = "ShelfState V4 dev edge-delivery (WP-007 local preparation)";
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
+      stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
+      addEdgeRouting(stack, config, options.initializationBindings);
     }
   }
 

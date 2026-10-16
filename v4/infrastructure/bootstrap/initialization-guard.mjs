@@ -6,6 +6,7 @@ import { target } from "./initialization.mjs";
 import { LIBRARY_API_REVIEW_SCHEMA, libraryApiTypes, assertLibraryApiTemplate } from "./library-api-contract.mjs";
 import { EDGE_CERTIFICATE_REVIEW_SCHEMA, edgeCertificateTypes, assertEdgeCertificateTemplate } from "./edge-certificate-contract.mjs";
 import { STATIC_EDGE_REVIEW_SCHEMA, staticEdgeTypes, assertStaticEdgeBindings, assertStaticEdgeTemplate } from "./static-edge-contract.mjs";
+import { EDGE_ROUTING_REVIEW_SCHEMA, edgeRoutingTypes, assertEdgeRoutingBindings, assertEdgeRoutingTemplate } from "./edge-routing-contract.mjs";
 
 const TYPES = Object.freeze({
   edge: { Distribution: "AWS::CloudFront::Distribution", OriginAccessControl: "AWS::CloudFront::OriginAccessControl",
@@ -83,8 +84,9 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
   const actualApi = approval.schema === LIBRARY_API_REVIEW_SCHEMA;
   const actualCertificate = approval.schema === EDGE_CERTIFICATE_REVIEW_SCHEMA;
   const actualStatic = approval.schema === STATIC_EDGE_REVIEW_SCHEMA;
-  assert.ok(actualApi || actualCertificate || actualStatic || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
-  const expectedTypes = actualApi ? libraryApiTypes(approval.phase) : actualCertificate ? edgeCertificateTypes(approval.phase) : actualStatic ? staticEdgeTypes(approval.phase) : TYPES[approval.phase];
+  const actualRouting = approval.schema === EDGE_ROUTING_REVIEW_SCHEMA;
+  assert.ok(actualApi || actualCertificate || actualStatic || actualRouting || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
+  const expectedTypes = actualApi ? libraryApiTypes(approval.phase) : actualCertificate ? edgeCertificateTypes(approval.phase) : actualStatic ? staticEdgeTypes(approval.phase) : actualRouting ? edgeRoutingTypes(approval.phase) : TYPES[approval.phase];
   assert.ok(expectedTypes, "Unsupported phase for review schema");
   const t = target(approval.account, approval.phase);
   assert.equal(approval.region, t.region); assert.equal(approval.stack, t.name); assert.equal(approval.executionRole, t.executionRole);
@@ -100,6 +102,9 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
   } else if (actualStatic) {
     assertStaticEdgeBindings(b, approval.account);
     equal(approval.assets, {}, "Static resource initialization does not publish objects");
+  } else if (actualRouting) {
+    assertEdgeRoutingBindings(b, approval.account);
+    equal(approval.assets, {}, "Edge routing initialization does not publish objects");
   } else {
     object(b, ["apiId", "healthFunctionArn", "zoneId", "certificateArn", "staticBucketDomain"]);
     assert.match(b.apiId, /^[a-z0-9]{1,32}$/);
@@ -117,6 +122,7 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
   if (actualApi) assertLibraryApiTemplate(template, approval.account, approval.phase);
   else if (actualCertificate) assertEdgeCertificateTemplate(template, approval.account, approval.phase);
   else if (actualStatic) assertStaticEdgeTemplate(template, approval.account, approval.phase, b);
+  else if (actualRouting) assertEdgeRoutingTemplate(template, approval.account, approval.phase, b);
   else checkTemplate(template, approval);
   const assembly = parseEvidenceJson(bundle.assemblyBytes);
   equal(assembly, { stack: t.name, account: t.account, region: t.region, executionRole: t.executionRole, templateSha256: approval.templateSha256 }, "Assembly binding mismatch");

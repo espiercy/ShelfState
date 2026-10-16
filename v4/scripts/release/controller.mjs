@@ -98,7 +98,7 @@ async function context(root, c, mainSha, attemptStartedAt, artifactId) {
 }
 async function assertController(c) {
   assert.equal(git(process.cwd(), "rev-parse", "HEAD"), c.controllerSha);
-  assert.equal(git(process.cwd(), "rev-parse", "--is-shallow-repository"), "false");
+  assert.equal(git(process.cwd(), "rev-parse", "--is-shallow-repository"), "false", "Incomplete Git history");
 }
 async function recordPath() {
   assert.ok(process.env.RUNNER_TEMP && path.isAbsolute(process.env.RUNNER_TEMP));

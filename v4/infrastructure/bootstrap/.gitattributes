@@ -1,0 +1,2 @@
+# These review artifacts have raw-byte provenance and deterministic snapshots.
+*.json text eol=lf

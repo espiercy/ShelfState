@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { validateExecutableWorkflow } from "../../v4/scripts/release/workflow-source.mjs";
 
 // Only the YAML forms used by these two small CI files are supported. Unknown
 // structure fails closed; this is not a general YAML or Actions parser.
@@ -59,7 +60,8 @@ export function parseCiYaml(source) {
       }
       return result;
     }
-    if (/^(['"]).*\1$/.test(value)) return value.slice(1, -1);
+    if (value.startsWith('"')) return JSON.parse(value);
+    if (/^'.*'$/.test(value)) return value.slice(1, -1).replaceAll("''", "'");
     if (/^[&*!>|]/.test(value) || value === "---" || value === "...") {
       throw new Error(`Unsupported CI YAML scalar: ${value}`);
     }
@@ -255,4 +257,9 @@ export function validateDependabot(source) {
     [["npm", "/v4"], ["github-actions", "/"]],
   );
   return configuration;
+}
+
+// Separate strict baseline. Existing validation-workflow policy is unchanged.
+export function validateReleaseWorkflow(source, env) {
+  return validateExecutableWorkflow(parseCiYaml(source), env);
 }

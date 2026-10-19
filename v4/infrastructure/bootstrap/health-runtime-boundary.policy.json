@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WriteHealthLogsOnly",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-west-2:${ACCOUNT_ID}:log-group:/aws/lambda/shelfstate-v4-dev-health:log-stream:*"
+      ]
+    },
+    {
+      "Sid": "DenyNonRuntimeLogActions",
+      "Effect": "Deny",
+      "NotAction": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyOtherLogResources",
+      "Effect": "Deny",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "NotResource": [
+        "arn:aws:logs:us-west-2:${ACCOUNT_ID}:log-group:/aws/lambda/shelfstate-v4-dev-health:log-stream:*"
+      ]
+    }
+  ]
+}

@@ -1,4 +1,9 @@
-import { CAPABILITY_DEFINITIONS } from "./topology.mjs";
+import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
+import assert from "node:assert/strict";
+import { assertLibraryApiTemplate } from "../bootstrap/library-api-contract.mjs";
+import { assertEdgeCertificateTemplate } from "../bootstrap/edge-certificate-contract.mjs";
+import { assertStaticEdgeTemplate } from "../bootstrap/static-edge-contract.mjs";
+import { assertEdgeRoutingTemplate } from "../bootstrap/edge-routing-contract.mjs";
 
 export const STATEFUL_POLICY_METADATA = "ShelfStateStatefulPolicy";
 
@@ -223,5 +228,105 @@ export function validateFoundationAssembly(assembly, config) {
     throw new Error(
       `Synthesized topology is missing capabilities: ${[...expectedCapabilities].join(", ")}.`,
     );
+  }
+}
+
+// Local inspection ONLY. The normal foundation/release validator remains empty-
+// only. This entry point accepts just the selected API phase, never arbitrary stacks.
+export function validateLocalApiAssembly(assembly, config, phase) {
+  assert.equal(config.environmentName, "dev");
+  assert.match(config.accountId ?? "", /^\d{12}$/);
+  assert.ok(["api-parent", "api-children"].includes(phase));
+  assert.equal(assembly.stacks.length, CAPABILITY_DEFINITIONS.length);
+  const seen = new Set();
+  for (const artifact of assembly.stacks) {
+    const capability = artifact.template.Metadata?.ShelfState?.Capability;
+    const definition = CAPABILITY_DEFINITIONS.find(d => d.key === capability);
+    assert.ok(definition && !seen.has(capability), "Unknown/duplicate capability"); seen.add(capability);
+    assert.equal(artifact.stackName, `shelfstate-v4-dev-${capability}`);
+    assert.equal(artifact.environment.name, `aws://${config.accountId}/${config[definition.regionSource]}`);
+    assert.equal(artifact.terminationProtection, false);
+    if (capability === "library-api") assertLibraryApiTemplate(artifact.template, config.accountId, phase);
+    else assertFoundationTemplate(artifact.template, "dev");
+  }
+}
+
+// Separate local-only certificate inspection; neither foundation nor release
+// acceptance is broadened. Never accepts the API and certificate in one window.
+export function validateLocalCertificateAssembly(assembly, config, phase) {
+  assert.equal(config.environmentName, "dev");
+  assert.match(config.accountId ?? "", /^\d{12}$/);
+  assert.equal(config.primaryRegion, "us-west-2");
+  assert.equal(config.edgeCertificateRegion, "us-east-1");
+  assert.equal(phase, "certificate");
+  assert.equal(assembly.stacks.length, CAPABILITY_DEFINITIONS.length);
+  const seen = new Set();
+  for (const artifact of assembly.stacks) {
+    const metadata = artifact.template.Metadata?.ShelfState;
+    const capability = metadata?.Capability;
+    const definition = CAPABILITY_DEFINITIONS.find(d => d.key === capability);
+    assert.ok(definition && !seen.has(capability), "Unknown/duplicate capability"); seen.add(capability);
+    assert.equal(metadata.Environment, "dev");
+    assert.equal(metadata.Region, config[definition.regionSource]);
+    assert.equal(artifact.stackName, `shelfstate-v4-dev-${capability}`);
+    assert.equal(artifact.environment.name, `aws://${config.accountId}/${config[definition.regionSource]}`);
+    assert.equal(artifact.terminationProtection, false);
+    assertNoDeferredInfrastructure(artifact.template);
+    assertStatefulResourceSafeguards(artifact.template, "dev");
+    if (capability === "edge-certificate") assertEdgeCertificateTemplate(artifact.template, config.accountId, phase);
+    else assertFoundationTemplate(artifact.template, "dev");
+  }
+}
+
+// This separate inspection path never broadens ordinary proof/release acceptance.
+export function validateLocalStaticEdgeAssembly(assembly, config, phase, bindings) {
+  assert.equal(config.environmentName, "dev");
+  assert.match(config.accountId ?? "", /^\d{12}$/);
+  assert.equal(config.primaryRegion, "us-west-2");
+  assert.equal(config.edgeCertificateRegion, "us-east-1");
+  assert.equal(phase, "edge-static");
+  assert.equal(assembly.stacks.length, CAPABILITY_DEFINITIONS.length);
+  const seen = new Set();
+  for (const artifact of assembly.stacks) {
+    const metadata = artifact.template.Metadata?.ShelfState;
+    const capability = metadata?.Capability;
+    const definition = CAPABILITY_DEFINITIONS.find(d => d.key === capability);
+    assert.ok(definition && !seen.has(capability), "Unknown/duplicate capability"); seen.add(capability);
+    assert.equal(metadata.Environment, "dev");
+    assert.equal(metadata.Region, config[definition.regionSource]);
+    assert.equal(artifact.stackName, `shelfstate-v4-dev-${capability}`);
+    assert.equal(artifact.environment.name, `aws://${config.accountId}/${config[definition.regionSource]}`);
+    assert.equal(artifact.terminationProtection, false);
+    assertNoDeferredInfrastructure(artifact.template);
+    assertStatefulResourceSafeguards(artifact.template, "dev");
+    if (capability === "edge-delivery") assertStaticEdgeTemplate(artifact.template, config.accountId, phase, bindings);
+    else assertFoundationTemplate(artifact.template, "dev");
+  }
+}
+
+// Separate local-only inspection for the prospective initial combined template.
+// Ordinary foundation/release acceptance remains resource-empty.
+export function validateLocalEdgeRoutingAssembly(assembly, config, phase, bindings) {
+  assert.equal(config.environmentName, "dev");
+  assert.match(config.accountId ?? "", /^\d{12}$/);
+  assert.equal(config.primaryRegion, "us-west-2");
+  assert.equal(config.edgeCertificateRegion, "us-east-1");
+  assert.equal(phase, "edge-routing");
+  assert.equal(assembly.stacks.length, CAPABILITY_DEFINITIONS.length);
+  const seen = new Set();
+  for (const artifact of assembly.stacks) {
+    const metadata = artifact.template.Metadata?.ShelfState;
+    const capability = metadata?.Capability;
+    const definition = CAPABILITY_DEFINITIONS.find(d => d.key === capability);
+    assert.ok(definition && !seen.has(capability), "Unknown/duplicate capability"); seen.add(capability);
+    assert.equal(metadata.Environment, "dev");
+    assert.equal(metadata.Region, config[definition.regionSource]);
+    assert.equal(artifact.stackName, `shelfstate-v4-dev-${capability}`);
+    assert.equal(artifact.environment.name, `aws://${config.accountId}/${config[definition.regionSource]}`);
+    assert.equal(artifact.terminationProtection, false);
+    assertNoDeferredInfrastructure(artifact.template);
+    assertStatefulResourceSafeguards(artifact.template, "dev");
+    if (capability === "edge-delivery") assertEdgeRoutingTemplate(artifact.template, config.accountId, phase, bindings);
+    else assertFoundationTemplate(artifact.template, "dev");
   }
 }

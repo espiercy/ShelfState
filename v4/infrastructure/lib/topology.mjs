@@ -1,39 +1,15 @@
 import { Stack, Tags, Validations } from "aws-cdk-lib";
 import { requiredTags, stackName } from "./naming.mjs";
+import assert from "node:assert/strict";
+import { addLibraryApi } from "./library-api.mjs";
+import { addEdgeCertificate } from "./edge-certificate.mjs";
+import { addStaticEdge } from "./static-edge.mjs";
+import { assertStaticEdgeBindings } from "../bootstrap/static-edge-contract.mjs";
+import { addEdgeRouting } from "./edge-routing.mjs";
+import { assertEdgeRoutingBindings } from "../bootstrap/edge-routing-contract.mjs";
 
-export const CAPABILITY_DEFINITIONS = Object.freeze([
-  Object.freeze({
-    key: "edge-certificate",
-    label: "CloudFront certificate boundary",
-    regionSource: "edgeCertificateRegion",
-  }),
-  Object.freeze({
-    dependsOn: Object.freeze(["edge-certificate"]),
-    key: "edge-delivery",
-    label: "Edge and static-delivery boundary",
-    regionSource: "primaryRegion",
-  }),
-  Object.freeze({
-    key: "identity-session",
-    label: "Identity and session boundary",
-    regionSource: "primaryRegion",
-  }),
-  Object.freeze({
-    key: "library-api",
-    label: "Library and API boundary",
-    regionSource: "primaryRegion",
-  }),
-  Object.freeze({
-    key: "operations-lifecycle",
-    label: "Operations and account-lifecycle boundary",
-    regionSource: "primaryRegion",
-  }),
-  Object.freeze({
-    key: "recovery-observability",
-    label: "Recovery and observability boundary",
-    regionSource: "primaryRegion",
-  }),
-]);
+import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
+export { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 
 function constructId(config, capability) {
   const parts = capability.split("-").map(
@@ -50,7 +26,19 @@ function stackEnvironment(config, region) {
     : { region };
 }
 
-export function createEnvironmentTopology(app, config) {
+export function createEnvironmentTopology(app, config, options = {}) {
+  assert.ok(Object.keys(options).every(key => ["initializationPhase", "initializationBindings"].includes(key)), "Unsupported topology option");
+  const phase = options.initializationPhase;
+  if (phase === "edge-static") assertStaticEdgeBindings(options.initializationBindings, config.accountId);
+  else if (phase === "edge-routing") assertEdgeRoutingBindings(options.initializationBindings, config.accountId);
+  else assert.ok(!Object.hasOwn(options, "initializationBindings"), "External bindings belong only to explicit edge phases");
+  if (phase !== undefined) {
+    assert.equal(config.environmentName, "dev", "Initialization resources are dev-only");
+    assert.ok(["api-parent", "api-children", "certificate", "edge-static", "edge-routing"].includes(phase), "Unsupported initialization phase");
+    assert.match(config.accountId ?? "", /^\d{12}$/, "Explicit local account binding required; no AWS discovery");
+    assert.equal(config.primaryRegion, "us-west-2");
+    assert.equal(config.edgeCertificateRegion, "us-east-1");
+  }
   const stacks = new Map();
   const tags = requiredTags(config);
 
@@ -83,6 +71,30 @@ export function createEnvironmentTopology(app, config) {
     }
 
     stacks.set(definition.key, stack);
+    if (definition.key === "library-api" && ["api-parent", "api-children"].includes(phase)) {
+      stack.templateOptions.description = "ShelfState V4 dev library-api (WP-007 local preparation)";
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
+      stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
+      addLibraryApi(stack, config, phase);
+    }
+    if (definition.key === "edge-certificate" && phase === "certificate") {
+      stack.templateOptions.description = "ShelfState V4 dev edge-certificate (WP-007 local preparation)";
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
+      stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
+      addEdgeCertificate(stack, config);
+    }
+    if (definition.key === "edge-delivery" && phase === "edge-static") {
+      stack.templateOptions.description = "ShelfState V4 dev edge-delivery (WP-007 local preparation)";
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
+      stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
+      addStaticEdge(stack, config, options.initializationBindings);
+    }
+    if (definition.key === "edge-delivery" && phase === "edge-routing") {
+      stack.templateOptions.description = "ShelfState V4 dev edge-delivery (WP-007 local preparation)";
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
+      stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
+      addEdgeRouting(stack, config, options.initializationBindings);
+    }
   }
 
   for (const definition of CAPABILITY_DEFINITIONS) {

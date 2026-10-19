@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { findObviousCredentialSignals, scanTrackedFiles } from "../scripts/check-ci-secrets.mjs";
-import { parseCiYaml, validateDependabot, validateWorkflow } from "./support/ci-yaml-policy.mjs";
+import { parseCiYaml, validateDependabot, validateWorkflow, validateReleaseWorkflow } from "./support/ci-yaml-policy.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workflowSource = (await readFile(path.join(root, ".github/workflows/validation.yml"), "utf8"))
@@ -18,7 +18,7 @@ const nodeLine = (await readFile(path.join(root, "v4/.nvmrc"), "utf8")).trim();
 
 function assertWorkflowInventory(names) {
   const workflows = names.filter((name) => /\.ya?ml$/i.test(name)).sort();
-  assert.deepEqual(workflows, ["validation.yml"], "Unapproved GitHub Actions workflow file");
+  assert.deepEqual(workflows, ["v4-dev-release.yml", "v4-production-release.yml", "validation.yml"], "Unapproved GitHub Actions workflow file");
 }
 
 function replaceOnce(source, before, after) {
@@ -31,14 +31,18 @@ function rejectsValidYaml(source, reason) {
   assert.throws(() => validateWorkflow(source), reason);
 }
 
-test("current GitHub Actions workflow inventory contains only validation.yml", async () => {
+test("current workflow inventory is validation plus the two reviewed proof-only workflows", async () => {
   assertWorkflowInventory(await readdir(path.join(root, ".github/workflows")));
+});
+
+test("release workflows match their separate strict executable baseline", async () => {
+  for (const env of ["dev", "production"]) validateReleaseWorkflow(await readFile(path.join(root, `.github/workflows/v4-${env}-release.yml`), "utf8"), env);
 });
 
 test("workflow inventory rejects an unexpected .yml or .yaml workflow", () => {
   for (const unexpected of ["unauthorized.yml", "unauthorized.yaml"]) {
     assert.throws(
-      () => assertWorkflowInventory(["validation.yml", unexpected]),
+      () => assertWorkflowInventory(["validation.yml", "v4-dev-release.yml", "v4-production-release.yml", unexpected]),
       /Unapproved GitHub Actions workflow file/,
     );
   }

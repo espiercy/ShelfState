@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ExactRegionalDevBootstrapRoles",
+      "Effect": "Allow",
+      "Action": [
+        "sts:AssumeRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::${ACCOUNT_ID}:role/cdk-hnb659fds-deploy-role-${ACCOUNT_ID}-us-west-2",
+        "arn:aws:iam::${ACCOUNT_ID}:role/cdk-hnb659fds-file-publishing-role-${ACCOUNT_ID}-us-west-2",
+        "arn:aws:iam::${ACCOUNT_ID}:role/cdk-hnb659fds-deploy-role-${ACCOUNT_ID}-us-east-1",
+        "arn:aws:iam::${ACCOUNT_ID}:role/cdk-hnb659fds-file-publishing-role-${ACCOUNT_ID}-us-east-1"
+      ]
+    }
+  ]
+}

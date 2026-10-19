@@ -127,14 +127,14 @@ test("package metadata and lockfile pin only the authorized dependencies", async
   assert.equal(packageMetadata.engines.node, ">=24.11.0 <25");
   assert.equal(packageMetadata.engines.npm, "11.6.2");
   assert.deepEqual(packageMetadata.dependencies, {
-    "aws-cdk-lib": "2.269.0",
+    "aws-cdk-lib": "2.273.0",
     constructs: "10.8.1",
   });
   assert.deepEqual(packageMetadata.devDependencies, {
     "aws-cdk": "2.1141.0",
   });
   assert.equal(lockfile.lockfileVersion, 3);
-  assert.equal(lockfile.packages[""].dependencies["aws-cdk-lib"], "2.269.0");
+  assert.equal(lockfile.packages[""].dependencies["aws-cdk-lib"], "2.273.0");
   assert.equal(lockfile.packages[""].dependencies.constructs, "10.8.1");
   assert.equal(lockfile.packages[""].devDependencies["aws-cdk"], "2.1141.0");
 });

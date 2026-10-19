@@ -14,7 +14,8 @@ test("both checked-in workflows lower exactly from the canonical executable sour
     assert.deepEqual(parseCiYaml(source), executableWorkflow(env));
   }
 });
-const credentials = w => w.jobs.proof.steps[3];
+const credentials = w => w.jobs.proof.steps.find(step => step.uses?.startsWith("aws-actions/configure-aws-credentials@"));
+const proofStep = (w, command) => w.jobs.proof.steps.find(step => step.run === command);
 for (const [name, mutation] of [
   ["PR trigger", w => { w.on.pull_request = null; }],
   ["push trigger", w => { w.on.push = { branches: ["main"] }; }],
@@ -44,7 +45,9 @@ for (const [name, mutation] of [
   ["placeholder output", w => { w.jobs.prepare.outputs.manifestDigest = "controller-bound-output"; }],
   ["missing attempt", w => { w.jobs.prepare.steps[4].with.name = "candidate-${{ github.run_id }}"; }],
   ["environment variables in prepare", w => { w.jobs.prepare.env.SHELFSTATE_AWS_ACCOUNT_ID = "${{ vars.SHELFSTATE_AWS_ACCOUNT_ID }}"; }],
-  ["credentials before binding", w => { [w.jobs.proof.steps[2], w.jobs.proof.steps[3]] = [w.jobs.proof.steps[3], w.jobs.proof.steps[2]]; }],
+  ["missing cross-environment denial", w => { w.jobs.proof.steps.splice(w.jobs.proof.steps.indexOf(proofStep(w, "node v4/scripts/release/controller.mjs cross-environment-denial")), 1); }],
+  ["credentials before binding", w => { const a = w.jobs.proof.steps.indexOf(credentials(w)), b = w.jobs.proof.steps.indexOf(proofStep(w, "node v4/scripts/release/controller.mjs pre-oidc")); [w.jobs.proof.steps[a], w.jobs.proof.steps[b]] = [w.jobs.proof.steps[b], w.jobs.proof.steps[a]]; }],
+  ["credentials before cross-environment denial", w => { const a = w.jobs.proof.steps.indexOf(credentials(w)), b = w.jobs.proof.steps.indexOf(proofStep(w, "node v4/scripts/release/controller.mjs cross-environment-denial")); [w.jobs.proof.steps[a], w.jobs.proof.steps[b]] = [w.jobs.proof.steps[b], w.jobs.proof.steps[a]]; }],
 ]) test(`strict release policy rejects ${name}`, () => {
   for (const env of ["dev", "production"]) { const w = executableWorkflow(env); mutation(w); assert.throws(() => validateExecutableWorkflow(w, env)); }
 });

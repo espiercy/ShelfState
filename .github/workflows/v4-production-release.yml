@@ -96,6 +96,8 @@ jobs:
         env:
           GH_TOKEN: "${{ github.token }}"
         run: "node v4/scripts/release/controller.mjs pre-oidc"
+      - name: "Require authentic cross-environment OIDC denial"
+        run: "node v4/scripts/release/controller.mjs cross-environment-denial"
       - uses: "aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd"
         with:
           role-to-assume: "${{ steps.binding.outputs.roleArn }}"

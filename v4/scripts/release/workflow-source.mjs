@@ -29,6 +29,7 @@ export function executableWorkflow(env) {
           SHELFSTATE_AWS_ACCOUNT_ID: "${{ vars.SHELFSTATE_AWS_ACCOUNT_ID }}", SHELFSTATE_DEPLOY_ROLE_ARN: "${{ vars.SHELFSTATE_DEPLOY_ROLE_ARN }}" },
         steps: [checkout(), node(),
           { name: "Authenticate and validate bytes and runtime binding before OIDC", id: "binding", env: { GH_TOKEN: "${{ github.token }}" }, run: "node v4/scripts/release/controller.mjs pre-oidc" },
+          { name: "Require authentic cross-environment OIDC denial", run: "node v4/scripts/release/controller.mjs cross-environment-denial" },
           { uses: ACTION_PINS.credentials, with: {
             "role-to-assume": "${{ steps.binding.outputs.roleArn }}", "aws-region": "us-west-2", audience: "sts.amazonaws.com",
             "allowed-account-ids": "${{ steps.binding.outputs.accountId }}", "role-duration-seconds": 900,

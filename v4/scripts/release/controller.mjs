@@ -12,6 +12,8 @@ import { ACTION_PINS } from "./policy.mjs";
 import { verifyLocalRevision } from "./revisions.mjs";
 import { credentialFreeEnvironment } from "./offline-environment.mjs";
 import { identityProof } from "./identity-proof.mjs";
+import { proveCrossEnvironmentDenial } from "./oidc-denial.mjs";
+import { validatePrebuiltCliEvidence, verifyPrebuiltAssemblies } from "./prebuilt-cli.mjs";
 
 const parse = async file => parseEvidenceJson(await readFile(file));
 const json = (file, value) => writeFile(file, canonical(value), { flag: "wx", mode: 0o600 });
@@ -89,7 +91,9 @@ export async function assemblyEvidence(root) {
 async function context(root, c, mainSha, attemptStartedAt, artifactId) {
   const preview = await assemblyEvidence(root);
   const configuration = {};
-  for (const name of ["package.json", "cdk.json", "node-version.txt"]) configuration[name] = hash(await readFile(path.join(root, "inputs", name)));
+  const cliEvidence = await readFile(path.join(root, "inputs", "prebuilt-cli.json"));
+  validatePrebuiltCliEvidence(parseEvidenceJson(cliEvidence));
+  for (const name of ["package.json", "cdk.json", "node-version.txt", "prebuilt-cli.json"]) configuration[name] = hash(await readFile(path.join(root, "inputs", name)));
   return { ...c, checkoutSha: c.candidateSha, mainSha, createdAt: attemptStartedAt, artifactId,
     workflowDigest: hash(await readFile(c.workflowPath)), nodeVersion: process.versions.node, npmVersion: "11.6.2",
     lockfileDigest: hash(await readFile(path.join(root, "inputs", "package-lock.json"))), configurationDigest: hashObject(configuration),
@@ -143,6 +147,7 @@ export async function main(operation) {
       await writeFile(path.join(payload, "inputs", target), execFileSync("git", ["show", `${c.candidateSha}:v4/${source}`], { cwd: candidate }));
     }
     await assemblyEvidence(payload);
+    await json(path.join(payload, "inputs", "prebuilt-cli.json"), await verifyPrebuiltAssemblies(payload, path.resolve("v4")));
     const payloadBytes = await pack(payload), transport = path.join(root, "payload.json");
     await writeFile(transport, payloadBytes, { flag: "wx" });
     await json(statePath, { c, remote, checks, root, payload, payloadDigest: hash(payloadBytes) });
@@ -186,6 +191,17 @@ export async function main(operation) {
     const runtime = runtimeBinding(evidence, expected, process.env.SHELFSTATE_AWS_ACCOUNT_ID, process.env.SHELFSTATE_DEPLOY_ROLE_ARN);
     await json(statePath, { evidence, expected, runtime });
     await outputs(process.env.GITHUB_OUTPUT, { roleArn: runtime.roleArn, accountId: runtime.account, runtimeDigest: runtime.runtimeDigest }); return;
+  }
+  if (operation === "cross-environment-denial") {
+    const s = await parse(statePath);
+    for (const key of Object.keys(c)) assert.equal(s.expected[key], c[key], "Proof context changed");
+    const runtime = verifyRuntimeBinding(s.runtime, s.evidence, s.expected, process.env.SHELFSTATE_AWS_ACCOUNT_ID, process.env.SHELFSTATE_DEPLOY_ROLE_ARN);
+    for (const key of ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_PROFILE", "AWS_WEB_IDENTITY_TOKEN_FILE"])
+      assert.ok(!process.env[key], "Cross-environment denial must precede AWS credentials");
+    const proof = await proveCrossEnvironmentDenial(c, runtime, process.env);
+    console.log(canonical(proof));
+    assert.ok(process.env.GITHUB_STEP_SUMMARY);
+    await appendFile(process.env.GITHUB_STEP_SUMMARY, `Cross-environment OIDC denial (not WP-006B acceptance by itself):\n\n\`\`\`json\n${canonical(proof)}\n\`\`\`\n`); return;
   }
   if (operation === "identity") {
     const s = await parse(statePath);

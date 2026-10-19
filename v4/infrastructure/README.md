@@ -747,3 +747,27 @@ service-worker isolation proof. Hosted assembly-reader/controller transition and
 CLI compatibility acceptance also remain open. No AWS authentication/API call,
 workflow activation, bootstrap, deployment, publication, DNS mutation, stage,
 commit, push or other remote/live mutation occurred.
+
+### WP-006 hosted-proof local amendment — 2026-10-19
+
+PR #10 validation is green, but that run did not execute the manual proof
+preparation or retain artifacts. This local, unstaged amendment prepares—not
+executes—the remaining hosted compatibility and cross-environment denial evidence.
+
+- The controller uses only the locked `aws-cdk@2.1141.0` binary to read each copied
+  baseline/candidate dev/production assembly with `cdk list --app
+  <retained-assembly> --no-lookups`. It verifies exactly six stacks, unchanged raw
+  assembly inventory/snapshots and unchanged `cdk.context.json`, then stores a
+  canonical digest record inside the sealed payload. No synth occurs during these
+  reads. The custom schema/minimum-version reader still runs before packing and
+  after authenticated transport; no compatibility guard was relaxed.
+- After existing hosted artifact/revision/runtime validation, the proof derives and
+  controller-pin-validates the fixed opposite environment role. It requests one
+  exact-audience environment token in process memory and calls only the fixed
+  regional STS `AssumeRoleWithWebIdentity` endpoint. Only an authenticated
+  `AccessDenied` continues to the existing positive assumption; success and every
+  token, network, parse, redirect or other AWS error fail closed. No token or
+  credential reaches a file, artifact, child argument, output or exception body.
+- Local adversarial fixtures are mechanism coverage, not evidence of an issued
+  GitHub token, STS denial, protected-environment behavior, CloudTrail event or
+  session lifetime. Those remain separately authorized hosted acceptance gates.

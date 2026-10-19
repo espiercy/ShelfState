@@ -16,5 +16,8 @@ export async function fixtureModules(pins = fixturePins) {
   const targetUrl = moduleUrl(resolveImports(replacement));
   const evidenceSource = (await readFile(new URL("evidence.mjs", base), "utf8"))
     .replaceAll('"./approved-targets.mjs"', JSON.stringify(targetUrl));
-  return { targets: await import(targetUrl), evidence: await import(moduleUrl(resolveImports(evidenceSource))) };
+  const oidcSource = (await readFile(new URL("oidc-denial.mjs", base), "utf8"))
+    .replaceAll('"./approved-targets.mjs"', JSON.stringify(targetUrl));
+  return { targets: await import(targetUrl), evidence: await import(moduleUrl(resolveImports(evidenceSource))),
+    oidc: await import(moduleUrl(resolveImports(oidcSource))) };
 }

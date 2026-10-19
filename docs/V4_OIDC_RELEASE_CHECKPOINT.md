@@ -1147,3 +1147,51 @@ STS identity and cross-environment denial, actual lifetime and CloudTrail proof,
 final permission-empty role readback and WP-006B acceptance. None is implied by
 fixtures. No remote mutation, federation, application deployment, rollback, or
 WP-007 is authorized by this local slice. Final local counts are reported at handoff.
+
+### 9.14 Hosted-proof closure mechanism — local amendment, 2026-10-19
+
+Successful PR validation does not execute the manual proof preparation or establish
+live federation. The bounded local amendment closes two executable-mechanism gaps
+without requesting a token, calling STS or changing any permission/trust setting.
+
+After `pre-oidc` has authenticated artifact transport, revisions and the selected
+runtime binding, a distinct controller operation revalidates that immutable state,
+derives the opposite environment's fixed role name from the already pinned account,
+and validates the resulting target against the opposite controller-owned digest.
+No role ARN is accepted from workflow input. Only then does it request an
+environment-bound GitHub token with audience `sts.amazonaws.com`. The controller
+checks issuer, exact repository/environment subject, main/manual workflow and
+run/controller bindings plus bounded lifetime before presenting the token directly
+in memory to the regional STS HTTPS Query API. Token and runtime bearer values are
+never written, uploaded, logged or passed in a child-process argument.
+
+The negative exchange accepts only an exact HTTP 403 AWS `AccessDenied` XML error
+from the fixed regional endpoint with matching AWS request identity. Unexpected
+success is terminated without reading, exporting or using returned credentials.
+Expired/invalid/rejected tokens, region errors, network/redirect/type/parse failures
+and every other code stop the job. A redacted summary records only environments,
+audience/region, run binding, result and the SHA-256 of the AWS request ID. The
+existing pinned credentials action and identity-only proof remain later steps.
+[GitHub OIDC token request](https://docs.github.com/en/actions/reference/security/oidc#methods-for-requesting-the-oidc-token),
+[AWS AssumeRoleWithWebIdentity](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html),
+[regional STS guidance](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html).
+
+Preparation also invokes the already installed and package-pinned
+`aws-cdk@2.1141.0` executable directly—never `npx`, install or download—against
+each copied `baseline|candidate` × `dev|production` directory using
+`cdk list --app <retained-assembly> --no-lookups`. It requires each exact six-stack
+inventory, byte-identical before/after custom-reader snapshots and unchanged CDK
+context. Canonical compatibility evidence records the CLI version and each raw
+inventory/assembly digest inside the sealed payload. The existing structured
+transition still runs before packing and again after authenticated transport;
+schema `54.0.0` and `minimumCliVersion: 2.1144.0` remain fail-closed requirements.
+
+Adversarial fixtures cover fixed opposite-target derivation and guard ordering,
+JOSE-header, issuer/audience/subject/repository/environment/ref/event, workflow,
+run and lifetime rejection, representative documented non-AccessDenied error classes,
+unexpected credential-bearing success suppression, network/redirect/malformed
+responses, absence of token sinks, all four CLI invocations, CLI output/pin drift,
+and assembly/context mutation. These fixtures prepare the live proof; they do not
+claim a token was issued or that AWS denied it. Hosted dispatch, native production
+approval behavior, authentic CloudTrail correlation, actual session lifetime and
+permission-empty role readback remain separately authorized acceptance stages.

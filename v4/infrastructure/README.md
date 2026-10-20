@@ -771,3 +771,16 @@ executes—the remaining hosted compatibility and cross-environment denial evide
 - Local adversarial fixtures are mechanism coverage, not evidence of an issued
   GitHub token, STS denial, protected-environment behavior, CloudTrail event or
   session lifetime. Those remain separately authorized hosted acceptance gates.
+
+Development run `39291958886/1` later exercised those mechanisms successfully at
+merged main `17f461ea9bba7318b2f2c8c54220ed573fb2d6c6`, but independent review rejected
+the proof for privacy: public runner preambles exposed the private account binding
+and dev-role ARN before the later credentials-action mask. No credential/token was
+exposed, and retained hosted artifacts/payload files contained no matching private
+binding. Production remains paused. The bounded preventive amendment uses exact
+GitHub Environment secrets only at the three controller steps, rejects variable/
+command/output exposure paths, and treats absence of same-name repository or
+organization secrets as a separately read-back hosted configuration condition. It
+requires a fresh amended-main dev proof plus post-run provider comparison after
+separately authorized secret migration. Existing-log deletion is separate cleanup,
+not part of the local remediation.

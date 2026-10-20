@@ -834,8 +834,10 @@ credentials, no existing-credential reuse or role chaining, credential outputs
 off, input-from-environment translation off, bounded timeout/retries. No static
 AWS key/session-token input, token file, alternative STS endpoint or stored
 credential output. The pinned action uses Node 24. Never print raw OIDC tokens.
-Non-secret account/role bindings may be future environment variables populated
-from runtime verification; no live identifiers are committed here.
+Private account/role bindings must be GitHub Environment secrets, never Actions
+variables. Secret references provide masking before runner step preambles; the
+later credentials-action account-masking input is defense in depth, not the first
+mask. No live identifiers are committed here.
 [Pinned action source](https://github.com/aws-actions/configure-aws-credentials/tree/e1253824e5c10ff9df46874f81ed3ec929e19cfd).
 
 ### 9.6 Exact revision and artifact binding
@@ -1116,11 +1118,17 @@ unknown offline account representation and leave `cdk.context.json` unchanged.
 
 R1 replaces variable-scope provenance with **controller-pinned target identity**.
 The protected environment gate remains the job's exact environment and AWS OIDC
-subject trust. Account/role variables are untrusted inputs, not provenance-attested
-configuration. Environment-level variables remain the intended operational location
-and later live readback must verify that location; exact repository/organization
-fallback is safe only because it must match the same independent target pin.
-No PAT/admin permissions or configuration-provenance API calls are introduced.
+subject trust. Account/role secret bindings are still untrusted runtime inputs, not
+provenance-attested configuration; controller-owned target digests remain the
+authority. Environment-level secrets are the only supported operational location.
+Actions-variable references are rejected by source validation. GitHub's
+`secrets.NAME` expression does not encode whether a value came from environment,
+repository or organization scope, so source validation cannot reject a same-name
+broader-scope fallback. Absence of those names at applicable repository and
+organization scopes is instead a required hosted configuration readback. Setup
+readback can establish only secret names/metadata, not values; the controller pin
+is the fail-closed value check before OIDC. No PAT/admin permissions or
+configuration-provenance API calls are introduced by the workflow.
 
 `approved-targets.mjs` contains immutable SHA-256 pins for dev and production over
 canonical `shelfstate.approved-target/v1` records: repository, environment, approved
@@ -1195,3 +1203,76 @@ and assembly/context mutation. These fixtures prepare the live proof; they do no
 claim a token was issued or that AWS denied it. Hosted dispatch, native production
 approval behavior, authentic CloudTrail correlation, actual session lifetime and
 permission-empty role readback remain separately authorized acceptance stages.
+
+### 9.15 Development-proof privacy failure and preventive remediation — 2026-10-20
+
+Development proof run `39291958886`, attempt 1, at exact main revision
+`17f461ea9bba7318b2f2c8c54220ed573fb2d6c6` functionally passed preparation,
+artifact transport, all four retained-assembly CLI reads, fixed cross-environment
+denial, the positive dev identity and bounded post-run evidence collection. It is
+**not accepted**. Independent non-author review found that job-level Environment
+variables caused the private account binding and dev-role ARN to appear in public
+runner environment preambles before the pinned credential action's later masking
+input took effect. The production ARN was not directly logged, but is derivable
+from the exposed account plus the committed fixed role name. The review found no
+AWS credential, GitHub OIDC token, secret key, session token or JWT exposure.
+Production remains paused.
+
+The preventive local amendment makes these constraints executable:
+
+- Both workflows obtain `SHELFSTATE_AWS_ACCOUNT_ID` and
+  `SHELFSTATE_DEPLOY_ROLE_ARN` only from same-name GitHub Environment secrets.
+  They are absent from job-wide environment state and supplied only to the three
+  controller steps that validate or revalidate the runtime binding.
+- GitHub secret masking therefore applies before those step preambles. The two
+  validated step outputs are allowed only as the pinned credentials action's
+  `allowed-account-ids` and `role-to-assume` inputs. The account remains a secret
+  independently, so it also masks an account substring in any derived ARN. The
+  action's `mask-aws-account-id: true` remains defense in depth.
+- Semantic guards reject `vars.*`, job-wide or prepare-job binding, direct
+  secret-to-action bypass, env indirection, command interpolation, job outputs,
+  artifact routing and embedded derived identifiers. They require exact
+  `secrets.*` expressions but cannot distinguish the secret's GitHub scope; that
+  broader-scope exclusion is a hosted configuration condition. No real binding
+  value appears in a fixture.
+- Controller target digests, protected environments, manual-only triggers,
+  permissions, artifact/revision gates, cross-environment-denial ordering and
+  identity-only authority are unchanged.
+
+**Later hosted secret migration — separate authorization required:**
+
+1. Keep both proof workflows undispatched. From the retained private binding,
+   set exactly the two named Environment secrets independently in `dev` and
+   `production`, using dashboard secret fields or a standard-input/API-body path;
+   never place a value in a command argument, console output, artifact or Git.
+2. Read back each environment's secret **names and metadata only** and require
+   exactly those expected names. Also list the applicable repository and
+   organization secret metadata and require both binding names to be absent at
+   those broader scopes. GitHub cannot return secret values; do not claim byte
+   readback. Delete the legacy same-name Environment variables and read back their
+   absence. Do not create repository/organization fallbacks.
+3. Commit, host, validate and independently review the exact amendment; merge it
+   only under separate authorization. Recheck that the resulting main workflow
+   bytes and manual-only triggers match the reviewed revision.
+4. Dispatch one fresh dev proof pinned to amended main. Missing/wrong secret bytes
+   must fail at controller target validation before token issuance. Inspect every
+   runner preamble and summary for masking before accepting functional results.
+5. Retain the prior artifact/CloudTrail/role evidence classes and additionally
+   capture a complete post-run OIDC-provider inventory, exact provider metadata,
+   sole STS audience and provider-tag comparison against the pre-dispatch readback.
+   Production approval/proof remains a later gate.
+
+Read-only exposure scoping found no private binding match in either hosted artifact,
+the decoded 93-entry payload or its extracted files. The redacted proof summaries
+contain hashes and fixed symbolic identities only. Private pre/post-run AWS records
+do contain the expected bindings by design, remain outside Git and were not hosted.
+The existing public run log is the confirmed exposure surface; it directly contains
+the account binding and dev-role ARN in pre-credential step preambles.
+
+**Existing-log cleanup is separate from prevention.** With explicit authorization,
+delete only run `39291958886`'s logs through the GitHub workflow-run logs deletion
+operation, then verify log download is unavailable while the successful run metadata
+and artifacts `12206196376` / `12204409931` remain present, unexpired and digest-
+identical. Do not delete the run or artifacts merely to remove the log. Preserve the
+locally retained evidence hashes before cleanup. This section authorizes none of
+those hosted mutations.

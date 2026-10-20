@@ -16,6 +16,26 @@ test("both checked-in workflows lower exactly from the canonical executable sour
 });
 const credentials = w => w.jobs.proof.steps.find(step => step.uses?.startsWith("aws-actions/configure-aws-credentials@"));
 const proofStep = (w, command) => w.jobs.proof.steps.find(step => step.run === command);
+const accountSecret = "${{ secrets.SHELFSTATE_AWS_ACCOUNT_ID }}";
+const roleSecret = "${{ secrets.SHELFSTATE_DEPLOY_ROLE_ARN }}";
+const controllerCommands = ["pre-oidc", "cross-environment-denial", "identity"];
+
+test("private bindings are masked secrets scoped only to controller steps and validated outputs", () => {
+  for (const env of ["dev", "production"]) {
+    const workflow = executableWorkflow(env);
+    assert.ok(!Object.hasOwn(workflow.jobs.proof.env, "SHELFSTATE_AWS_ACCOUNT_ID"));
+    assert.ok(!Object.hasOwn(workflow.jobs.proof.env, "SHELFSTATE_DEPLOY_ROLE_ARN"));
+    for (const operation of controllerCommands) {
+      const step = proofStep(workflow, `node v4/scripts/release/controller.mjs ${operation}`);
+      assert.equal(step.env.SHELFSTATE_AWS_ACCOUNT_ID, accountSecret);
+      assert.equal(step.env.SHELFSTATE_DEPLOY_ROLE_ARN, roleSecret);
+    }
+    assert.equal(credentials(workflow).with["allowed-account-ids"], "${{ steps.binding.outputs.accountId }}");
+    assert.equal(credentials(workflow).with["role-to-assume"], "${{ steps.binding.outputs.roleArn }}");
+    assert.ok(!JSON.stringify(workflow).includes("${{ vars."));
+  }
+});
+
 for (const [name, mutation] of [
   ["PR trigger", w => { w.on.pull_request = null; }],
   ["push trigger", w => { w.on.push = { branches: ["main"] }; }],
@@ -44,7 +64,15 @@ for (const [name, mutation] of [
   ["wrong region", w => { credentials(w).with["aws-region"] = "us-east-1"; }],
   ["placeholder output", w => { w.jobs.prepare.outputs.manifestDigest = "controller-bound-output"; }],
   ["missing attempt", w => { w.jobs.prepare.steps[4].with.name = "candidate-${{ github.run_id }}"; }],
-  ["environment variables in prepare", w => { w.jobs.prepare.env.SHELFSTATE_AWS_ACCOUNT_ID = "${{ vars.SHELFSTATE_AWS_ACCOUNT_ID }}"; }],
+  ["environment variables in prepare", w => { w.jobs.prepare.env.SHELFSTATE_AWS_ACCOUNT_ID = accountSecret; }],
+  ["account binding through variables", w => { proofStep(w, "node v4/scripts/release/controller.mjs pre-oidc").env.SHELFSTATE_AWS_ACCOUNT_ID = "${{ vars.SHELFSTATE_AWS_ACCOUNT_ID }}"; }],
+  ["role binding through variables", w => { proofStep(w, "node v4/scripts/release/controller.mjs pre-oidc").env.SHELFSTATE_DEPLOY_ROLE_ARN = "${{ vars.SHELFSTATE_DEPLOY_ROLE_ARN }}"; }],
+  ["job-wide private secret", w => { w.jobs.proof.env.SHELFSTATE_AWS_ACCOUNT_ID = accountSecret; }],
+  ["private secret in command", w => { w.jobs.proof.steps.push({ run: `printf '%s' '${accountSecret}'` }); }],
+  ["derived account in command", w => { w.jobs.proof.steps.push({ run: "printf '%s' '${{ steps.binding.outputs.accountId }}'" }); }],
+  ["derived role as job output", w => { w.jobs.proof.outputs = { role: "${{ steps.binding.outputs.roleArn }}" }; }],
+  ["direct secret credential target", w => { credentials(w).with["role-to-assume"] = roleSecret; }],
+  ["private env indirection", w => { credentials(w).with["role-to-assume"] = "${{ env.SHELFSTATE_DEPLOY_ROLE_ARN }}"; }],
   ["missing cross-environment denial", w => { w.jobs.proof.steps.splice(w.jobs.proof.steps.indexOf(proofStep(w, "node v4/scripts/release/controller.mjs cross-environment-denial")), 1); }],
   ["credentials before binding", w => { const a = w.jobs.proof.steps.indexOf(credentials(w)), b = w.jobs.proof.steps.indexOf(proofStep(w, "node v4/scripts/release/controller.mjs pre-oidc")); [w.jobs.proof.steps[a], w.jobs.proof.steps[b]] = [w.jobs.proof.steps[b], w.jobs.proof.steps[a]]; }],
   ["credentials before cross-environment denial", w => { const a = w.jobs.proof.steps.indexOf(credentials(w)), b = w.jobs.proof.steps.indexOf(proofStep(w, "node v4/scripts/release/controller.mjs cross-environment-denial")); [w.jobs.proof.steps[a], w.jobs.proof.steps[b]] = [w.jobs.proof.steps[b], w.jobs.proof.steps[a]]; }],

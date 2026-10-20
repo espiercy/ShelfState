@@ -79,8 +79,6 @@ jobs:
       PAYLOAD_ID: "${{ needs.prepare.outputs.payloadId }}"
       EVIDENCE_ID: "${{ needs.prepare.outputs.evidenceId }}"
       MANIFEST_DIGEST: "${{ needs.prepare.outputs.manifestDigest }}"
-      SHELFSTATE_AWS_ACCOUNT_ID: "${{ vars.SHELFSTATE_AWS_ACCOUNT_ID }}"
-      SHELFSTATE_DEPLOY_ROLE_ARN: "${{ vars.SHELFSTATE_DEPLOY_ROLE_ARN }}"
     steps:
       - uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
         with:
@@ -95,8 +93,13 @@ jobs:
         id: "binding"
         env:
           GH_TOKEN: "${{ github.token }}"
+          SHELFSTATE_AWS_ACCOUNT_ID: "${{ secrets.SHELFSTATE_AWS_ACCOUNT_ID }}"
+          SHELFSTATE_DEPLOY_ROLE_ARN: "${{ secrets.SHELFSTATE_DEPLOY_ROLE_ARN }}"
         run: "node v4/scripts/release/controller.mjs pre-oidc"
       - name: "Require authentic cross-environment OIDC denial"
+        env:
+          SHELFSTATE_AWS_ACCOUNT_ID: "${{ secrets.SHELFSTATE_AWS_ACCOUNT_ID }}"
+          SHELFSTATE_DEPLOY_ROLE_ARN: "${{ secrets.SHELFSTATE_DEPLOY_ROLE_ARN }}"
         run: "node v4/scripts/release/controller.mjs cross-environment-denial"
       - uses: "aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd"
         with:
@@ -116,4 +119,7 @@ jobs:
           retry-max-attempts: 2
           action-timeout-s: 120
       - name: "STS identity only; requested duration is not issued lifetime"
+        env:
+          SHELFSTATE_AWS_ACCOUNT_ID: "${{ secrets.SHELFSTATE_AWS_ACCOUNT_ID }}"
+          SHELFSTATE_DEPLOY_ROLE_ARN: "${{ secrets.SHELFSTATE_DEPLOY_ROLE_ARN }}"
         run: "node v4/scripts/release/controller.mjs identity"

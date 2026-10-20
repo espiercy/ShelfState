@@ -109,6 +109,16 @@ attempt, artifact run/name/time/digest, candidate/controller/main ancestry, exac
 inventory and offline transition. Public metadata availability failure stops;
 there is no PAT/admin fallback. Pagination is bounded and must be complete.
 
+The private account and role bindings are same-name GitHub Environment secrets,
+not Actions variables. They are absent from job-wide state and injected only into
+the `pre-oidc`, `cross-environment-denial` and `identity` controller steps, so
+GitHub's secret masker applies before each runner preamble. The validated account
+and role outputs may flow only to the pinned credentials action's
+`allowed-account-ids` and `role-to-assume` inputs. No command, job output, artifact
+field or other action input may reference the secrets or derived outputs. The
+credentials action's account-mask input remains defense in depth rather than the
+first masking boundary.
+
 The transport reader accepts one fixed-name ZIP32 file (store or streaming
 deflate), checks headers, CRC, expansion limits and rejects extra entries/links
 before returning in-memory data. The canonical data bundle then validates every
@@ -129,7 +139,7 @@ actual lifetime and final WP-006B acceptance. Inert roles gain no permissions.
 ### R1/R2 adjudicated boundaries
 
 The protected environment gate is the exact job environment plus AWS OIDC subject
-trust, not proof of configuration-variable origin. Account/role variables are
+trust, not proof of configuration-secret scope. Account/role bindings are
 untrusted runtime configuration. `approved-targets.mjs` pins SHA-256 digests of
 canonical `shelfstate.approved-target/v1` records independently of those inputs:
 repository, environment, account, exact role ARN/name, audience and region. The
@@ -141,10 +151,26 @@ not encryption or a secret. Pin changes require controller-source review.
 Before any credential action, reconstructed input must match the selected pin.
 Runtime evidence and the redacted identity summary carry `approvedTargetDigest`.
 The incoming evidence cannot provide/override the expected pin. Environment-level
-variables remain the intended operational location and require later live readback;
-an exact repository/organization fallback is equivalent target identity, not a
-redirect. Wrong values fail regardless of claimed scope. No administrative token,
-permission or configuration-provenance lookup is introduced.
+secrets are the only supported operational location, and Actions-variable
+references are rejected locally. GitHub's `secrets.NAME` expression does not encode
+scope, so a same-name repository/organization fallback cannot be excluded by source
+validation; later hosted metadata readback must require those names to be absent at
+broader scopes. GitHub exposes only secret names/metadata for readback, so the
+controller pin remains the value check. Wrong values fail regardless of claimed
+scope. No administrative token, permission or configuration-provenance lookup is
+introduced by the workflow.
+
+Later setup is a separately authorized hosted mutation: while both manual proof
+workflows remain undispatched, set the two exact secret names independently in
+`dev` and `production` from the retained private binding without command-line or
+log exposure; read back environment names/metadata only; list applicable repository
+and organization secret metadata and require both names absent there; delete and
+verify absence of the legacy same-name Environment variables; merge the exact
+reviewed workflow bytes; then run a fresh amended-main dev proof. That proof must
+inspect public preambles for masking and add a complete post-run OIDC-provider
+inventory/metadata/audience/tag comparison. Existing exposed-log deletion is a
+distinct cleanup action and
+must not delete the retained artifacts without separate authority.
 
 `offline-environment.mjs` removes AWS/CDK credential/default/profile/web-identity/
 container inputs, disables EC2 metadata, points config/credentials at null devices,

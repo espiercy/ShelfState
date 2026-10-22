@@ -42,7 +42,7 @@ jobs:
       - name: "Credential-free preparation (audit is mandatory)"
         id: "prepare"
         run: "node v4/scripts/release/controller.mjs prepare"
-      - uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+      - uses: "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
         id: "payload"
         with:
           name: "candidate-${{ github.run_id }}-${{ github.run_attempt }}"
@@ -55,7 +55,7 @@ jobs:
         env:
           PAYLOAD_ID: "${{ steps.payload.outputs.artifact-id }}"
         run: "node v4/scripts/release/controller.mjs seal"
-      - uses: "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+      - uses: "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
         id: "evidence"
         with:
           name: "evidence-${{ github.run_id }}-${{ github.run_attempt }}"

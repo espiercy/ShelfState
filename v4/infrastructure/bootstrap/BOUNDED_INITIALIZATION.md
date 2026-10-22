@@ -21,11 +21,14 @@ pending-validation/provider notes remain deferred live-proof gates. The local
 subsequently received the supplied focused independent closure and was committed
 at `904cd4715862661ed7afba806c88e138d5996e3a`; no implementation/security defect
 was found. The dependency remediation was independently approved and committed
-at `de0eba0bba1385447a8236bd47171f1ee7bcaef3`, without closing hosted acceptance.
+at `de0eba0bba1385447a8236bd47171f1ee7bcaef3`; at that dated point hosted
+acceptance remained open. It later closed for exact M2 through validation and the
+accepted WP-006B proof preparations.
 The separately authorized local API-origin routing candidate is described below.
 After narrow phase-marker remediation, focused independent closure returned
-**A — APPROVE**. None of these local acceptances closes hosted,
-bootstrap-authorization, provider, physical-ID, DNS or deployment gates. The
+**A — APPROVE**. At this historical local checkpoint none of those acceptances
+closed hosted gates. Later proof-only WP-006B acceptance closes only that named M2
+gate; bootstrap authorization, physical-ID, DNS and deployment gates remain. The
 records below remain dated synthetic-preparation history, not the new actual
 certificate/static contracts; all preparation remains **NOT DEPLOYMENT READY**.
 
@@ -143,7 +146,7 @@ Publish only after separate exact-zone/exact-normalized-CNAME authorization and 
 
 ## Remaining gates and verification
 
-Outstanding: handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME/API ID; asset/version correspondence; effective propagation and exact-ID operation; CloudTrail; dependency-security and WP-006 hosted acceptance; bootstrap and initialization authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed.
+Dependency security and proof-only WP-006 hosted acceptance closed for exact M2 with retained nonblocking limitations. Outstanding: handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME/API ID; asset/version correspondence; effective propagation and exact-ID operation; WP-007 CloudTrail; bootstrap and initialization authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed, and the proof roles remain permission-inert.
 
 Run focused bootstrap/initialization/infrastructure and affected release/boundary checks, full composed policy-size assertions, raw-binding/credential scans and diff checks. The separately authorized 2026-10-09 dependency remediation reran the audit and preserves the older records below as dated evidence rather than relabeling them. The historical upstream/CDK template digest and V3 publication identity remain independently checkable and unchanged by this package.
 

@@ -91,8 +91,11 @@ is not part of this work package.
 Starting checkpoint: branch `codex/wp-006b-workflow-activation`, HEAD
 `904cd4715862661ed7afba806c88e138d5996e3a`, clean worktree and empty index.
 This separately authorized local-only slice changes no resource, policy, trust,
-workflow, API-routing, V3 or live state. The candidate remains unstaged and
-uncommitted; independent review and hosted acceptance are separate gates.
+workflow, API-routing, V3 or live state. At this dated freeze the candidate was
+unstaged and uncommitted, and independent review/hosted acceptance were separate
+gates. The remediation was later committed, hosted and exercised by M2 validation
+and the accepted WP-006B proof preparations; the historical freeze claim remains
+limited to 2026-10-09.
 
 - The direct `aws-cdk-lib` pin is `2.273.0`; `constructs@10.8.1` and the
   `aws-cdk@2.1141.0` CLI pin are unchanged. Required lock resolution advances
@@ -284,13 +287,14 @@ with no new fixed service charge expected; they are covered by the existing
 Personal component model, but dev usage/retention/cost must be revalidated before
 live deployment. No new execution-policy authority or composition is introduced.
 
-Still required: independent slice review; dependency-security resolution (no V4
-waiver); WP-006 hosted acceptance; bootstrap/live authorization; boundary policy
+At this dated slice, independent review, dependency-security resolution and WP-006
+hosted acceptance were still required. Those three gates later closed for M2 with
+no waiver. Still required: bootstrap/live authorization; boundary policy
 installation/readback; narrower-principal/stale-stack closure; actual handler/tag
 calls, permissions/propagation/rollback; parent ID and change-set authenticity;
 artifact/template correspondence; direct HTTP/invocation/logging/no-store smoke;
-CloudTrail and exact-ID closure. No upstream patch availability or green audit is
-claimed: the unchanged dependency graph retains its recorded failing audit.
+CloudTrail and exact-ID closure. This historical paragraph does not claim those
+WP-007 live gates were closed by later dependency or WP-006 acceptance.
 
 Primary service references: [HTTP API quick-create semantics](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-apigatewayv2-api.html),
 [Lambda proxy payload configuration](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-apigatewayv2-integration.html),
@@ -420,8 +424,8 @@ An issued certificate ARN is later independently verified and supplied explicitl
 to edge-delivery, never consumed automatically cross-region. Live principal/stale-
 stack containment, handler calls/rollback/propagation, reviewed template fidelity,
 DNS timing/collisions/issuance/renewal, CloudTrail and exact-ID closure remain
-unproved. Dependency security, WP-006 hosted acceptance and bootstrap/deployment
-authorization remain outstanding. No V4 waiver or successful audit is claimed.
+unproved. Dependency security and proof-only WP-006 hosted acceptance later closed
+for M2 without a waiver; bootstrap/deployment authorization remains outstanding.
 
 Cost: local preparation $0; no incremental ACM service charge expected for this
 non-exportable public certificate, consistent with the Personal model. No new
@@ -575,8 +579,9 @@ provider calls/tag timing, OAC signing/private-origin denial and HTTPS headers;
 source/stored-template/execution-role/physical-ID authenticity; live principal
 containment, propagation, stabilization/rollback/retained remnants and CloudTrail;
 exact-ID closure; separately authorized DNS/publication/browser proof. Dependency
-security hosted acceptance and WP-006 hosted acceptance remain unresolved. Bootstrap/deployment
-authorization has not occurred. No V4 waiver is implied by local success.
+security and proof-only WP-006 hosted acceptance later closed for M2. Bootstrap/
+deployment authorization has not occurred. No V4 waiver or WP-007 live acceptance
+is implied by that closure.
 
 Cost: local preparation adds no AWS charge. Proposed S3/CloudFront pay-as-you-go
 usage is already within the Personal architecture; no new fixed-price service,
@@ -743,8 +748,9 @@ immutable assets, handler/provider call trace and rollback options; prove origin
 TLS/Host/path forwarding, uncached health response, direct execute-api safety,
 OAC/private S3 behavior, propagation, CloudTrail, containment and exact-ID
 closure; separately authorize DNS alias, static publication and browser/V3
-service-worker isolation proof. Hosted assembly-reader/controller transition and
-CLI compatibility acceptance also remain open. No AWS authentication/API call,
+service-worker isolation proof. The hosted assembly-reader/controller transition
+and four-directory pinned-CLI compatibility evidence later passed in the accepted
+M2 proof exercises. Within this dated local routing slice, no AWS authentication/API call,
 workflow activation, bootstrap, deployment, publication, DNS mutation, stage,
 commit, push or other remote/live mutation occurred.
 
@@ -777,10 +783,23 @@ merged main `17f461ea9bba7318b2f2c8c54220ed573fb2d6c6`, but independent review r
 the proof for privacy: public runner preambles exposed the private account binding
 and dev-role ARN before the later credentials-action mask. No credential/token was
 exposed, and retained hosted artifacts/payload files contained no matching private
-binding. Production remains paused. The bounded preventive amendment uses exact
+binding. At that point production remained paused. The bounded preventive amendment uses exact
 GitHub Environment secrets only at the three controller steps, rejects variable/
 command/output exposure paths, and treats absence of same-name repository or
 organization secrets as a separately read-back hosted configuration condition. It
-requires a fresh amended-main dev proof plus post-run provider comparison after
+therefore required a fresh amended-main dev proof plus post-run provider comparison after
 separately authorized secret migration. Existing-log deletion is separate cleanup,
 not part of the local remediation.
+
+The privacy-remediated implementation was subsequently merged as M2
+`9acb1ac9a3c89d8383ddc9d228a7b5b9ce021b4b`. Exact-main validation
+`39459972062/1`, fresh development proof `39591973383/1`, production rejection
+`39638752827/1` and deliberately approved production proof `39695069470/1` were
+independently adjudicated **ACCEPTED WITH NONBLOCKING LIMITATIONS**. The retained
+hashes, evidence locations, retention dates and limitations are indexed in
+[`docs/V4_OIDC_RELEASE_CHECKPOINT.md` §9.16](../../docs/V4_OIDC_RELEASE_CHECKPOINT.md#916-wp-006b-hosted-proof-acceptance--2026-10-22). Rejection satisfied the contract's
+reject/cancel alternative; no additional cancellation or proof run is required for
+M2. This proof-only closure leaves both roles permission-inert and authorizes no
+resource-bearing release, bootstrap, deployment, publication, DNS or other WP-007
+live action. Historical run `39291958886/1` is superseded as proof evidence; its
+exposed-log deletion remains a separately authorized incident-cleanup mutation.

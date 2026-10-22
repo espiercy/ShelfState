@@ -1,13 +1,17 @@
-# WP-006B local release controls
+# WP-006B proof-only release controls
 
-Status: local workflow-activation implementation / uncommitted review candidate.
+Status: **accepted with nonblocking limitations** for exact implementation revision
+`9acb1ac9a3c89d8383ddc9d228a7b5b9ce021b4b` (M2).
 
 Authority: approved WP-006A checkpoint sections 9.2–9.11, approved local controls,
-and the subsequent human workflow-activation and local-synthesis adjudications.
-The two YAML files are executable definitions on an unpushed local branch;
-they are not installed on GitHub. No remote protection, provider/role, bootstrap,
-or deployment is established by this local change. The V3-only exception has terminated and
-does not apply here. The unchanged dependency audit must remain visibly failing.
+the subsequent human workflow-activation/local-synthesis adjudications, privacy
+remediation and the final non-author WP-006B evidence adjudication recorded in
+`docs/V4_OIDC_RELEASE_CHECKPOINT.md` §9.16. The two YAML definitions are installed
+on protected main and remain manual-only. M2 exact-main validation and the accepted
+development, rejection and deliberately approved production proofs established the
+bounded hosted behavior. This does not establish bootstrap, application deployment,
+resource-bearing release authority or a known-good V4 deployment. The V3-only
+exception has terminated and does not apply here.
 
 ## Implemented boundaries
 
@@ -124,7 +128,8 @@ deflate), checks headers, CRC, expansion limits and rejects extra entries/links
 before returning in-memory data. The canonical data bundle then validates every
 raw byte/path before writing to a fresh private staging directory. ZIP64, extra
 fields and other unsupported formats fail closed. Fixtures test protocol safety;
-actual hosted transport interoperability still needs hosted proof.
+the accepted development and production runs exercised the hosted transport for
+M2. A changed transport implementation requires new validation and evidence.
 
 The version-2 runtime-binding record contains controller-pinned account/role, exact
 environment, candidate/controller/run/attempt, candidate digest, payload ID/hash,
@@ -133,8 +138,9 @@ candidate evidence. The pinned credentials action consumes only validated
 outputs, with `translate-env-variables: false`, `output-credentials: false` and
 a requested duration of 900 seconds. It is followed only by STS GetCallerIdentity.
 The redacted identity result reports **requested** duration, never actual expiry
-or issued lifetime. Separately authorized CloudTrail evidence is required for
-actual lifetime and final WP-006B acceptance. Inert roles gain no permissions.
+or issued lifetime. Retained, independently reviewed CloudTrail evidence for the
+accepted dev and production runs establishes the actual 900-second issued
+lifetimes within bounded `us-west-2` windows. Inert roles gain no permissions.
 
 ### R1/R2 adjudicated boundaries
 
@@ -160,17 +166,15 @@ controller pin remains the value check. Wrong values fail regardless of claimed
 scope. No administrative token, permission or configuration-provenance lookup is
 introduced by the workflow.
 
-Later setup is a separately authorized hosted mutation: while both manual proof
-workflows remain undispatched, set the two exact secret names independently in
-`dev` and `production` from the retained private binding without command-line or
-log exposure; read back environment names/metadata only; list applicable repository
-and organization secret metadata and require both names absent there; delete and
-verify absence of the legacy same-name Environment variables; merge the exact
-reviewed workflow bytes; then run a fresh amended-main dev proof. That proof must
-inspect public preambles for masking and add a complete post-run OIDC-provider
-inventory/metadata/audience/tag comparison. Existing exposed-log deletion is a
-distinct cleanup action and
-must not delete the retained artifacts without separate authority.
+For M2, the two exact bindings were migrated to Environment secrets independently
+in `dev` and `production`; name/metadata scope, broader-scope absence, legacy-
+variable absence and unchanged protections were read back before the accepted
+fresh dev proof. Public preambles and artifacts were scanned, and the complete
+post-run OIDC-provider inventory/metadata/audience/tag comparison was retained.
+This does not prove stored-secret byte equality through GitHub metadata and does
+not carry forward automatically to changed bindings or workflows. Existing exposed-
+log deletion is a distinct cleanup action and must not delete the retained artifacts
+without separate authority.
 
 `offline-environment.mjs` removes AWS/CDK credential/default/profile/web-identity/
 container inputs, disables EC2 metadata, points config/credentials at null devices,
@@ -193,24 +197,29 @@ The GitHub adapter uses the documented [workflow-run](https://docs.github.com/en
 and [artifact](https://docs.github.com/en/rest/actions/artifacts) GET APIs. Action
 inputs follow the [approved credentials revision](https://github.com/aws-actions/configure-aws-credentials/blob/e1253824e5c10ff9df46874f81ed3ec929e19cfd/action.yml).
 
-## Verification and remaining gates
+## Accepted evidence and remaining gates
 
 Run `npm run test:release` using the pinned npm. Existing `test:design` retains
 all prior negative assertions. `npm run verify` includes this suite but does not
-include npm audit: report its result independently from the still-failing
-`npm audit --audit-level=high`. Signature verification is likewise separate.
-Hosted CI still stops at audit; local results do not make the hosted aggregate
-green. No bypass, allowlist, severity downgrade or old exception is introduced.
+include npm audit: report audit and signature verification independently. The
+remediated dependency graph passed zero-vulnerability audit, signature checks,
+exact-main validation and the accepted proof preparations without bypass,
+allowlist, severity downgrade or exception. Direct-package provenance remains
+unavailable and is not inferred from graph-wide attestations.
 
 Tests use owned temporary fixtures beneath ignored `v4/cdk.out/` and remove only
 those fixtures (transfer tests use owned OS temporary directories). Real synth verification must remain credential-free, use trusted
 repository inputs, make no context lookups, and retain six stacks/zero resources
 per environment. No CDK or dependency versions/lockfile are changed.
 
-The approved remote stage ordering remains unchanged: GitHub controls/readback,
-separately authorized provider establishment, inert roles/readback, reviewed
-workflow activation with passing required checks, hosted exclusion/approval/STS
-proofs, redacted evidence, independent review. This local slice completes none
-of those live checkpoints. WP-007 remains unstarted. A future dependency upgrade
-requires separate authorization and audit/signature/regression/synth verification.
-Unsupported new assembly schemas fail closed at a narrow adapter boundary.
+The approved remote stage ordering remains unchanged. For M2, GitHub controls,
+provider/inert-role readback, reviewed activation, hosted exclusion, native
+rejection/approval, cross-environment denial, positive identity, issued lifetime,
+CloudTrail and independent review are complete. The accepted evidence is indexed
+in `docs/V4_OIDC_RELEASE_CHECKPOINT.md` §9.16. Rejection satisfied the contract's
+reject/cancel alternative; no additional cancellation or proof run is required for
+this milestone. Permission-bearing release, bootstrap, WP-007 deployment,
+publication, DNS and physical-provenance gates remain open. A future workflow,
+controller, dependency or assembly-schema change requires its own review and
+applicable evidence. Unsupported new assembly schemas fail closed at a narrow
+adapter boundary.

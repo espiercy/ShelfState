@@ -1276,3 +1276,63 @@ and artifacts `12206196376` / `12204409931` remain present, unexpired and digest
 identical. Do not delete the run or artifacts merely to remove the log. Preserve the
 locally retained evidence hashes before cleanup. This section authorizes none of
 those hosted mutations.
+
+### 9.16 WP-006B hosted-proof acceptance — 2026-10-22
+
+Genuine non-author adjudication accepted the proof-only WP-006B milestone at exact
+privacy-remediated main revision `9acb1ac9a3c89d8383ddc9d228a7b5b9ce021b4b`
+(M2) **with nonblocking limitations**. Exact-main validation run `39459972062`,
+attempt 1, passed both required producer-bound checks. This result is bound to M2,
+the reviewed workflow/controller bytes and the retained evidence below; it does not
+automatically accept a changed implementation. It changes no acceptance criterion.
+
+| Accepted exercise | Bounded result | Retained redacted evidence |
+| --- | --- | --- |
+| Development `39591973383/1` | Authenticated artifact transport and 93-entry manifest; zero-resource transitions; all four locked-CLI prebuilt-directory reads; authentic dev-token denial against the fixed production role; positive dev identity with an issued 900-second lifetime; fully paginated exact-session `us-west-2` activity through expiration plus five minutes | `%LOCALAPPDATA%\ShelfState\wp006b\run-39591973383-attempt-1`; bundle SHA-256 `2dd324a2ed554b26062863ecb15e49a116e73d62ea4e14b7885a50ab383f279f`; CloudTrail supplement SHA-256 `c658759302c2dbebcbde3cff9eb3a42528368997e4627eb55507168d13934142`; hosted artifacts expire 2027-01-19 11:26:32 UTC |
+| Production rejection `39638752827/1` | Credential-free preparation completed; native `production` gate waited with no runner or steps; deliberate rejection reached its expected terminal state; delayed, fully paginated regional correlation found no exact production-role/run-session assumption in the bounded window | `%LOCALAPPDATA%\ShelfState\wp006b\run-39638752827-attempt-1`; bundle SHA-256 `23b941fea42e67ad87867057c3c459f095022397756e3e327789445108db52af`; correlation SHA-256 `0966944b2cea418e9c9b4f0fa4f365989db42a48a2511d9c3ee59c1a362df421`; hosted artifacts expire 2027-01-19 16:52:58 UTC |
+| Successful production `39695069470/1` | Credential-free preparation, native wait and explicit owner approval; no runner/steps before approval; authentic production-token denial against the fixed dev role; positive production identity with an issued 900-second lifetime; fully paginated exact-session regional activity through expiration plus five minutes; complete post-run provider and both-role comparison | `%LOCALAPPDATA%\ShelfState\wp006b\run-39695069470-attempt-1`; bundle SHA-256 `7dfe0384db59e69d41d65740de22385486696563cf04c87ad60ccf4285797a2a`; hosted artifacts expire 2027-01-19 23:41:51 UTC |
+
+Stages 1–10 were established by the accepted rules/environment/provider/role
+readbacks, reviewed activation, exact-main/PR validation and adversarial contracts.
+The live exercises above satisfy stages 11–14, and this adjudication satisfies
+stage 15. Stage 12 deliberately says “Reject/cancel”; the accepted rejection is the
+required negative approval exercise, so no additional cancellation or proof run is
+required for this milestone. Wrong repository/ref/subject/audience/environment,
+wildcard trust, PR credential paths and resource-bearing assemblies remain
+fixture/configuration/readback evidence; they are not misrepresented as separately
+minted live negative tokens. Cross-environment denial in both directions, intended-
+environment positive assumptions and native production rejection/approval were
+directly exercised.
+
+The accepted boundary remains permission-inert. Both proof roles have exact trust,
+required tags, 3,600-second maxima, no permission boundary and fully paginated empty
+attached/inline identity-policy inventories. The proof workflows perform identity-
+only operations, no application mutation, and cannot promote any record to known-
+good deployment status. This acceptance adds no bootstrap, CloudFormation,
+publication, DNS or resource-bearing release authority. WP-007 physical-resource
+provenance, handler/rollback, exact-ID closure and all live deployment gates remain
+separate.
+
+The adjudication retains these nonblocking limitations:
+
+- CloudTrail conclusions are bounded to the fully paginated `us-west-2` windows and
+  exact retained sessions; they are not account-wide or cross-region absence claims.
+- Denied CloudTrail events omit the target-role field. AWS establishes the correlated
+  `AccessDenied`; reviewed controller evidence establishes the fixed opposite role.
+- Empty identity-policy inventories and absent permission boundaries do not
+  exhaustively exclude resource-based or account-wide grants.
+- Public proof logs retain opaque AWS principal identifiers, deterministic session
+  labels and approved-target digests. Privacy scans found no exact private binding or
+  credential-shaped value in the accepted runs.
+- Original development and rejection artifact ZIP bytes were not retained locally,
+  so their service archive digests cannot be independently recomputed offline. Their
+  service-issued identities/digests and validated inner payload/evidence remain.
+  The production ZIPs were retained and independently rehashed.
+- Direct-package provenance remains unavailable; integrity, registry-signature,
+  audit and regression evidence is not described as provenance.
+
+Privacy-affected development run `39291958886/1` is superseded and contributes no
+acceptance claim. Its public-log exposure involved operational identifiers, not a
+credential, but remains a separate incident-cleanup item under the exact procedure
+in §9.15. Cleanup is not an acceptance prerequisite and requires its own explicit
+mutation authority; it must not delete the retained run artifacts as a side effect.

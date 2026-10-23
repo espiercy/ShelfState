@@ -390,6 +390,28 @@ Every envelope/property/tag/output is closed under newly consistent review pins.
 `validateLocalCertificateAssembly` is isolated from normal foundation and release
 acceptance, which continue to reject all resource-bearing assemblies.
 
+`bootstrap/certificate-assembly-adapter.mjs` closes the certificate phase's
+actual-assembly review gap without adding an execution path. It reads the raw
+pinned-CDK output directory through the existing bounded assembly reader,
+requires the exact 22-member / six-stack assembly, verifies every raw member
+identity, and accepts only the certificate stack's one reviewed resource. The
+manifest, six templates, template-only asset manifests, bootstrap/role/region
+bindings and an independently pinned credential-free/no-lookup synthesis-context
+record are carried into canonical
+`shelfstate.wp007-certificate-assembly-review-package/v1` bytes. The package is
+explicitly `NON_EXECUTABLE_REVIEW_MATERIAL` with `executionAuthorized: false`.
+Candidate files cannot supply trusted target pins: extra assembly members fail,
+and the target digest is supplied separately and rebound into the package.
+
+For the actual certificate review schema, `initialization-guard.mjs` now consumes
+that self-contained review package instead of the historical stack/account
+projection. It rehashes the raw manifest, templates, assets, assembly inventory
+and context record, re-applies the complete certificate contract, and requires
+the package target/template to match the independently pinned initialization
+approval. This is certificate-only compatibility, not a generic cloud-assembly
+adapter. It creates no change set, performs no AWS call, and does not alter the
+ordinary resource-empty release controller.
+
 No IAM policy/action inventory/composition changes. Existing initialization has
 RequestCertificate, AddTagsToCertificate, DescribeCertificate,
 ListTagsForCertificate and DeleteCertificate. Requests are constrained to the

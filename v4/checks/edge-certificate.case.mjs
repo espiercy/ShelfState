@@ -10,19 +10,30 @@ import { createEnvironmentTopology } from "../infrastructure/lib/topology.mjs";
 import { resolveEnvironmentConfig } from "../infrastructure/lib/environment.mjs";
 import { validateFoundationAssembly, validateLocalCertificateAssembly, validateLocalApiAssembly } from "../infrastructure/lib/template-guards.mjs";
 import { assertEdgeCertificateTemplate, EDGE_CERTIFICATE_REVIEW_SCHEMA } from "../infrastructure/bootstrap/edge-certificate-contract.mjs";
+import {
+  certificateAssemblyTarget,
+  certificateSynthesisContext,
+  certificateSynthesisContextBytes,
+  createCertificateAssemblyReviewPackage,
+} from "../infrastructure/bootstrap/certificate-assembly-adapter.mjs";
 import { validateInitializationBundle } from "../infrastructure/bootstrap/initialization-guard.mjs";
 import { executionPolicies, generatedAuthority, ACTION_INVENTORY, closureDecision, assertClosure } from "../infrastructure/bootstrap/initialization.mjs";
-import { fixture, repin, ACCOUNT, IDS } from "./support/initialization-fixture.mjs";
+import { fixture, ACCOUNT, IDS } from "./support/initialization-fixture.mjs";
 import { decision } from "./support/bootstrap-policy-evaluator.mjs";
 import { readAssembly, assessTransition } from "../scripts/release/assemblies.mjs";
 import { credentialFreeEnvironment } from "../scripts/release/offline-environment.mjs";
+import { hash, hashObject } from "../scripts/release/schema.mjs";
 
 const config = resolveEnvironmentConfig("dev", { SHELFSTATE_DEV_AWS_ACCOUNT_ID: ACCOUNT });
-let baseTemplates, certificateTemplate;
+const synthesisContextBytes = certificateSynthesisContextBytes();
+const assemblyTarget = certificateAssemblyTarget(ACCOUNT, hash(synthesisContextBytes));
+const assemblyTargetPin = hashObject(assemblyTarget);
+let baseTemplates, certificateTemplate, certificateTemplateBytes, certificateAssemblyReviewBytes;
 async function synth(phase, callback) {
   const outdir = await mkdtemp(path.join(os.tmpdir(), "shelfstate-certificate-"));
   try {
-    const app = new App({ outdir, analyticsReporting: false });
+    const app = new App({ outdir, analyticsReporting: false,
+      ...(phase ? { context: certificateSynthesisContext().context } : {}) });
     createEnvironmentTopology(app, config, phase ? { initializationPhase: phase } : {});
     const assembly = app.synth();
     if (phase) validateLocalCertificateAssembly(assembly, config, phase);
@@ -32,15 +43,35 @@ async function synth(phase, callback) {
 }
 before(async () => {
   await synth(undefined, a => { baseTemplates = Object.fromEntries(a.stacks.map(s => [s.stackName, s.template])); });
-  await synth("certificate", a => { certificateTemplate = a.stacks.find(s => s.stackName.endsWith("edge-certificate")).template; });
+  await synth("certificate", async (a, outdir) => {
+    const artifact = a.stacks.find(s => s.stackName.endsWith("edge-certificate"));
+    certificateTemplate = artifact.template;
+    certificateTemplateBytes = await readFile(path.join(outdir, artifact.templateFile));
+    certificateAssemblyReviewBytes = await createCertificateAssemblyReviewPackage(
+      outdir,
+      synthesisContextBytes,
+      assemblyTarget,
+      assemblyTargetPin,
+    );
+  });
 });
-function evidence(mutate = () => {}) {
-  const f = fixture("certificate"), t = structuredClone(certificateTemplate); mutate(t);
+function repinEvidence(f) {
+  f.approval.templateSha256 = hash(f.bundle.templateBytes);
+  f.approval.assemblySha256 = hash(f.bundle.assemblyBytes);
+  f.bundle.changeSet.templateSha256 = f.approval.templateSha256;
+  f.approval.changeSetSha256 = hashObject(f.bundle.changeSet);
+  f.pin = hashObject(f.approval);
+  return f;
+}
+function evidence(mutate) {
+  const f = fixture("certificate"), t = structuredClone(certificateTemplate);
+  if (mutate) mutate(t);
   f.approval.schema = EDGE_CERTIFICATE_REVIEW_SCHEMA;
   f.approval.bindings = {}; f.approval.assets = {}; f.bundle.assets = {};
-  f.bundle.templateBytes = Buffer.from(JSON.stringify(t));
+  f.bundle.templateBytes = mutate ? Buffer.from(JSON.stringify(t)) : Buffer.from(certificateTemplateBytes);
+  f.bundle.assemblyBytes = Buffer.from(certificateAssemblyReviewBytes);
   f.bundle.changeSet.changes = Object.entries(t.Resources).map(([logicalId, r]) => ({ logicalId, type: r.Type, action: "Add", replacement: "False" }));
-  return repin(f);
+  return repinEvidence(f);
 }
 const check = f => validateInitializationBundle(f.approval, f.pin, f.bundle);
 const reject = mutate => assert.throws(() => check(evidence(mutate)));
@@ -150,7 +181,7 @@ test("topology/bootstrap envelope and evidence cannot add input/indirection or s
     f => { f.bundle.changeSet.changes[0].replacement = "True"; },
     f => { f.bundle.changeSet.changes[0].action = "Modify"; },
     f => { f.approval.mode = "steady"; },
-  ]) { const f = evidence(); mutate(f); repin(f); assert.throws(() => check(f)); }
+  ]) { const f = evidence(); mutate(f); repinEvidence(f); assert.throws(() => check(f)); }
 });
 
 test("certificate initialization and exact steady composition have zero Route53 authority", () => {

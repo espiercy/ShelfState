@@ -5,6 +5,7 @@ import { object, hash, hashObject, equal, digest, parseEvidenceJson } from "../.
 import { target } from "./initialization.mjs";
 import { LIBRARY_API_REVIEW_SCHEMA, libraryApiTypes, assertLibraryApiTemplate } from "./library-api-contract.mjs";
 import { EDGE_CERTIFICATE_REVIEW_SCHEMA, edgeCertificateTypes, assertEdgeCertificateTemplate } from "./edge-certificate-contract.mjs";
+import { parseCertificateAssemblyReviewPackage } from "./certificate-assembly-adapter.mjs";
 import { STATIC_EDGE_REVIEW_SCHEMA, staticEdgeTypes, assertStaticEdgeBindings, assertStaticEdgeTemplate } from "./static-edge-contract.mjs";
 import { EDGE_ROUTING_REVIEW_SCHEMA, edgeRoutingTypes, assertEdgeRoutingBindings, assertEdgeRoutingTemplate } from "./edge-routing-contract.mjs";
 
@@ -124,8 +125,20 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
   else if (actualStatic) assertStaticEdgeTemplate(template, approval.account, approval.phase, b);
   else if (actualRouting) assertEdgeRoutingTemplate(template, approval.account, approval.phase, b);
   else checkTemplate(template, approval);
-  const assembly = parseEvidenceJson(bundle.assemblyBytes);
-  equal(assembly, { stack: t.name, account: t.account, region: t.region, executionRole: t.executionRole, templateSha256: approval.templateSha256 }, "Assembly binding mismatch");
+  if (actualCertificate) {
+    parseCertificateAssemblyReviewPackage(bundle.assemblyBytes, {
+      account: t.account,
+      environment: "dev",
+      phase: approval.phase,
+      region: t.region,
+      stack: t.name,
+      executionRole: t.executionRole,
+      templateSha256: approval.templateSha256,
+    });
+  } else {
+    const assembly = parseEvidenceJson(bundle.assemblyBytes);
+    equal(assembly, { stack: t.name, account: t.account, region: t.region, executionRole: t.executionRole, templateSha256: approval.templateSha256 }, "Assembly binding mismatch");
+  }
   object(bundle.assets, Object.keys(approval.assets), "Asset inventory mismatch");
   for (const [name, reviewed] of Object.entries(approval.assets)) {
     object(reviewed, ["sha256", "versionId"]); digest(reviewed.sha256);

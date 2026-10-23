@@ -108,9 +108,9 @@ action. The isolated-window, prepare/execute, exact-ID narrowing and closure
 requirements are unchanged. This local representation is not evidence that the
 current generic CDK flow can safely perform the future initial transaction.
 
-`initialization-guard.mjs` accepts bounded byte inputs and independently pinned review metadata. It rejects wrong target/role, unexpected logical IDs/types/count, macros at any depth, nested/custom resources, replacement, unapproved relationships, wrong domain, parameters and substituted artifacts/change sets. The guard uses a narrow four-phase synthetic contract, not a generalized CloudFormation interpreter. It does not generate application stacks. Real synthesized logical IDs/configuration and an AWS-response projection adapter must be independently reviewed when application work is authorized. Synthetic fixtures deliberately are not deployable application templates.
+`initialization-guard.mjs` accepts bounded byte inputs and independently pinned review metadata. It rejects wrong target/role, unexpected logical IDs/types/count, macros at any depth, nested/custom resources, replacement, unapproved relationships, wrong domain, parameters and substituted artifacts/change sets. Historical synthetic contracts remain narrow fixtures, while the API, certificate and edge selectors have separate actual-synth semantic contracts. The certificate schema additionally requires the canonical output of `certificate-assembly-adapter.mjs`; the old stack/account projection is no longer accepted for that schema. This remains a selected-phase validator, not a generalized CloudFormation interpreter or application-stack generator. Synthetic fixtures deliberately are not deployable application templates.
 
-All reviewed bytes/configuration are pinned. R1 remediation additionally compares every accepted resource's complete `Properties` against a positive semantic structure: only object-key order is normalized. Extra/missing fields, nested additions, alternate intrinsics, external specifications and changed values fail even with a separately valid review pin. Only literal top-level description and the fixed template-format version are optional. Resource attributes and all other template sections remain unsupported. This is a fail-closed validator for the supported synthetic WP-007 subset, **not a complete CloudFormation security verifier or a deployable-template contract**.
+All reviewed bytes/configuration are pinned. R1 remediation additionally compares every accepted resource's complete `Properties` against a positive semantic structure: only object-key order is normalized. Extra/missing fields, nested additions, alternate intrinsics, external specifications and changed values fail even with a separately valid review pin. Only literal top-level description and the fixed template-format version are optional for the historical synthetic schema; each actual-synth contract closes its own complete emitted envelope. This is a fail-closed validator for the explicitly supported WP-007 subsets, **not a complete CloudFormation security verifier or a deployable-template contract**.
 
 | Supported resource | Complete accepted property contract |
 |---|---|
@@ -122,9 +122,20 @@ All reviewed bytes/configuration are pinned. R1 remediation additionally compare
 | ACM certificate | Exact dev hostname, DNS validation and disabled export only. Previously unchecked optional `Tags` are no longer accepted; ownership/tagged deployable representations require explicit review, not arbitrary tags. |
 | A / AAAA aliases | Exact name/type/bound zone and native distribution-domain GetAtt/CloudFront hosted-zone target only. |
 
-The assembly input is an explicit review projection with a byte digest, not a claim that arbitrary CDK cloud assemblies are supported. Any adapter must preserve the raw source assembly identity as authenticated review evidence and reject unsupported members. Current zero-resource release guards stay unchanged. Resource-bearing steady updates remain gated; exact steady IAM is modeled, but no generic update executor is introduced.
+The certificate assembly input is now the deterministic
+`shelfstate.wp007-certificate-assembly-review-package/v1` produced from the
+actual pinned-CDK directory, not a candidate-generated identity projection. The
+adapter requires the exact 22 raw members, six stacks, manifest/artifact graph,
+template-only assets, five empty templates and one exact east certificate
+template. It binds the raw-file inventory, manifest/template/asset bytes,
+credential-free no-lookup context, account, phase, region, stack and execution
+role to a separately supplied trusted target digest. Its status is explicitly
+non-executable. This does not claim arbitrary CDK assembly support. Current
+zero-resource release guards stay unchanged. Resource-bearing steady updates
+remain gated; exact steady IAM is modeled, but no generic update executor is
+introduced.
 
-Stored-template readback and immutable/version-bound asset verification must occur before the execute grant. A content-hash filename is not immutable S3 storage; existing publisher access can overwrite/delete objects. The execute principal must not be able to replace reviewed asset versions; if this cannot be enforced/read back with the existing publication path, STOP rather than trusting a filename. Asset-version/reference correspondence and authenticated service readback are later adapter/live proof obligations, not facts established by synthetic JSON.
+Stored-template readback and immutable/version-bound asset verification must occur before the execute grant. The local adapter proves raw synthesized-template-to-manifest/asset correspondence only. A content-hash filename is not immutable S3 storage; existing publisher access can overwrite/delete objects. The execute principal must not be able to replace reviewed asset versions; if this cannot be enforced/read back with the existing publication path, STOP rather than trusting a filename. Authenticated service readback remains a later live-proof obligation, not a fact established by this local package.
 
 ## HTTP API and certificate phases
 

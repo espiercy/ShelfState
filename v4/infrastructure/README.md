@@ -412,6 +412,44 @@ approval. This is certificate-only compatibility, not a generic cloud-assembly
 adapter. It creates no change set, performs no AWS call, and does not alter the
 ordinary resource-empty release controller.
 
+### Certificate change-set review binding
+
+`bootstrap/certificate-change-set-review.mjs` is the next local-only boundary
+between the accepted certificate assembly package and a proposed initialization
+change set. It requires the independently supplied assembly-package digest and a
+separately supplied target digest, derives the unique `wp007-<sha256>` name from
+the exact account/phase/region/stack/role/template/parameter identities, and then
+reuses `initialization-guard.mjs` to require one `Add` of the exact native
+certificate with no pre-existing physical resource.
+
+The canonical proposal closes the CreateChangeSet and DescribeChangeSet
+projections: `CREATE`, exact east stack and execution role, reviewed template,
+no runtime parameter overrides, capabilities, nested stacks, imports or
+notifications, complete pagination, and `CREATE_COMPLETE` / `AVAILABLE`. The
+rollback contract is explicit: `OnStackFailure=ROLLBACK`, no rollback triggers
+or monitoring interval, `DisableRollback` **must be omitted** from a future
+ExecuteChangeSet request, and `RetainExceptOnCreate=false`. Because CloudFormation
+does not permit ExecuteChangeSet `DisableRollback` when CreateChangeSet supplied
+`OnStackFailure`, the package does not model `DisableRollback=false` as an
+equivalent request.
+
+The output is deterministic
+`shelfstate.wp007-certificate-change-set-review-package/v1` material with both
+CreateChangeSet and ExecuteChangeSet authority set to `false`. Raw assembly-review
+and proposal bytes remain identity-bound. Candidate proposal bytes cannot carry
+their own approval or trust fields because every accepted object has an exact
+closed schema. Preparation and execution remain separately authorized future
+operations; this adapter has no AWS SDK, credential, subprocess, request or
+execution path.
+
+Locally supplied DescribeChangeSet/template hashes are test data only. The
+package explicitly leaves AWS-response authenticity, actual-request
+correspondence, stored-template readback, physical-resource state and effective
+IAM permissions unresolved. Those facts require authenticated service readback
+under a future authorization. This slice does not make resource-bearing
+assemblies acceptable to the ordinary release controller and is **NOT DEPLOYMENT
+READY**.
+
 No IAM policy/action inventory/composition changes. Existing initialization has
 RequestCertificate, AddTagsToCertificate, DescribeCertificate,
 ListTagsForCertificate and DeleteCertificate. Requests are constrained to the

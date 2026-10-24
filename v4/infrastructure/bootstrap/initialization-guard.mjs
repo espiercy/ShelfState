@@ -79,7 +79,10 @@ function checkTemplate(template, approval) {
   }
 }
 
-export function validateInitializationBundle(approval, trustedApprovalDigest, bundle) {
+// Validate reviewed material without accepting or emitting execution authority.
+// The legacy bundle wrapper below adds the separately supplied execution ID for
+// older local design checks; new preparation adapters must use this boundary.
+export function validateInitializationReviewMaterial(approval, trustedApprovalDigest, bundle) {
   digest(trustedApprovalDigest); assert.equal(hashObject(approval), trustedApprovalDigest, "Review pin mismatch");
   object(approval, ["schema", "account", "phase", "region", "stack", "executionRole", "bindings", "mode", "templateSha256", "assemblySha256", "parametersSha256", "assets", "changeSetSha256"]);
   const actualApi = approval.schema === LIBRARY_API_REVIEW_SCHEMA;
@@ -114,7 +117,7 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
     assert.match(b.certificateArn, new RegExp(`^arn:aws:acm:us-east-1:${t.account}:certificate/[a-zA-Z0-9-]{1,64}$`));
     assert.equal(b.staticBucketDomain, `shelfstate-v4-dev-static-${t.account}-us-west-2.s3.us-west-2.amazonaws.com`);
   }
-  object(bundle, ["templateBytes", "assemblyBytes", "parameters", "assets", "changeSet", "executeChangeSetId"]);
+  object(bundle, ["templateBytes", "assemblyBytes", "parameters", "assets", "changeSet"]);
   assert.equal(hash(bundle.templateBytes), approval.templateSha256, "Template byte substitution");
   assert.equal(hash(bundle.assemblyBytes), approval.assemblySha256, "Assembly byte substitution");
   assert.equal(hashObject(bundle.parameters), approval.parametersSha256, "Parameter substitution");
@@ -156,7 +159,6 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
   assert.equal(cs.executionRole, t.executionRole); assert.equal(cs.templateSha256, approval.templateSha256);
   assert.equal(cs.parametersSha256, approval.parametersSha256);
   assert.equal(cs.status, "CREATE_COMPLETE"); assert.equal(cs.executionStatus, "AVAILABLE");
-  assert.equal(bundle.executeChangeSetId, cs.id, "Execute must use inspected immutable change-set ID");
   const seen = new Set();
   for (const change of cs.changes) {
     object(change, ["logicalId", "type", "action", "replacement"]);
@@ -175,5 +177,18 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
     equal(cs.changes.map(c => c.logicalId).sort(), added.sort(), "Complete deterministic initialization change list required");
     assert.ok(cs.changes.every(c => c.action === "Add"), "Initialization requires reviewed additions");
   }
-  return { status: "LOCAL_REVIEW_VALIDATED_NOT_DEPLOYMENT_AUTHORIZATION", changeSetId: cs.id };
+  return { status: "LOCAL_REVIEW_MATERIAL_VALIDATED_NOT_DEPLOYMENT_AUTHORIZATION", changeSetId: cs.id };
+}
+
+export function validateInitializationBundle(approval, trustedApprovalDigest, bundle) {
+  object(bundle, ["templateBytes", "assemblyBytes", "parameters", "assets", "changeSet", "executeChangeSetId"]);
+  const result = validateInitializationReviewMaterial(approval, trustedApprovalDigest, {
+    templateBytes: bundle.templateBytes,
+    assemblyBytes: bundle.assemblyBytes,
+    parameters: bundle.parameters,
+    assets: bundle.assets,
+    changeSet: bundle.changeSet,
+  });
+  assert.equal(bundle.executeChangeSetId, result.changeSetId, "Execute must use inspected immutable change-set ID");
+  return { status: "LOCAL_REVIEW_VALIDATED_NOT_DEPLOYMENT_AUTHORIZATION", changeSetId: result.changeSetId };
 }

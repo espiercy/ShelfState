@@ -148,6 +148,29 @@ set RetainExceptOnCreate false. AWS-response authenticity, actual request
 correspondence and stored-template/physical-resource/effective-IAM facts remain
 live gates; local fixtures do not prove them.
 
+`certificate-change-set-preparation.mjs` is the bounded integration layer for a
+future separately authorized preparation operation. It consumes the same pinned
+assembly and target, derives the reviewed CDK deploy caller, constructs the exact
+inline-template CREATE request, verifies the east caller identity before
+submission, performs bounded polling and complete pagination, and collects
+GetTemplate Original, DescribeStacks and DescribeStackResources readback. Raw
+request/response JSON, byte digests, sequence and available request IDs remain in
+a non-executable receipt; the existing review adapter remains the canonical
+normalized validator.
+
+The operator records its few necessary mappings instead of treating projections
+as raw service fields. Change-set type and empty parameter overrides are bound to
+the submitted request, execution role is read from the prepared stack, and an
+absent `Replacement` on the single Add becomes the adapter's `False` only with
+explicit `DERIVED_FALSE_FOR_ADD_WITHOUT_PRIOR_RESOURCE` provenance. Exact
+GetTemplate string bytes must match the reviewed template. Because standard AWS
+CLI JSON-decodes a JSON TemplateBody before output, that documented object shape
+instead requires canonical template equality and records that exact service-held
+bytes remain unavailable; this does not close the adapter's stored-template
+limitation. The AWS CLI transport exposes no ExecuteChangeSet, uses explicit
+region/private structured input/no shell/bounded timeouts and cannot run on
+import. Local fixture success is not AWS evidence.
+
 Stored-template readback and immutable/version-bound asset verification must occur before the execute grant. The local adapter proves raw synthesized-template-to-manifest/asset correspondence only. A content-hash filename is not immutable S3 storage; existing publisher access can overwrite/delete objects. The execute principal must not be able to replace reviewed asset versions; if this cannot be enforced/read back with the existing publication path, STOP rather than trusting a filename. Authenticated service readback remains a later live-proof obligation, not a fact established by this local package.
 
 ## HTTP API and certificate phases
@@ -170,7 +193,7 @@ Publish only after separate exact-zone/exact-normalized-CNAME authorization and 
 
 ## Remaining gates and verification
 
-Dependency security and proof-only WP-006 hosted acceptance closed for exact M2 with retained nonblocking limitations. Outstanding: handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME/API ID; asset/version correspondence; effective propagation and exact-ID operation; WP-007 CloudTrail; bootstrap and initialization authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed, and the proof roles remain permission-inert.
+Dependency security and proof-only WP-006 hosted acceptance closed for exact M2 with retained nonblocking limitations. Outstanding: separate live preparation authorization; effective bootstrap, caller-window and execution-role readback; private receipt handling; explicit failed/partial preparation cleanup; handler calls/stabilization/rollback; narrower-principal closure; authentic pending ACM ARN/CNAME/API ID; effective propagation and exact-ID operation; WP-007 CloudTrail; and a later distinct execution authorization. **NOT DEPLOYMENT READY.** No policy or application resource represented here has been installed, and the proof roles remain permission-inert.
 
 Run focused bootstrap/initialization/infrastructure and affected release/boundary checks, full composed policy-size assertions, raw-binding/credential scans and diff checks. The separately authorized 2026-10-09 dependency remediation reran the audit and preserves the older records below as dated evidence rather than relabeling them. The historical upstream/CDK template digest and V3 publication identity remain independently checkable and unchanged by this package.
 

@@ -450,6 +450,77 @@ under a future authorization. This slice does not make resource-bearing
 assemblies acceptable to the ordinary release controller and is **NOT DEPLOYMENT
 READY**.
 
+### Certificate change-set preparation operator
+
+`bootstrap/certificate-change-set-preparation.mjs` binds the accepted assembly
+package and independently pinned change-set target to a future preparation-side
+operation. It constructs one exact inline-template `CREATE` request for the east
+certificate stack, its reviewed execution role and deterministic change-set
+name. The request has no parameter overrides, capabilities, notifications,
+nested stacks, imports, drift mode or validation bypass; it supplies the three
+ownership tags, `OnStackFailure=ROLLBACK` and the explicit empty rollback
+monitoring/trigger configuration. The reviewed template must fit the 51,200-byte
+inline limit. No S3 publication path or mutable template URL is introduced.
+
+The operator requires an injected transport. Before CreateChangeSet it obtains
+`GetCallerIdentity` and requires the exact account and reviewed CDK deploy-role
+identity derived from the canonical assembly. It then submits once, performs
+bounded status polling and explicit `NextToken` pagination, reads the original
+template, exact stack and stack resources, and stops at `CREATE_COMPLETE` /
+`AVAILABLE` with the stack still `REVIEW_IN_PROGRESS`. It never exposes or calls
+ExecuteChangeSet. Failure, timeout, wrong identity, unsupported option, response
+substitution, extra change or physical resource fails closed without automatic
+cleanup, retry or authority broadening.
+
+When a call has already produced evidence and preparation then fails, the thrown
+error retains the bounded raw transcript as a non-enumerable recovery property;
+it is not added to the error message or routine log representation. A future
+authorized caller must persist that private transcript before deciding any
+cleanup action. A transport failure also retains a separate non-enumerable
+failed-attempt record containing only the operation, canonical request, sanitized
+error code and available request ID; stderr and arbitrary error text are not
+retained. This preserves an ambiguous CreateChangeSet attempt for reconciliation.
+It is not a success receipt or permission to retry.
+
+Every request and unprojected CLI JSON response is retained with byte length,
+SHA-256 and any request ID surfaced by the transport. The preparation receipt
+also records each request/response sequence and the provenance of the normalized
+proposal passed to the existing canonical review adapter. DescribeChangeSet does
+not define `Replacement` for an `Add`; when it is absent, the receipt explicitly
+records `DERIVED_FALSE_FOR_ADD_WITHOUT_PRIOR_RESOURCE` while preserving the raw
+response. Change-set type and empty parameter overrides come from the submitted
+request; execution role comes from DescribeStacks. These mappings do not relax
+`certificate-change-set-review.mjs`.
+
+GetTemplate must expose the `Original` template. If the transport preserves it
+as a string, the operator requires exact submitted bytes. Standard AWS CLI uses
+botocore's CloudFormation response customization to JSON-decode a JSON template
+before formatting its output; for that documented shape, the operator requires
+canonical equality to the reviewed template and records
+`AWS_CLI_JSON_DECODED_CANONICAL_TEMPLATE_EQUIVALENCE`. The receipt then states
+`AWS_CLI_GET_TEMPLATE_EXACT_BYTES_UNAVAILABLE`; this is semantic correspondence,
+not service-held byte proof, and the adapter's stored-template limitation remains
+open. Standard successful AWS CLI JSON also does not guarantee a service request
+ID; the receipt preserves IDs when exposed and states the limitation when they
+are unavailable. Private live receipts must remain outside Git.
+
+`bootstrap/aws-cloudformation-cli.mjs` is the only concrete transport in this
+slice. It has a closed operation inventory (STS caller identity plus create and
+the four preparation readbacks), uses a private temporary JSON input file,
+explicit `us-east-1`, no shell, disabled paging/prompt/configured endpoint
+overrides and bounded process/socket timeouts. It has no ExecuteChangeSet
+operation and performs nothing on import. Caller validation limits identity
+substitution but does not prove the role's effective permissions or installed
+window cap.
+
+Local tests use an injected fixture transport and therefore establish only
+request construction, sequencing, normalization, failure handling and receipt
+validation. A future live preparation needs separate human authorization,
+effective bootstrap/execution/caller policy verification, a private receipt
+location, and an explicit failure/cleanup procedure because CreateChangeSet for
+a new stack creates a `REVIEW_IN_PROGRESS` stack object. Execution remains a
+later, distinct human decision. This operator is **NOT DEPLOYMENT READY**.
+
 No IAM policy/action inventory/composition changes. Existing initialization has
 RequestCertificate, AddTagsToCertificate, DescribeCertificate,
 ListTagsForCertificate and DeleteCertificate. Requests are constrained to the

@@ -79,9 +79,11 @@ export function customizeBootstrap(upstream, rawBytes) {
   p.DenyExternalId.AllowedValues = ["true"];
   p.BootstrapVariant.Default = VARIANT;
   p.BootstrapVariant.AllowedValues = [VARIANT];
+  delete p.CloudFormationExecutionPolicies.Default;
   p.CloudFormationExecutionPolicies.AllowedPattern = "^arn:aws:iam::[0-9]{12}:policy/ShelfStateV4DevCfnExecution(West|WestEdge|East)$";
-  // No AdministratorAccess fallback and no caller-selected union of execution policies.
-  // CLI parameter retained; exact expected argument is separately checked in intent below.
+  // The constrained CommaDelimitedList must be supplied explicitly: its upstream
+  // empty default cannot satisfy the exact-ARN pattern. No AdministratorAccess
+  // fallback or caller-selected policy union is permitted.
   template.Mappings = { ShelfStateRegions: {
     "us-west-2": { ExecutionPolicyName: "ShelfStateV4DevCfnExecutionWest" },
     "us-east-1": { ExecutionPolicyName: "ShelfStateV4DevCfnExecutionEast" },

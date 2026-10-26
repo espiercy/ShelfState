@@ -36,7 +36,7 @@ Upstream is the installed `aws-cdk@2.1141.0` file `node_modules/aws-cdk/lib/api/
 
 ShelfState variant: `ShelfState: Dev isolated modern bootstrap`, revision **2** (fixed two-policy west attachment). Custom JSON SHA-256:
 
-`8c31645f35ac96d221a07deced271376289e1a2e8723b72bf711c3b5d8b23888`
+`f7cb2367b0f9f61a16b3e8d20374560efc5030b0c9f07ed6756f1b20a391c273`
 
 This is a derivative, **not** the canonical upstream template. The upstream AWS CDK package/license remains its source. JSON serialization removes YAML comments but preserves the parsed contract except for the enumerated changes below. Tests first verify raw upstream bytes, then reconstruct and structurally compare both templates. An upstream update must fail review visibly; do not just replace the recorded digest.
 

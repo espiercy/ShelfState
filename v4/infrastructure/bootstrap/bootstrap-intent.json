@@ -62,11 +62,13 @@
       "dependency-security",
       "WP-006B-live-proof",
       "single-stack-effective-containment",
-      "handler-and-rollback-proof",
-      "staged-exact-dns-live-proof",
       "policy-review",
       "policy-creation-authorization",
       "bootstrap-authorization"
+    ],
+    "deferredCertificateOperationGates": [
+      "handler-and-rollback-proof",
+      "staged-exact-dns-live-proof"
     ]
   }
 ]

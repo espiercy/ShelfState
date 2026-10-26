@@ -170,7 +170,9 @@ No extra boundary is proposed for the bootstrap execution roles: duplicating the
 
 ## Future gates, operational stops and cost
 
-This package does not satisfy any live gate. Before a separately authorized bootstrap:
+This package does not satisfy any live gate. The generated east-only bootstrap intent now classifies `handler-and-rollback-proof` and `staged-exact-dns-live-proof` as deferred certificate-operation requirements rather than bootstrap-installation prerequisites. They remain explicit and unresolved before certificate execution, DNS validation or stabilization. The west bootstrap intent and its historical combined-region gate sequence below remain unchanged. This classification does not authorize bootstrap installation or any later certificate operation.
+
+Before a separately authorized combined-region bootstrap:
 
 1. Clear the unresolved dependency-security gate; do not reuse the V3 exception. Complete relevant WP-006B live proofs separately.
 2. Adjudicate generated-ID/lifecycle authority, create-time residuals, east DNS process and final generated-template compatibility. Validate concrete policies and review findings without automatic widening.

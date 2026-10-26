@@ -107,6 +107,8 @@ export function customizeBootstrap(upstream, rawBytes) {
 
 export function bootstrapIntent(region, account = "${ACCOUNT_ID}") {
   devStackNames(region);
+  const requiredGates = ["dependency-security", "WP-006B-live-proof", "single-stack-effective-containment", "handler-and-rollback-proof", "staged-exact-dns-live-proof", "policy-review", "policy-creation-authorization", "bootstrap-authorization"];
+  const eastDeferredCertificateOperationGates = ["handler-and-rollback-proof", "staged-exact-dns-live-proof"];
   return {
     status: "LOCAL_REVIEW_ONLY_NOT_AUTHORIZED", region, account,
     stackName: "CDKToolkit", terminationProtection: true, execute: false,
@@ -117,7 +119,10 @@ export function bootstrapIntent(region, account = "${ACCOUNT_ID}") {
       FileAssetsBucketKmsKeyId: "AWS_MANAGED_KEY", TrustedAccounts: "", TrustedAccountsForLookup: "",
       FileAssetsBucketName: "", ContainerAssetsRepositoryName: "", InputPermissionsBoundary: "",
       UseExamplePermissionsBoundary: "false", PublicAccessBlockConfiguration: "true", DenyExternalId: "true" },
-    requiredGates: ["dependency-security", "WP-006B-live-proof", "single-stack-effective-containment", "handler-and-rollback-proof", "staged-exact-dns-live-proof", "policy-review", "policy-creation-authorization", "bootstrap-authorization"],
+    requiredGates: region === "us-east-1"
+      ? requiredGates.filter(gate => !eastDeferredCertificateOperationGates.includes(gate))
+      : requiredGates,
+    ...(region === "us-east-1" ? { deferredCertificateOperationGates: eastDeferredCertificateOperationGates } : {}),
   };
 }
 

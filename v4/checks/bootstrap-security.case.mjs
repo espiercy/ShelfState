@@ -83,6 +83,31 @@ test("all policy/intent/adjudication snapshots exactly match deterministic defin
   }
 });
 
+test("east bootstrap intent defers certificate-operation gates without changing west", () => {
+  const commonBootstrapGates = ["dependency-security", "WP-006B-live-proof", "single-stack-effective-containment", "policy-review", "policy-creation-authorization", "bootstrap-authorization"];
+  const deferredCertificateOperationGates = ["handler-and-rollback-proof", "staged-exact-dns-live-proof"];
+  const eastIntent = bootstrapIntent("us-east-1", account);
+  assert.deepEqual(eastIntent.requiredGates, commonBootstrapGates);
+  assert.deepEqual(eastIntent.deferredCertificateOperationGates, deferredCertificateOperationGates);
+  assert.equal(eastIntent.status, "LOCAL_REVIEW_ONLY_NOT_AUTHORIZED");
+  assert.equal(eastIntent.execute, false);
+  assert.ok(eastIntent.requiredGates.includes("bootstrap-authorization"));
+  for (const gate of deferredCertificateOperationGates) {
+    assert.equal(eastIntent.requiredGates.includes(gate), false);
+    const changed = structuredClone(eastIntent);
+    changed.deferredCertificateOperationGates = changed.deferredCertificateOperationGates.filter(candidate => candidate !== gate);
+    assert.throws(() => assertBootstrapIntent(changed, "us-east-1", account));
+  }
+
+  const westIntent = bootstrapIntent("us-west-2", account);
+  assert.deepEqual(westIntent.requiredGates, [
+    "dependency-security", "WP-006B-live-proof", "single-stack-effective-containment",
+    ...deferredCertificateOperationGates,
+    "policy-review", "policy-creation-authorization", "bootstrap-authorization",
+  ]);
+  assert.equal(Object.hasOwn(westIntent, "deferredCertificateOperationGates"), false);
+});
+
 test("structural upstream comparison permits only the enumerated customizations", () => {
   const restored = structuredClone(template);
   for (const [name, p] of Object.entries(upstream.Parameters)) {

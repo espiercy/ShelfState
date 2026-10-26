@@ -19,7 +19,6 @@
     },
     "CloudFormationExecutionPolicies": {
       "Description": "List of the ManagedPolicy ARN(s) to attach to the CloudFormation deployment role",
-      "Default": "",
       "Type": "CommaDelimitedList",
       "AllowedPattern": "^arn:aws:iam::[0-9]{12}:policy/ShelfStateV4DevCfnExecution(West|WestEdge|East)$"
     },

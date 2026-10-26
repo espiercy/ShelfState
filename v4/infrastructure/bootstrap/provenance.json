@@ -4,7 +4,7 @@
   "upstreamSha256": "a484ad768d3446874161044d986bec096e201a54037c8ce93ed5a0d215e1dd25",
   "variant": "ShelfState: Dev isolated modern bootstrap",
   "revision": 2,
-  "customTemplateSha256": "8c31645f35ac96d221a07deced271376289e1a2e8723b72bf711c3b5d8b23888",
+  "customTemplateSha256": "f7cb2367b0f9f61a16b3e8d20374560efc5030b0c9f07ed6756f1b20a391c273",
   "serialization": "JSON, two-space indentation, LF, final newline",
   "status": "LOCAL_REVIEW_ONLY_NOT_DEPLOYABLE"
 }

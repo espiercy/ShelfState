@@ -112,7 +112,7 @@ test("structural upstream comparison permits only the enumerated customizations"
   const restored = structuredClone(template);
   for (const [name, p] of Object.entries(upstream.Parameters)) {
     const changed = restored.Parameters[name];
-    const allowedFields = new Set(["AllowedValues", ...(name === "CloudFormationExecutionPolicies" ? ["AllowedPattern"] : []), ...(["FileAssetsBucketKmsKeyId", "BootstrapVariant"].includes(name) ? ["Default"] : [])]);
+    const allowedFields = new Set(["AllowedValues", ...(name === "CloudFormationExecutionPolicies" ? ["AllowedPattern", "Default"] : []), ...(["FileAssetsBucketKmsKeyId", "BootstrapVariant"].includes(name) ? ["Default"] : [])]);
     for (const key of allowedFields) {
       if (Object.hasOwn(p, key)) changed[key] = p[key]; else delete changed[key];
     }
@@ -148,6 +148,20 @@ test("parameter constraints exclude alternate qualifier, trust, KMS and example 
     const { cond } = resolveTemplate(region);
     for (const disabled of ["CreateNewKey", "ShouldCreatePermissionsBoundary", "HasTrustedAccounts", "HasTrustedAccountsForLookup"]) assert.equal(cond(disabled), false);
     assert.equal(Object.values(template.Resources).filter(r => !r.Condition || cond(r.Condition)).length, 11);
+  }
+});
+
+test("execution-policy list requires an explicit constrained value without an invalid default", () => {
+  const parameter = template.Parameters.CloudFormationExecutionPolicies;
+  assert.equal(parameter.Type, "CommaDelimitedList");
+  assert.equal(Object.hasOwn(parameter, "Default"), false);
+  assert.equal(parameter.AllowedPattern, "^arn:aws:iam::[0-9]{12}:policy/ShelfStateV4DevCfnExecution(West|WestEdge|East)$");
+  const allowed = new RegExp(parameter.AllowedPattern);
+  assert.equal(allowed.test(""), false, "The rejected upstream empty default must remain invalid");
+  for (const region of REGIONS) {
+    const supplied = bootstrapIntent(region, account).parameters.CloudFormationExecutionPolicies.split(",");
+    assert.ok(supplied.length > 0);
+    for (const value of supplied) assert.match(value, allowed);
   }
 });
 

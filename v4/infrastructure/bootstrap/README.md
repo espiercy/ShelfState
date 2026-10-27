@@ -59,6 +59,35 @@ The canonical conditional key, alias and example-boundary declarations remain, b
 
 Termination protection is a **stack operation/configuration**, not a template IAM property. Both intent entries require it; later authorized bootstrap must read it back. SSM uses the canonical version parameter; any account default that would cause an unexpected advanced-tier charge must be resolved before live execution.
 
+## Deployment-role authority transition review
+
+The installed deployment role and its sole `shelfstate-dev-only` inline policy
+are CloudFormation-owned. `bootstrap-authority-transition.mjs` therefore
+prepares a narrowly scoped `CDKToolkit` template transition instead of mutating
+IAM directly. It pins the accepted bootstrap template SHA-256, independently
+pins the existing certificate change-set target, reuses `callerWindowCap` for
+prepare/execute/closed, and replaces only the existing inline policy document.
+Restoring that one document must reproduce the complete baseline template;
+extra policies, permissions, resources, parameters, trust or role changes fail.
+
+The output is deterministic, self-validating review material. It includes the
+ordinary baseline identity, proposed template and policy identities, exact
+east/account/stack/physical-role/configuration bindings, a deterministic
+`UPDATE` change-set request projection and an expected single non-replacing
+`Policies` change. A separate comparator can check a normalized, independently
+authenticated CloudFormation readback, including complete pagination and the
+physical role identity. The comparator does not authenticate its input.
+
+This module cannot call AWS, create or execute a change set, update the stack,
+or verify effective IAM. Prepare still needs authenticated existing-stack and
+template/parameter readback plus a real transition change-set review. An
+execute-state package requires an immutable certificate change-set ID and an
+independently pinned certificate review-package digest, but local validation of
+those fields is not AWS authentication; authentic readback and a distinct human
+authorization remain mandatory. Closed requires terminal-operation and
+effective-policy readback. No prepare-only policy is claimed installed by this
+local component.
+
 ## Exact deployment-role scope
 
 Stack ARNs use `arn:aws:cloudformation:<region>:<account>:stack/<exact-name>/*`; the suffix represents the generated stack ID, not a wildcard stack name. Names are derived from the existing capability/naming modules:

@@ -10,7 +10,6 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import {
   canonical,
   parseEvidenceJson,
@@ -72,6 +71,15 @@ function defaultExecute(command, args, options) {
   };
 }
 
+export function awsCliInputFileReference(inputPath) {
+  assert.equal(typeof inputPath, "string");
+  assert.ok(inputPath.length > 0 && !/[\r\n\0]/.test(inputPath), "Invalid AWS CLI input path");
+  // The AWS CLI paramfile loader removes the literal file:// prefix and opens
+  // the remainder as a native path. A WHATWG Windows file URL adds a leading
+  // slash (file:///C:/...), which leaves /C:/... and fails before any request.
+  return `file://${inputPath}`;
+}
+
 function normalizeExecutionResult(result) {
   if (typeof result === "string" || Buffer.isBuffer(result)) {
     return { stdout: result, requestId: null };
@@ -98,7 +106,7 @@ function invoke(command, execute, environment, cwd, operation, input, timeoutMs)
       service,
       cliOperation,
       "--cli-input-json",
-      pathToFileURL(inputPath).href,
+      awsCliInputFileReference(inputPath),
       "--region",
       REGION,
       "--output",

@@ -4,7 +4,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { App } from "aws-cdk-lib";
 import { createEnvironmentTopology } from "../infrastructure/lib/topology.mjs";
 import { resolveEnvironmentConfig } from "../infrastructure/lib/environment.mjs";
@@ -30,6 +29,7 @@ import {
 import {
   AWS_CLOUDFORMATION_CLI_OPERATIONS,
   AwsCloudFormationCliError,
+  awsCliInputFileReference,
   createAwsCloudFormationCliTransport,
 } from "../infrastructure/bootstrap/aws-cloudformation-cli.mjs";
 import { canonical, hash, hashObject } from "../scripts/release/schema.mjs";
@@ -454,7 +454,10 @@ test("AWS CLI transport uses a private structured input file, explicit region an
     timeoutMs: 10_000,
     execute(command, args, options) {
       captured = { command, args, options };
-      inputPath = fileURLToPath(args[args.indexOf("--cli-input-json") + 1]);
+      const inputReference = args[args.indexOf("--cli-input-json") + 1];
+      assert.ok(inputReference.startsWith("file://"));
+      inputPath = inputReference.slice("file://".length);
+      assert.equal(inputReference, awsCliInputFileReference(inputPath));
       assert.deepEqual(JSON.parse(readFileSync(inputPath, "utf8")), {});
       return { stdout: canonical(callerResponse()), requestId: "fixture-request-cli" };
     },
@@ -480,6 +483,14 @@ test("AWS CLI transport uses a private structured input file, explicit region an
     input: {},
   }), /Unsupported AWS CLI operation/);
   assert.ok(!AWS_CLOUDFORMATION_CLI_OPERATIONS.includes("cloudformation:ExecuteChangeSet"));
+});
+
+test("AWS CLI paramfile references preserve native Windows paths", () => {
+  const windowsPath = String.raw`C:\Users\Example\AppData\Local\Temp\shelfstate-wp007-aws-cli\input.json`;
+  const reference = awsCliInputFileReference(windowsPath);
+  assert.equal(reference, `file://${windowsPath}`);
+  assert.equal(reference.slice("file://".length), windowsPath);
+  assert.doesNotMatch(reference, /^file:\/\/\/[A-Za-z]:\//);
 });
 
 test("AWS CLI errors are bounded and do not expose captured stderr", async () => {

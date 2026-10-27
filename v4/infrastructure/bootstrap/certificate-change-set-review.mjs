@@ -95,7 +95,7 @@ export function certificateChangeSetReviewTarget(assemblyReviewBytes, trustedAss
   return { ...core, changeSetName: `wp007-${hashObject(core)}` };
 }
 
-function assertTarget(value, trustedTargetSha256) {
+export function assertCertificateChangeSetReviewTarget(value, trustedTargetSha256) {
   object(value, [
     "schema",
     "account",
@@ -234,7 +234,7 @@ function normalizedChangeSet(proposal) {
 }
 
 function validateBoundReview(assemblyBytes, trustedAssemblyReviewSha256, reviewTarget, trustedTargetSha256, proposal) {
-  assertTarget(reviewTarget, trustedTargetSha256);
+  assertCertificateChangeSetReviewTarget(reviewTarget, trustedTargetSha256);
   assert.equal(hash(assemblyBytes), trustedAssemblyReviewSha256, "Assembly review package substitution");
   const assembly = parseCertificateAssemblyReviewPackage(assemblyBytes, {
     account: reviewTarget.account,
@@ -305,7 +305,7 @@ export function assertCertificateChangeSetReviewPackage(value) {
   assert.equal(value.executionAuthorized, false, "Review package must never authorize execution");
   object(value.authority, ["createChangeSetAuthorized", "executeChangeSetAuthorized"], "operation authority boundary");
   equal(value.authority, { createChangeSetAuthorized: false, executeChangeSetAuthorized: false }, "Review package cannot grant CloudFormation authority");
-  assertTarget(value.target, value.trustedTargetSha256);
+  assertCertificateChangeSetReviewTarget(value.target, value.trustedTargetSha256);
   object(value.source, ["assemblyReview", "proposal"], "certificate change-set source material");
   const assembly = parseRaw(value.source.assemblyReview, "assembly review package");
   assert.equal(value.source.assemblyReview.sha256, value.target.assemblyReviewSha256, "Trusted assembly source identity substitution");

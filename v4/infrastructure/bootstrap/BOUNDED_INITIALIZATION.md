@@ -58,6 +58,40 @@ The cap includes explicit denies that defeat the old six-stack allow for mutatio
 
 The pinned CDK general deployment path is not declared compatible with this two-stage authorization switch. Future tooling must stop between non-executing preparation and execution; direct/hotswap/repair fallback remains prohibited. No workflow activation is needed to prepare/test these controls locally.
 
+### CloudFormation-owned deployment-role transition
+
+`bootstrap-authority-transition.mjs` closes the local ownership gap without
+introducing a direct IAM writer. It accepts the byte-pinned accepted bootstrap
+template and an independently pinned certificate change-set target, then
+constructs a proposed `CDKToolkit` template whose only difference is the
+replacement of
+`DeploymentActionRole.Properties.Policies[0].PolicyDocument`. The existing
+`shelfstate-dev-only` policy entry, role name, trust, attachments, boundary,
+tags, every other resource, all parameters and all outputs remain identical.
+The accepted installed template remains the ordinary-authority historical
+baseline; each prepare, execute or closed proposal has a separate deterministic
+template, policy and transition change-set identity.
+
+The package records an exact east/account/stack/physical-role binding, the
+accepted bootstrap parameters, `CAPABILITY_NAMED_IAM`, termination-protection
+requirement, certificate target pin and the expected single non-replacing
+`AWS::IAM::Role` `Policies` modification. Its comparator rejects additions,
+deletions, replacement, another logical/physical role, another property,
+incomplete pagination or substituted template/parameters. All operation
+authority flags are false and the module has no AWS transport. A locally
+matching projection is not an authenticated CloudFormation change set.
+
+Prepare may proceed only after authenticated baseline/configuration readback
+and review of a real `UPDATE` change set. An execute-state package additionally
+requires the immutable certificate change-set ID plus an independently pinned
+certificate review-package digest; those local bindings still require authentic
+readback, independent review and a distinct human authorization. Closed
+requires terminal certificate-operation evidence and effective-policy
+readback. Actual transition creation/execution,
+CloudFormation replacement evaluation, termination-protection readback and
+effective IAM state remain later live gates; no caller-supplied approval flag
+can close them.
+
 ## Action inventory and residuals
 
 The executable inventory is `ACTION_INVENTORY`; all rows separate create, read/stabilization, rollback, exact steady update, replacement and outstanding proof.

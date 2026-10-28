@@ -82,6 +82,7 @@ before(async () => {
         notificationArns: [],
         onStackFailure: "ROLLBACK",
         rollbackConfiguration: { monitoringTimeInMinutes: 0, rollbackTriggers: [] },
+        deploymentConfig: { mode: "STANDARD", disableRollback: false },
         status: "CREATE_COMPLETE",
         executionStatus: "AVAILABLE",
         paginationComplete: true,
@@ -137,6 +138,7 @@ test("canonical certificate assembly and proposed change set produce determinist
   assert.deepEqual(value.review.rollback, {
     onStackFailure: "ROLLBACK",
     rollbackConfiguration: { monitoringTimeInMinutes: 0, rollbackTriggers: [] },
+    deploymentConfig: { mode: "STANDARD", disableRollback: false },
     disableRollback: "MUST_BE_OMITTED",
     retainExceptOnCreate: false,
   });
@@ -208,6 +210,9 @@ test("DescribeChangeSet projection rejects incomplete, substituted or unsupporte
     p => { p.describeReadback.notificationArns = ["other"]; },
     p => { p.describeReadback.onStackFailure = "DO_NOTHING"; },
     p => { p.describeReadback.rollbackConfiguration.monitoringTimeInMinutes = 5; },
+    p => { p.describeReadback.deploymentConfig.mode = "EXPRESS"; },
+    p => { p.describeReadback.deploymentConfig.disableRollback = true; },
+    p => { p.describeReadback.deploymentConfig.other = true; },
     p => { p.describeReadback.status = "CREATE_IN_PROGRESS"; },
     p => { p.describeReadback.executionStatus = "UNAVAILABLE"; },
     p => { p.describeReadback.paginationComplete = false; },
@@ -219,6 +224,13 @@ test("DescribeChangeSet projection rejects incomplete, substituted or unsupporte
     p => { p.describeReadback.changes.push(structuredClone(p.describeReadback.changes[0])); },
     p => { p.describeReadback.physicalResources.Certificate = "guessed"; },
   ]) rejectProposal(mutate);
+});
+
+test("DescribeChangeSet projection remains compatible when DeploymentConfig is absent", () => {
+  const candidate = structuredClone(proposal);
+  delete candidate.describeReadback.deploymentConfig;
+  const value = parseCertificateChangeSetReviewPackage(create(candidate));
+  assert.equal(Object.hasOwn(value.review.rollback, "deploymentConfig"), false);
 });
 
 test("future execution remains separate and prohibits DisableRollback or retained create resources", () => {

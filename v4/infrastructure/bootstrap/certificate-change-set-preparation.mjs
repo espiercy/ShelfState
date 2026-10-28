@@ -324,6 +324,43 @@ function assertRollback(value, label) {
   equal(value, ROLLBACK_CONFIGURATION, `${label}: rollback configuration substitution`);
 }
 
+function assertStackTags(value, label) {
+  assert.ok(Array.isArray(value), `${label}: tags array required`);
+  assert.equal(value.length, STACK_TAGS.length, `${label}: exact tag count required`);
+  const entries = value.map((tag) => {
+    allowedKeys(tag, ["Key", "Value"], `${label} tag`);
+    assert.equal(typeof tag.Key, "string", `${label}: tag key required`);
+    assert.equal(typeof tag.Value, "string", `${label}: tag value required`);
+    return [tag.Key, tag.Value];
+  });
+  assert.equal(new Set(entries.map(([key]) => key)).size, entries.length, `${label}: duplicate tag key`);
+  equal(Object.fromEntries(entries), Object.fromEntries(STACK_TAGS.map(({ Key, Value }) => [Key, Value])),
+    `${label}: tag substitution`);
+}
+
+function deploymentConfig(response, label) {
+  if (!Object.hasOwn(response, "DeploymentConfig")) return null;
+  const deployment = allowedKeys(
+    response.DeploymentConfig,
+    ["DisableRollback", "Mode"],
+    `${label} deployment configuration`,
+  );
+  const hasMode = Object.hasOwn(deployment, "Mode");
+  const hasDisableRollback = Object.hasOwn(deployment, "DisableRollback");
+  const mode = hasMode ? deployment.Mode : "STANDARD";
+  const disableRollback = hasDisableRollback ? deployment.DisableRollback : false;
+  assert.equal(mode, "STANDARD", "Express deployment mode is unsupported");
+  assert.equal(disableRollback, false, "Deployment configuration cannot disable rollback");
+  return {
+    value: { mode, disableRollback },
+    provenance: {
+      fieldSource: label,
+      modeSource: hasMode ? label : "AWS_DOCUMENTED_DEFAULT_STANDARD",
+      disableRollbackSource: hasDisableRollback ? label : "AWS_DOCUMENTED_DEFAULT_FALSE",
+    },
+  };
+}
+
 function assertDescribeBase(response, created, target) {
   allowedKeys(response, [
     "Capabilities",
@@ -331,6 +368,7 @@ function assertDescribeBase(response, created, target) {
     "ChangeSetId",
     "ChangeSetName",
     "CreationTime",
+    "DeploymentConfig",
     "ExecutionStatus",
     "ImportExistingResources",
     "IncludeNestedStacks",
@@ -355,13 +393,14 @@ function assertDescribeBase(response, created, target) {
   equal(response.NotificationARNs ?? [], [], "Unexpected notification ARNs");
   assert.equal(response.OnStackFailure, "ROLLBACK", "Rollback-mode substitution");
   assertRollback(response.RollbackConfiguration, "DescribeChangeSet");
-  equal(response.Tags, STACK_TAGS, "Stack tag substitution");
+  assertStackTags(response.Tags, "DescribeChangeSet");
   assertDefaultParameters(response.Parameters, "DescribeChangeSet");
   assert.ok(Array.isArray(response.Changes), "DescribeChangeSet changes array required");
   if (Object.hasOwn(response, "NextToken")) {
     assert.equal(typeof response.NextToken, "string", "Invalid pagination token");
     assert.ok(response.NextToken.length >= 1 && response.NextToken.length <= 1024 && !/[\x00-\x1f]/.test(response.NextToken), "Invalid pagination token");
   }
+  return deploymentConfig(response, "DESCRIBE_CHANGE_SET");
 }
 
 function describeRequest(created, nextToken) {
@@ -435,6 +474,7 @@ function assertStackResponse(response, created, target) {
     "CreationTime",
     "Description",
     "DisableRollback",
+    "DeploymentConfig",
     "DriftInformation",
     "EnableTerminationProtection",
     "LastUpdatedTime",
@@ -462,9 +502,10 @@ function assertStackResponse(response, created, target) {
   equal(stack.Capabilities ?? [], [], "Unexpected prepared stack capabilities");
   equal(stack.NotificationARNs ?? [], [], "Unexpected prepared stack notification ARNs");
   equal(stack.Outputs ?? [], [], "Unexecuted prepared stack must not have outputs");
-  equal(stack.Tags, STACK_TAGS, "Prepared stack tag substitution");
+  assertStackTags(stack.Tags, "DescribeStacks");
   assertRollback(stack.RollbackConfiguration, "DescribeStacks");
   assertDefaultParameters(stack.Parameters, "DescribeStacks");
+  return deploymentConfig(stack, "DESCRIBE_STACKS");
 }
 
 function assertResourcesResponse(response) {
@@ -503,6 +544,7 @@ function normalizeTranscript(calls, assembly, template, target, create) {
   assert.ok(parsed.slice(2, templateIndex).every((call) => call.operation === DESCRIBE_OPERATION), "Unsupported operation in change-set polling");
 
   let terminal;
+  let terminalDeploymentConfig;
   let nextToken;
   let paginating = false;
   let pollingAttempts = 0;
@@ -516,7 +558,7 @@ function normalizeTranscript(calls, assembly, template, target, create) {
     }
     const expectedRequest = describeRequest(created, paginating ? nextToken : undefined);
     equal(call.request, expectedRequest, "DescribeChangeSet request/pagination correspondence changed");
-    assertDescribeBase(call.response, created, target);
+    const deploymentConfig = assertDescribeBase(call.response, created, target);
     if (!terminal) {
       if (call.response.Status === "FAILED") {
         throw new CertificateChangeSetPreparationError("CHANGE_SET_FAILED", "CloudFormation reported failed change-set preparation");
@@ -524,6 +566,7 @@ function normalizeTranscript(calls, assembly, template, target, create) {
       if (call.response.Status === "CREATE_COMPLETE") {
         assert.equal(call.response.ExecutionStatus, "AVAILABLE", "Prepared change set unavailable");
         terminal = call.response;
+        terminalDeploymentConfig = deploymentConfig;
         terminalChanges.push(...call.response.Changes);
         nextToken = call.response.NextToken;
         paginating = nextToken !== undefined;
@@ -538,6 +581,7 @@ function normalizeTranscript(calls, assembly, template, target, create) {
       assert.ok(paginationTokens.size <= 100, "DescribeChangeSet pagination exceeds supported bound");
       assert.equal(call.response.Status, "CREATE_COMPLETE");
       assert.equal(call.response.ExecutionStatus, "AVAILABLE");
+      equal(deploymentConfig, terminalDeploymentConfig, "DescribeChangeSet deployment configuration changed across pages");
       terminalChanges.push(...call.response.Changes);
       nextToken = call.response.NextToken;
       paginating = nextToken !== undefined;
@@ -558,7 +602,12 @@ function normalizeTranscript(calls, assembly, template, target, create) {
 
   const stackCall = parsed[templateIndex + 1];
   equal(stackCall.request, { StackName: created.StackId }, "DescribeStacks request correspondence changed");
-  assertStackResponse(stackCall.response, created, target);
+  const stackDeploymentConfig = assertStackResponse(stackCall.response, created, target);
+  equal(
+    stackDeploymentConfig?.value ?? { mode: "STANDARD", disableRollback: false },
+    terminalDeploymentConfig?.value ?? { mode: "STANDARD", disableRollback: false },
+    "DescribeStacks/DescribeChangeSet deployment configuration mismatch",
+  );
 
   const resourcesCall = parsed[templateIndex + 2];
   equal(resourcesCall.request, { StackName: created.StackId }, "DescribeStackResources request correspondence changed");
@@ -597,6 +646,9 @@ function normalizeTranscript(calls, assembly, template, target, create) {
       notificationArns: [],
       onStackFailure: "ROLLBACK",
       rollbackConfiguration: { monitoringTimeInMinutes: 0, rollbackTriggers: [] },
+      ...(terminalDeploymentConfig === null ? {} : {
+        deploymentConfig: structuredClone(terminalDeploymentConfig.value),
+      }),
       status: terminal.Status,
       executionStatus: terminal.ExecutionStatus,
       paginationComplete: true,
@@ -620,6 +672,9 @@ function normalizeTranscript(calls, assembly, template, target, create) {
       parameterOverridesSource: "SUBMITTED_EMPTY_OVERRIDE_SET",
       replacementSource: change.replacementSource,
       templateComparison,
+      ...(terminalDeploymentConfig === null ? {} : {
+        deploymentConfig: structuredClone(terminalDeploymentConfig.provenance),
+      }),
     },
   };
 }
@@ -754,6 +809,176 @@ export function parseCertificateChangeSetPreparationReceipt(bytes) {
   return assertCertificateChangeSetPreparationReceipt(parseEvidenceJson(bytes));
 }
 
+async function collectPreparedChangeSet(state, createResponse, trusted) {
+  let terminal;
+  for (let attempt = 1; attempt <= state.polling.maxAttempts; attempt++) {
+    const response = await transportCall(state, DESCRIBE_OPERATION, describeRequest(createResponse));
+    assertDescribeBase(response, createResponse, trusted.target);
+    if (response.Status === "FAILED") {
+      throw new CertificateChangeSetPreparationError("CHANGE_SET_FAILED", "CloudFormation reported failed change-set preparation");
+    }
+    if (response.Status === "CREATE_COMPLETE") {
+      assert.equal(response.ExecutionStatus, "AVAILABLE", "Prepared change set unavailable");
+      terminal = response;
+      break;
+    }
+    assert.ok(["CREATE_PENDING", "CREATE_IN_PROGRESS"].includes(response.Status), "Unexpected change-set status while polling");
+    assert.equal(response.ExecutionStatus, "UNAVAILABLE", "In-progress change set unexpectedly executable");
+    if (attempt < state.polling.maxAttempts) await state.polling.sleep(state.polling.intervalMs);
+  }
+  if (!terminal) {
+    throw new CertificateChangeSetPreparationError("POLLING_EXHAUSTED", "Change-set preparation did not complete within the bounded polling attempts");
+  }
+
+  const terminalChanges = [...terminal.Changes];
+  let nextToken = terminal.NextToken;
+  const paginationTokens = new Set();
+  while (nextToken !== undefined) {
+    if (paginationTokens.has(nextToken)) {
+      throw new CertificateChangeSetPreparationError("PAGINATION_CYCLE", "DescribeChangeSet returned a repeated pagination token");
+    }
+    if (paginationTokens.size >= state.polling.maxPages) {
+      throw new CertificateChangeSetPreparationError("PAGINATION_EXHAUSTED", "DescribeChangeSet exceeded the bounded pagination limit");
+    }
+    paginationTokens.add(nextToken);
+    const page = await transportCall(state, DESCRIBE_OPERATION, describeRequest(createResponse, nextToken));
+    assertDescribeBase(page, createResponse, trusted.target);
+    assert.equal(page.Status, "CREATE_COMPLETE");
+    assert.equal(page.ExecutionStatus, "AVAILABLE");
+    terminalChanges.push(...page.Changes);
+    nextToken = page.NextToken;
+  }
+  assert.equal(terminalChanges.length, 1, "Exact single certificate change required");
+  assertSuccessfulChange(terminalChanges[0]);
+
+  const templateResponse = await transportCall(state, TEMPLATE_OPERATION, {
+    ChangeSetName: createResponse.Id,
+    StackName: createResponse.StackId,
+    TemplateStage: "Original",
+  });
+  assertTemplateResponse(templateResponse, trusted.template);
+  const stackResponse = await transportCall(state, STACK_OPERATION, { StackName: createResponse.StackId });
+  assertStackResponse(stackResponse, createResponse, trusted.target);
+  const resourcesResponse = await transportCall(state, RESOURCES_OPERATION, { StackName: createResponse.StackId });
+  assertResourcesResponse(resourcesResponse);
+}
+
+function preservedPreparationTranscript(bytes, trusted, create, expectedChangeSetId, expectedStackId) {
+  const transcriptBytes = Buffer.from(bytes);
+  const calls = parseEvidenceJson(transcriptBytes);
+  assert.ok(Array.isArray(calls) && calls.length >= 2, "Preserved preparation transcript requires caller and CreateChangeSet evidence");
+  const parsed = calls.map((call, index) => parseCall(call, index + 1));
+  assert.equal(parsed[0].operation, CALLER_OPERATION);
+  equal(parsed[0].request, {}, "Preserved GetCallerIdentity request changed");
+  assertCallerResponse(parsed[0].response, expectedCaller(trusted.assembly));
+  assert.equal(parsed[1].operation, CREATE_OPERATION);
+  equal(parsed[1].request, create, "Preserved CreateChangeSet request changed");
+  const created = assertCreateResponse(parsed[1].response, trusted.target);
+  assert.equal(created.Id, expectedChangeSetId, "Existing change-set identity changed");
+  assert.equal(created.StackId, expectedStackId, "Existing prepared-stack identity changed");
+  for (const call of parsed.slice(2)) {
+    assert.equal(call.operation, DESCRIBE_OPERATION, "Preserved transcript contains unsupported post-create operation");
+    equal(call.request, describeRequest(created, call.request.NextToken), "Preserved DescribeChangeSet request changed");
+    assertDescribeBase(call.response, created, trusted.target);
+    assert.ok(["CREATE_PENDING", "CREATE_IN_PROGRESS", "CREATE_COMPLETE", "FAILED"].includes(call.response.Status),
+      "Preserved transcript has unsupported change-set state");
+  }
+  return { calls, created, transcriptBytes };
+}
+
+function resequence(calls) {
+  return calls.map((call, index) => ({ ...structuredClone(call), sequence: index + 1 }));
+}
+
+export async function reviewExistingCertificateChangeSet({
+  assemblyReviewBytes,
+  trustedAssemblyReviewSha256,
+  trustedTarget,
+  trustedTargetSha256,
+  preservedTranscriptBytes,
+  expectedChangeSetId,
+  expectedStackId,
+  transport,
+  polling,
+}) {
+  assertTransport(transport);
+  const settings = normalizePolling(polling);
+  const trusted = trustedInputs(
+    assemblyReviewBytes,
+    trustedAssemblyReviewSha256,
+    trustedTarget,
+    trustedTargetSha256,
+  );
+  const inputs = {
+    ...trusted,
+    assemblyReviewSha256: trustedAssemblyReviewSha256,
+    target: trustedTarget,
+    trustedTargetSha256,
+  };
+  const create = createRequest(trusted.template, trustedTarget);
+  const preserved = preservedPreparationTranscript(
+    preservedTranscriptBytes,
+    inputs,
+    create,
+    expectedChangeSetId,
+    expectedStackId,
+  );
+  const state = {
+    calls: [],
+    failedAttempt: null,
+    polling: settings,
+    startedAt: settings.now(),
+    transport,
+  };
+  try {
+    const callerResponse = await transportCall(state, CALLER_OPERATION, {});
+    assertCallerResponse(callerResponse, expectedCaller(trusted.assembly));
+    await collectPreparedChangeSet(state, preserved.created, inputs);
+    const freshCallerCall = structuredClone(state.calls[0]);
+    const freshReadbackCalls = state.calls.slice(1);
+    const receiptCalls = resequence([
+      preserved.calls[0],
+      preserved.calls[1],
+      ...freshReadbackCalls,
+    ]);
+    const receiptBytes = finishReceipt(inputs, transport, receiptCalls, create);
+    const continuation = {
+      schema: "shelfstate.wp007-certificate-change-set-review-continuation/v1",
+      executionAuthorized: false,
+      authority: {
+        createChangeSetInvoked: false,
+        executeChangeSetAuthorized: false,
+        executeChangeSetInvoked: false,
+      },
+      existing: {
+        changeSetId: preserved.created.Id,
+        stackId: preserved.created.StackId,
+      },
+      preservedTranscript: {
+        bytes: preserved.transcriptBytes.length,
+        sha256: hash(preserved.transcriptBytes),
+        retainedCallCount: 2,
+        supersededReadbackSequences: preserved.calls.slice(2).map((call) => call.sequence),
+      },
+      freshCallerCall,
+      freshReadbackCallCount: freshReadbackCalls.length,
+      receiptCallSources: receiptCalls.map((call, index) => ({
+        receiptSequence: call.sequence,
+        source: index < 2 ? "PRESERVED_AUTHENTICATED_PREPARATION" : "FRESH_AUTHENTICATED_READBACK",
+        sourceSequence: index < 2 ? preserved.calls[index].sequence : freshReadbackCalls[index - 2].sequence,
+        operation: call.operation,
+      })),
+      receiptSha256: hash(receiptBytes),
+    };
+    return {
+      receiptBytes,
+      continuationEvidenceBytes: Buffer.from(canonical(continuation)),
+    };
+  } catch (error) {
+    throw preserveFailureTranscript(error, state);
+  }
+}
+
 export async function prepareCertificateChangeSet({
   assemblyReviewBytes,
   trustedAssemblyReviewSha256,
@@ -792,57 +1017,7 @@ export async function prepareCertificateChangeSet({
       trustedTarget,
     );
 
-    let terminal;
-    for (let attempt = 1; attempt <= settings.maxAttempts; attempt++) {
-      const response = await transportCall(state, DESCRIBE_OPERATION, describeRequest(createResponse));
-      assertDescribeBase(response, createResponse, trustedTarget);
-      if (response.Status === "FAILED") {
-        throw new CertificateChangeSetPreparationError("CHANGE_SET_FAILED", "CloudFormation reported failed change-set preparation");
-      }
-      if (response.Status === "CREATE_COMPLETE") {
-        assert.equal(response.ExecutionStatus, "AVAILABLE", "Prepared change set unavailable");
-        terminal = response;
-        break;
-      }
-      assert.ok(["CREATE_PENDING", "CREATE_IN_PROGRESS"].includes(response.Status), "Unexpected change-set status while polling");
-      assert.equal(response.ExecutionStatus, "UNAVAILABLE", "In-progress change set unexpectedly executable");
-      if (attempt < settings.maxAttempts) await settings.sleep(settings.intervalMs);
-    }
-    if (!terminal) {
-      throw new CertificateChangeSetPreparationError("POLLING_EXHAUSTED", "Change-set preparation did not complete within the bounded polling attempts");
-    }
-
-    const terminalChanges = [...terminal.Changes];
-    let nextToken = terminal.NextToken;
-    const paginationTokens = new Set();
-    while (nextToken !== undefined) {
-      if (paginationTokens.has(nextToken)) {
-        throw new CertificateChangeSetPreparationError("PAGINATION_CYCLE", "DescribeChangeSet returned a repeated pagination token");
-      }
-      if (paginationTokens.size >= settings.maxPages) {
-        throw new CertificateChangeSetPreparationError("PAGINATION_EXHAUSTED", "DescribeChangeSet exceeded the bounded pagination limit");
-      }
-      paginationTokens.add(nextToken);
-      const page = await transportCall(state, DESCRIBE_OPERATION, describeRequest(createResponse, nextToken));
-      assertDescribeBase(page, createResponse, trustedTarget);
-      assert.equal(page.Status, "CREATE_COMPLETE");
-      assert.equal(page.ExecutionStatus, "AVAILABLE");
-      terminalChanges.push(...page.Changes);
-      nextToken = page.NextToken;
-    }
-    assert.equal(terminalChanges.length, 1, "Exact single certificate change required");
-    assertSuccessfulChange(terminalChanges[0]);
-
-    const templateResponse = await transportCall(state, TEMPLATE_OPERATION, {
-      ChangeSetName: createResponse.Id,
-      StackName: createResponse.StackId,
-      TemplateStage: "Original",
-    });
-    assertTemplateResponse(templateResponse, trusted.template);
-    const stackResponse = await transportCall(state, STACK_OPERATION, { StackName: createResponse.StackId });
-    assertStackResponse(stackResponse, createResponse, trustedTarget);
-    const resourcesResponse = await transportCall(state, RESOURCES_OPERATION, { StackName: createResponse.StackId });
-    assertResourcesResponse(resourcesResponse);
+    await collectPreparedChangeSet(state, createResponse, inputs);
     return finishReceipt(inputs, transport, state.calls, create);
   } catch (error) {
     throw preserveFailureTranscript(error, state);

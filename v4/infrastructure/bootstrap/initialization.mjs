@@ -15,6 +15,7 @@ const doc = Statement => ({ Version: "2012-10-17", Statement });
 const allow = (Sid, Action, Resource, Condition) => ({ Sid, Effect: "Allow", Action, Resource, ...(Condition ? { Condition } : {}) });
 const ownership = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK" };
 const owned = { StringEquals: Object.fromEntries(Object.entries(ownership).map(([k, v]) => [k.replace("RequestTag", "ResourceTag"), v])) };
+const certificateTagKeys = ["Project", "Environment", "ManagedBy", "aws:cloudformation:logical-id", "aws:cloudformation:stack-id", "aws:cloudformation:stack-name"];
 
 // Required service-level classes, NOT a claim of a fully observed handler trace.
 // Unknown handler requirements are proof obligations, never speculative grants.
@@ -85,13 +86,24 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
       const cert = `arn:aws:acm:us-east-1:${account}:certificate/${initial ? "*" : id(bindings.certificateId)}`;
       if (initial) {
         add("RequestExactCertificate", ["acm:RequestCertificate"], ["*"], {
-          StringEquals: { ...ownership, "aws:RequestedRegion": t.region, "acm:ValidationMethod": "DNS", "acm:Export": "DISABLED" },
+          // CloudFormation documents omitted export preference as non-exportable,
+          // while omitted validation defaults to EMAIL. Ownership request tags
+          // are constrained when present but are not treated as provider proof.
+          StringEquals: { "aws:RequestedRegion": t.region, "acm:ValidationMethod": "DNS" },
+          StringEqualsIfExists: { ...ownership, "acm:Export": "DISABLED" },
           "ForAllValues:StringEquals": { "acm:DomainNames": ["dev.shelfstate.codecorax.com"] },
           Null: { "acm:DomainNames": "false", "acm:CertificateAuthority": "true" },
         });
-        add("CertificateCreationTaggingResidual", ["acm:AddTagsToCertificate"], [cert], { StringEquals: ownership });
+        add("CertificateCreationTaggingResidual", ["acm:AddTagsToCertificate"], [cert], {
+          StringEquals: ownership,
+          "ForAllValues:StringEquals": { "aws:TagKeys": certificateTagKeys },
+          Null: { "aws:TagKeys": "false" },
+        });
       }
-      add("CertificateLifecycle", [...row.read, ...row.rollback, ...(initial ? [] : row.update)], [cert], initial ? owned : undefined);
+      // Before a physical ID and tags are authenticated, CloudFormation must be
+      // able to stabilize or roll back any certificate in this account/region
+      // pattern. Steady mode replaces that residual with the exact certificate.
+      add("CertificateLifecycle", [...row.read, ...row.rollback, ...(initial ? [] : row.update)], [cert]);
     }
   }
   return doc(statements);

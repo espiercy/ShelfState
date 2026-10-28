@@ -25,6 +25,7 @@ import {
   buildCertificateCreateChangeSetRequest,
   parseCertificateChangeSetPreparationReceipt,
   prepareCertificateChangeSet,
+  reviewExistingCertificateChangeSet,
 } from "../infrastructure/bootstrap/certificate-change-set-preparation.mjs";
 import {
   AWS_CLOUDFORMATION_CLI_OPERATIONS,
@@ -107,6 +108,7 @@ function describeResponse({
   status = "CREATE_COMPLETE",
   executionStatus = status === "CREATE_COMPLETE" ? "AVAILABLE" : "UNAVAILABLE",
   changes = [],
+  deploymentConfig = { Mode: "STANDARD", DisableRollback: false },
   nextToken,
 } = {}) {
   return {
@@ -124,7 +126,8 @@ function describeResponse({
     StackId: stackId,
     StackName: reviewTarget.stack,
     Status: status,
-    Tags: structuredClone(tags),
+    Tags: structuredClone([...tags].reverse()),
+    ...(deploymentConfig === null ? {} : { DeploymentConfig: structuredClone(deploymentConfig) }),
     ...(nextToken === undefined ? {} : { NextToken: nextToken }),
   };
 }
@@ -141,22 +144,59 @@ function certificateChange(replacement = undefined) {
   };
 }
 
-function stackResponse() {
+function stackResponse({ includeChangeSetId = true, includeParameters = true } = {}) {
   return {
     Stacks: [{
-      ChangeSetId: changeSetId,
+      ...(includeChangeSetId ? { ChangeSetId: changeSetId } : {}),
+      DeploymentConfig: { Mode: "STANDARD", DisableRollback: false },
       DisableRollback: false,
       EnableTerminationProtection: false,
-      Parameters: parameters(),
+      ...(includeParameters ? { Parameters: parameters() } : {}),
       RetainExceptOnCreate: false,
       RoleARN: reviewTarget.executionRole,
       RollbackConfiguration: structuredClone(rollback),
       StackId: stackId,
       StackName: reviewTarget.stack,
       StackStatus: "REVIEW_IN_PROGRESS",
-      Tags: structuredClone(tags),
+      Tags: structuredClone([...tags].reverse()),
     }],
   };
+}
+
+function capturedProviderDescribeResponse() {
+  const change = certificateChange();
+  change.ResourceChange.Scope = [];
+  change.ResourceChange.Details = [];
+  return {
+    ...describeResponse({ changes: [change] }),
+    CreationTime: "2026-10-27T16:29:12.000Z",
+  };
+}
+
+function capturedOptionalNullProviderDescribeResponse() {
+  return {
+    ...capturedProviderDescribeResponse(),
+    DeploymentMode: null,
+    Description: null,
+    ParentChangeSetId: null,
+    RootChangeSetId: null,
+    StackDriftStatus: null,
+    StatusReason: null,
+  };
+}
+
+function capturedProviderStackResponse() {
+  const response = stackResponse({ includeChangeSetId: false, includeParameters: false });
+  delete response.Stacks[0].RetainExceptOnCreate;
+  Object.assign(response.Stacks[0], {
+    CreationTime: "2026-10-27T16:29:12.000Z",
+    DriftInformation: { StackDriftStatus: "NOT_CHECKED" },
+    NotificationARNs: [],
+    RollbackConfiguration: {},
+    StackStatusReason: "User Initiated",
+    Tags: [],
+  });
+  return response;
 }
 
 function successfulResponses() {
@@ -279,6 +319,11 @@ test("prepares, paginates, reads back and emits deterministic non-executable rev
     .filter((call) => call.operation === "cloudformation:DescribeChangeSet")
     .every((call) => !Object.hasOwn(call.input, "IncludePropertyValues")));
   assert.equal(receipt.normalization.provenance.replacementSource, "DERIVED_FALSE_FOR_ADD_WITHOUT_PRIOR_RESOURCE");
+  assert.deepEqual(receipt.normalization.provenance.deploymentConfig, {
+    fieldSource: "DESCRIBE_CHANGE_SET",
+    modeSource: "DESCRIBE_CHANGE_SET",
+    disableRollbackSource: "DESCRIBE_CHANGE_SET",
+  });
   assert.ok(receipt.limitations.includes("LOCAL_FIXTURE_RESPONSES_NOT_AUTHENTIC_AWS_EVIDENCE"));
   const review = parseCertificateChangeSetReviewPackage(Buffer.from(receipt.reviewPackage.raw));
   assert.equal(review.executionAuthorized, false);
@@ -289,6 +334,339 @@ test("prepares, paginates, reads back and emits deterministic non-executable rev
     action: "Add",
     replacement: "False",
   }]);
+  assert.deepEqual(review.review.rollback.deploymentConfig, {
+    mode: "STANDARD",
+    disableRollback: false,
+  });
+});
+
+test("binds documented DeploymentConfig defaults and rejects unsupported deployment behavior", async (t) => {
+  await t.test("observed STANDARD with rollback enabled", async () => {
+    const receipt = parseCertificateChangeSetPreparationReceipt(
+      await prepareCertificateChangeSet(operatorInput(fakeTransport())),
+    );
+    const proposal = JSON.parse(receipt.normalization.proposal.raw);
+    assert.deepEqual(proposal.describeReadback.deploymentConfig, {
+      mode: "STANDARD",
+      disableRollback: false,
+    });
+  });
+  for (const [name, deploymentConfig, pattern] of [
+    ["EXPRESS", { Mode: "EXPRESS", DisableRollback: false }, /Express deployment mode/],
+    ["disabled rollback", { Mode: "STANDARD", DisableRollback: true }, /cannot disable rollback/],
+    ["unknown field", { Mode: "STANDARD", DisableRollback: false, Other: true }, /unsupported field/],
+    ["malformed object", "STANDARD", /object required/],
+    ["malformed mode", { Mode: 1, DisableRollback: false }, /Express deployment mode/],
+    ["malformed rollback", { Mode: "STANDARD", DisableRollback: "false" }, /cannot disable rollback/],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    for (const response of responses.filter((value) => Object.hasOwn(value, "DeploymentConfig"))) {
+      response.DeploymentConfig = structuredClone(deploymentConfig);
+    }
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      pattern,
+    );
+  });
+  for (const [name, deploymentConfig, expectedSources] of [
+    ["both documented defaults", {}, ["AWS_DOCUMENTED_DEFAULT_STANDARD", "AWS_DOCUMENTED_DEFAULT_FALSE"]],
+    ["default rollback", { Mode: "STANDARD" }, ["DESCRIBE_CHANGE_SET", "AWS_DOCUMENTED_DEFAULT_FALSE"]],
+    ["default mode", { DisableRollback: false }, ["AWS_DOCUMENTED_DEFAULT_STANDARD", "DESCRIBE_CHANGE_SET"]],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    for (const response of responses.filter((value) => Object.hasOwn(value, "DeploymentConfig"))) {
+      response.DeploymentConfig = structuredClone(deploymentConfig);
+    }
+    const receipt = parseCertificateChangeSetPreparationReceipt(
+      await prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+    );
+    assert.deepEqual(receipt.normalization.provenance.deploymentConfig, {
+      fieldSource: "DESCRIBE_CHANGE_SET",
+      modeSource: expectedSources[0],
+      disableRollbackSource: expectedSources[1],
+    });
+  });
+  await t.test("legacy absent field", async () => {
+    const responses = successfulResponses();
+    for (const response of responses.filter((value) => Object.hasOwn(value, "DeploymentConfig"))) {
+      delete response.DeploymentConfig;
+    }
+    const receipt = parseCertificateChangeSetPreparationReceipt(
+      await prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+    );
+    const proposal = JSON.parse(receipt.normalization.proposal.raw);
+    assert.equal(Object.hasOwn(proposal.describeReadback, "deploymentConfig"), false);
+    assert.equal(Object.hasOwn(receipt.normalization.provenance, "deploymentConfig"), false);
+  });
+});
+
+test("accepts service tag reordering while rejecting tag substitution", async (t) => {
+  const accepted = parseCertificateChangeSetPreparationReceipt(
+    await prepareCertificateChangeSet(operatorInput(fakeTransport())),
+  );
+  assert.equal(accepted.status, CERTIFICATE_CHANGE_SET_PREPARATION_STATUS);
+  for (const [name, mutate, pattern] of [
+    ["missing proposed tags", value => { value.splice(0); }, /exact tag count/],
+    ["changed value", value => { value[0].Value = "production"; }, /tag substitution/],
+    ["duplicate key", value => { value[1].Key = value[0].Key; }, /duplicate tag key/],
+    ["extra tag", value => { value.push({ Key: "Other", Value: "other" }); }, /exact tag count/],
+    ["unknown field", value => { value[0].Other = true; }, /unsupported field/],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    mutate(responses[4].Tags);
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      pattern,
+    );
+  });
+});
+
+test("continues review of the existing change set without another CreateChangeSet", async () => {
+  let preservedTranscript;
+  const interrupted = fakeTransport([
+    callerResponse(),
+    createResponse(),
+    describeResponse({ status: "CREATE_IN_PROGRESS" }),
+  ]);
+  await assert.rejects(
+    () => prepareCertificateChangeSet(operatorInput(interrupted, { maxAttempts: 1 })),
+    (error) => {
+      preservedTranscript = error.preparationTranscript;
+      return error instanceof CertificateChangeSetPreparationError &&
+        error.code === "POLLING_EXHAUSTED" &&
+        preservedTranscript.length === 3;
+    },
+  );
+
+  const continuationTransport = fakeTransport([
+    callerResponse(),
+    describeResponse({ changes: [certificateChange()] }),
+    { TemplateBody: JSON.parse(templateRaw), StagesAvailable: ["Original", "Processed"] },
+    stackResponse(),
+    { StackResources: [] },
+  ]);
+  const result = await reviewExistingCertificateChangeSet({
+    ...operatorInput(continuationTransport),
+    preservedTranscriptBytes: Buffer.from(canonical(preservedTranscript)),
+    expectedChangeSetId: changeSetId,
+    expectedStackId: stackId,
+  });
+  const receipt = parseCertificateChangeSetPreparationReceipt(result.receiptBytes);
+  const continuation = JSON.parse(result.continuationEvidenceBytes.toString("utf8"));
+  assert.equal(receipt.executionAuthorized, false);
+  assert.equal(continuation.executionAuthorized, false);
+  assert.deepEqual(continuation.authority, {
+    createChangeSetInvoked: false,
+    executeChangeSetAuthorized: false,
+    executeChangeSetInvoked: false,
+  });
+  assert.deepEqual(continuationTransport.calls.map((call) => call.operation), [
+    "sts:GetCallerIdentity",
+    "cloudformation:DescribeChangeSet",
+    "cloudformation:GetTemplate",
+    "cloudformation:DescribeStacks",
+    "cloudformation:DescribeStackResources",
+  ]);
+  assert.equal(continuationTransport.calls.some((call) =>
+    ["cloudformation:CreateChangeSet", "cloudformation:ExecuteChangeSet"].includes(call.operation)), false);
+  assert.deepEqual(receipt.calls.map((call) => call.operation), [
+    "sts:GetCallerIdentity",
+    "cloudformation:CreateChangeSet",
+    "cloudformation:DescribeChangeSet",
+    "cloudformation:GetTemplate",
+    "cloudformation:DescribeStacks",
+    "cloudformation:DescribeStackResources",
+  ]);
+  assert.deepEqual(continuation.preservedTranscript.supersededReadbackSequences, [3]);
+  assert.equal(continuation.freshReadbackCallCount, 4);
+  const review = parseCertificateChangeSetReviewPackage(Buffer.from(receipt.reviewPackage.raw));
+  assert.deepEqual(review.review.rollback.deploymentConfig, {
+    mode: "STANDARD",
+    disableRollback: false,
+  });
+});
+
+test("completes the remaining review path with the captured provider response representation", async () => {
+  let preservedTranscript;
+  await assert.rejects(
+    () => prepareCertificateChangeSet(operatorInput(fakeTransport([
+      callerResponse(),
+      createResponse(),
+      describeResponse({ status: "CREATE_IN_PROGRESS" }),
+    ]), { maxAttempts: 1 })),
+    (error) => {
+      preservedTranscript = error.preparationTranscript;
+      return error instanceof CertificateChangeSetPreparationError &&
+        error.code === "POLLING_EXHAUSTED";
+    },
+  );
+
+  const transport = fakeTransport([
+    callerResponse(),
+    capturedProviderDescribeResponse(),
+    { TemplateBody: JSON.parse(templateRaw), StagesAvailable: ["Original", "Processed"] },
+    capturedProviderStackResponse(),
+    { StackResources: [] },
+  ]);
+  const result = await reviewExistingCertificateChangeSet({
+    ...operatorInput(transport),
+    preservedTranscriptBytes: Buffer.from(canonical(preservedTranscript)),
+    expectedChangeSetId: changeSetId,
+    expectedStackId: stackId,
+  });
+  const receipt = parseCertificateChangeSetPreparationReceipt(result.receiptBytes);
+  const continuation = JSON.parse(result.continuationEvidenceBytes.toString("utf8"));
+  const review = parseCertificateChangeSetReviewPackage(Buffer.from(receipt.reviewPackage.raw));
+
+  assert.deepEqual(transport.calls.map((call) => call.operation), [
+    "sts:GetCallerIdentity",
+    "cloudformation:DescribeChangeSet",
+    "cloudformation:GetTemplate",
+    "cloudformation:DescribeStacks",
+    "cloudformation:DescribeStackResources",
+  ]);
+  assert.deepEqual(receipt.normalization.provenance.providerCompatibility, {
+    describeChangeSetDocumentedOptionalNullFields: [],
+    stackChangeSetIdentitySource:
+      "DESCRIBE_CHANGE_SET_ID_WITH_MATCHING_DESCRIBE_STACKS_STACK_ID",
+    stackParameterReadback: {
+      proposedParametersSource: "DESCRIBE_CHANGE_SET",
+      stackParametersObservation: "OMITTED",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    },
+    tagReadback: {
+      proposedTagsSource: "DESCRIBE_CHANGE_SET",
+      stackTagsObservation: "EMPTY_PLACEHOLDER_ARRAY",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    },
+    stackRollbackConfigurationReadback: {
+      proposedRollbackConfigurationSource: "DESCRIBE_CHANGE_SET",
+      stackRollbackConfigurationObservation: "EMPTY_PLACEHOLDER_OBJECT",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    },
+  });
+  assert.equal(
+    receipt.normalization.provenance.executionRoleSource,
+    "SUBMITTED_CREATE_CHANGE_SET_REQUEST_WITH_MATCHING_DESCRIBE_STACKS_ROLE_ARN",
+  );
+  assert.equal(receipt.normalization.provenance.rollbackConfigurationSource, "DESCRIBE_CHANGE_SET");
+  assert.equal(receipt.normalization.provenance.onStackFailureSource, "DESCRIBE_CHANGE_SET");
+  assert.equal(
+    receipt.normalization.provenance.templateComparison,
+    "AWS_CLI_JSON_DECODED_CANONICAL_TEMPLATE_EQUIVALENCE",
+  );
+  assert.equal(review.review.changeSetId, changeSetId);
+  assert.deepEqual(review.review.resourceChanges, [{
+    logicalId: "Certificate",
+    type: "AWS::CertificateManager::Certificate",
+    action: "Add",
+    replacement: "False",
+  }]);
+  assert.equal(continuation.executionAuthorized, false);
+  assert.equal(continuation.authority.createChangeSetInvoked, false);
+  assert.equal(continuation.authority.executeChangeSetInvoked, false);
+});
+
+test("accepts omitted optional placeholder stack tags without claiming application", async () => {
+  const responses = successfulResponses();
+  delete responses[6].Stacks[0].Tags;
+  const receipt = parseCertificateChangeSetPreparationReceipt(
+    await prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+  );
+  assert.deepEqual(receipt.normalization.provenance.providerCompatibility.tagReadback, {
+    proposedTagsSource: "DESCRIBE_CHANGE_SET",
+    stackTagsObservation: "OMITTED",
+    applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+  });
+});
+
+test("accepts documented optional null DescribeChangeSet fields from retained provider evidence", async () => {
+  const responses = successfulResponses();
+  const captured = capturedOptionalNullProviderDescribeResponse();
+  for (const response of [responses[3], responses[4]]) {
+    for (const field of [
+      "DeploymentMode",
+      "Description",
+      "ParentChangeSetId",
+      "RootChangeSetId",
+      "StackDriftStatus",
+    ]) response[field] = captured[field];
+  }
+  const receipt = parseCertificateChangeSetPreparationReceipt(
+    await prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+  );
+  assert.deepEqual(
+    receipt.normalization.provenance.providerCompatibility
+      .describeChangeSetDocumentedOptionalNullFields,
+    [
+      "DeploymentMode",
+      "Description",
+      "ParentChangeSetId",
+      "RootChangeSetId",
+      "StackDriftStatus",
+    ],
+  );
+});
+
+test("accepts empty or omitted placeholder parameters and rollback without claiming application", async (t) => {
+  for (const [name, mutate, parameterObservation, rollbackObservation] of [
+    [
+      "empty placeholder metadata",
+      (stack) => {
+        stack.Parameters = [];
+        stack.RollbackConfiguration = {};
+      },
+      "EMPTY_PLACEHOLDER_ARRAY",
+      "EMPTY_PLACEHOLDER_OBJECT",
+    ],
+    [
+      "omitted placeholder metadata",
+      (stack) => {
+        delete stack.Parameters;
+        delete stack.RollbackConfiguration;
+      },
+      "OMITTED",
+      "OMITTED",
+    ],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    mutate(responses[6].Stacks[0]);
+    const receipt = parseCertificateChangeSetPreparationReceipt(
+      await prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+    );
+    const compatibility = receipt.normalization.provenance.providerCompatibility;
+    assert.equal(compatibility.stackParameterReadback.stackParametersObservation,
+      parameterObservation);
+    assert.equal(compatibility.stackParameterReadback.applicationClaim,
+      "NOT_CLAIMED_BEFORE_EXECUTION");
+    assert.equal(
+      compatibility.stackRollbackConfigurationReadback.stackRollbackConfigurationObservation,
+      rollbackObservation,
+    );
+    assert.equal(compatibility.stackRollbackConfigurationReadback.applicationClaim,
+      "NOT_CLAIMED_BEFORE_EXECUTION");
+  });
+});
+
+test("rejects non-null unsupported optional provider fields", async (t) => {
+  for (const [field, value] of [
+    ["DeploymentMode", "REVERT_DRIFT"],
+    ["Description", "substituted"],
+    ["ParentChangeSetId", changeSetId],
+    ["RootChangeSetId", changeSetId],
+    ["StackDriftStatus", "IN_SYNC"],
+  ]) await t.test(field, async () => {
+    const response = describeResponse({ changes: [certificateChange()] });
+    response[field] = value;
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport([
+        callerResponse(),
+        createResponse(),
+        response,
+      ]))),
+      new RegExp(`DescribeChangeSet ${field} substitution`),
+    );
+  });
 });
 
 test("rejects wrong caller identity before CreateChangeSet", async () => {
@@ -359,6 +737,55 @@ test("rejects unexpected resource changes, execution role and physical resources
     responses[6].Stacks[0].RoleARN = responses[6].Stacks[0].RoleARN.replace("cfn-exec-role", "other-role");
     await assert.rejects(() => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))), /execution-role substitution/);
   });
+  await t.test("wrong optional stack change-set identity", async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].ChangeSetId = responses[6].Stacks[0].ChangeSetId.replace(
+      "fixture-change-set-id",
+      "substituted-change-set-id",
+    );
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      /Prepared stack\/change-set correspondence mismatch/,
+    );
+  });
+  await t.test("substituted nonempty stack parameters", async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].Parameters[0].ResolvedValue = "5";
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      /incompatible bootstrap version/,
+    );
+  });
+  for (const [name, value, pattern] of [
+    ["partial stack tags", tags.slice(0, 2), /exact tag count/],
+    ["substituted stack tag", tags.map((tag, index) => index === 0 ? { ...tag, Value: "production" } : tag), /tag substitution/],
+    ["duplicated stack tag", [tags[0], tags[0], tags[2]], /duplicate tag key/],
+    ["unexpected stack tag", [...tags, { Key: "Other", Value: "other" }], /exact tag count/],
+    ["malformed stack tags", "not-an-array", /tags array required/],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].Tags = structuredClone(value);
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      pattern,
+    );
+  });
+  for (const [name, value, pattern] of [
+    ["partial stack rollback configuration", { RollbackTriggers: [] }, /rollback configuration substitution/],
+    ["substituted stack rollback monitoring", { MonitoringTimeInMinutes: 1, RollbackTriggers: [] }, /rollback configuration substitution/],
+    ["substituted stack rollback trigger", {
+      MonitoringTimeInMinutes: 0,
+      RollbackTriggers: [{ Arn: "arn:aws:cloudwatch:us-east-1:111122223333:alarm/substituted", Type: "AWS::CloudWatch::Alarm" }],
+    }, /rollback configuration substitution/],
+    ["malformed stack rollback configuration", [], /rollback configuration object required/],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].RollbackConfiguration = structuredClone(value);
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      pattern,
+    );
+  });
   await t.test("existing physical resource", async () => {
     const responses = successfulResponses();
     responses[7].StackResources.push({
@@ -367,6 +794,14 @@ test("rejects unexpected resource changes, execution role and physical resources
       ResourceType: "AWS::CertificateManager::Certificate",
     });
     await assert.rejects(() => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))), /unexpected physical resources/);
+  });
+  await t.test("unsupported stack deployment configuration", async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].DeploymentConfig = { Mode: "EXPRESS", DisableRollback: false };
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      /Express deployment mode/,
+    );
   });
 });
 

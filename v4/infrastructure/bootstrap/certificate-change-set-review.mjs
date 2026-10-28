@@ -168,7 +168,7 @@ function assertProposal(value, reviewTarget) {
   assertRollbackConfiguration(request.rollbackConfiguration, "CreateChangeSet rollback configuration");
 
   const readback = value.describeReadback;
-  object(readback, [
+  const readbackFields = [
     "changeSetId",
     "changeSetName",
     "stackId",
@@ -189,7 +189,13 @@ function assertProposal(value, reviewTarget) {
     "paginationComplete",
     "changes",
     "physicalResources",
-  ], "DescribeChangeSet readback projection");
+  ];
+  assert.ok(readback && Object.getPrototypeOf(readback) === Object.prototype,
+    "DescribeChangeSet readback projection: object required");
+  assert.ok(Object.keys(readback).every((key) => [...readbackFields, "deploymentConfig"].includes(key)),
+    "DescribeChangeSet readback projection: unsupported field");
+  assert.ok(readbackFields.every((key) => Object.hasOwn(readback, key)),
+    "DescribeChangeSet readback projection: missing field");
   assert.equal(readback.changeSetName, request.changeSetName);
   assert.equal(readback.stackName, request.stackName);
   assert.equal(readback.changeSetType, request.changeSetType);
@@ -203,6 +209,11 @@ function assertProposal(value, reviewTarget) {
   equal(readback.notificationArns, request.notificationArns, "DescribeChangeSet notification substitution");
   assert.equal(readback.onStackFailure, request.onStackFailure, "DescribeChangeSet rollback-mode substitution");
   equal(readback.rollbackConfiguration, request.rollbackConfiguration, "DescribeChangeSet rollback-configuration substitution");
+  if (Object.hasOwn(readback, "deploymentConfig")) {
+    object(readback.deploymentConfig, ["mode", "disableRollback"], "DescribeChangeSet deployment configuration");
+    equal(readback.deploymentConfig, { mode: "STANDARD", disableRollback: false },
+      "Unsupported deployment mode or rollback disposition");
+  }
   assert.equal(readback.paginationComplete, true, "Complete change-set pagination required");
   assert.ok(Array.isArray(readback.changes), "DescribeChangeSet changes must be an array");
   object(readback.physicalResources, [], "Certificate initialization must not trust a pre-existing physical resource");
@@ -282,6 +293,9 @@ function validateBoundReview(assemblyBytes, trustedAssemblyReviewSha256, reviewT
     rollback: {
       onStackFailure: proposal.createRequest.onStackFailure,
       rollbackConfiguration: structuredClone(proposal.createRequest.rollbackConfiguration),
+      ...(Object.hasOwn(proposal.describeReadback, "deploymentConfig") ? {
+        deploymentConfig: structuredClone(proposal.describeReadback.deploymentConfig),
+      } : {}),
       disableRollback: proposal.futureExecution.disableRollback,
       retainExceptOnCreate: proposal.futureExecution.retainExceptOnCreate,
     },

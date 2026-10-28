@@ -164,8 +164,18 @@ function stackResponse({ includeChangeSetId = true, includeParameters = true } =
 }
 
 function capturedProviderDescribeResponse() {
+  const change = certificateChange();
+  change.ResourceChange.Scope = [];
+  change.ResourceChange.Details = [];
   return {
-    ...describeResponse({ changes: [certificateChange()] }),
+    ...describeResponse({ changes: [change] }),
+    CreationTime: "2026-10-27T16:29:12.000Z",
+  };
+}
+
+function capturedOptionalNullProviderDescribeResponse() {
+  return {
+    ...capturedProviderDescribeResponse(),
     DeploymentMode: null,
     Description: null,
     ParentChangeSetId: null,
@@ -177,10 +187,13 @@ function capturedProviderDescribeResponse() {
 
 function capturedProviderStackResponse() {
   const response = stackResponse({ includeChangeSetId: false, includeParameters: false });
+  delete response.Stacks[0].RetainExceptOnCreate;
   Object.assign(response.Stacks[0], {
     CreationTime: "2026-10-27T16:29:12.000Z",
     DriftInformation: { StackDriftStatus: "NOT_CHECKED" },
-    StackStatusReason: "User initiated",
+    NotificationARNs: [],
+    RollbackConfiguration: {},
+    StackStatusReason: "User Initiated",
     Tags: [],
   });
   return response;
@@ -513,22 +526,31 @@ test("completes the remaining review path with the captured provider response re
     "cloudformation:DescribeStackResources",
   ]);
   assert.deepEqual(receipt.normalization.provenance.providerCompatibility, {
-    describeChangeSetDocumentedOptionalNullFields: [
-      "DeploymentMode",
-      "Description",
-      "ParentChangeSetId",
-      "RootChangeSetId",
-      "StackDriftStatus",
-    ],
+    describeChangeSetDocumentedOptionalNullFields: [],
     stackChangeSetIdentitySource:
       "DESCRIBE_CHANGE_SET_ID_WITH_MATCHING_DESCRIBE_STACKS_STACK_ID",
-    stackParametersSource: "DESCRIBE_CHANGE_SET",
+    stackParameterReadback: {
+      proposedParametersSource: "DESCRIBE_CHANGE_SET",
+      stackParametersObservation: "OMITTED",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    },
     tagReadback: {
       proposedTagsSource: "DESCRIBE_CHANGE_SET",
       stackTagsObservation: "EMPTY_PLACEHOLDER_ARRAY",
       applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
     },
+    stackRollbackConfigurationReadback: {
+      proposedRollbackConfigurationSource: "DESCRIBE_CHANGE_SET",
+      stackRollbackConfigurationObservation: "EMPTY_PLACEHOLDER_OBJECT",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    },
   });
+  assert.equal(
+    receipt.normalization.provenance.executionRoleSource,
+    "SUBMITTED_CREATE_CHANGE_SET_REQUEST_WITH_MATCHING_DESCRIBE_STACKS_ROLE_ARN",
+  );
+  assert.equal(receipt.normalization.provenance.rollbackConfigurationSource, "DESCRIBE_CHANGE_SET");
+  assert.equal(receipt.normalization.provenance.onStackFailureSource, "DESCRIBE_CHANGE_SET");
   assert.equal(
     receipt.normalization.provenance.templateComparison,
     "AWS_CLI_JSON_DECODED_CANONICAL_TEMPLATE_EQUIVALENCE",
@@ -555,6 +577,74 @@ test("accepts omitted optional placeholder stack tags without claiming applicati
     proposedTagsSource: "DESCRIBE_CHANGE_SET",
     stackTagsObservation: "OMITTED",
     applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+  });
+});
+
+test("accepts documented optional null DescribeChangeSet fields from retained provider evidence", async () => {
+  const responses = successfulResponses();
+  const captured = capturedOptionalNullProviderDescribeResponse();
+  for (const response of [responses[3], responses[4]]) {
+    for (const field of [
+      "DeploymentMode",
+      "Description",
+      "ParentChangeSetId",
+      "RootChangeSetId",
+      "StackDriftStatus",
+    ]) response[field] = captured[field];
+  }
+  const receipt = parseCertificateChangeSetPreparationReceipt(
+    await prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+  );
+  assert.deepEqual(
+    receipt.normalization.provenance.providerCompatibility
+      .describeChangeSetDocumentedOptionalNullFields,
+    [
+      "DeploymentMode",
+      "Description",
+      "ParentChangeSetId",
+      "RootChangeSetId",
+      "StackDriftStatus",
+    ],
+  );
+});
+
+test("accepts empty or omitted placeholder parameters and rollback without claiming application", async (t) => {
+  for (const [name, mutate, parameterObservation, rollbackObservation] of [
+    [
+      "empty placeholder metadata",
+      (stack) => {
+        stack.Parameters = [];
+        stack.RollbackConfiguration = {};
+      },
+      "EMPTY_PLACEHOLDER_ARRAY",
+      "EMPTY_PLACEHOLDER_OBJECT",
+    ],
+    [
+      "omitted placeholder metadata",
+      (stack) => {
+        delete stack.Parameters;
+        delete stack.RollbackConfiguration;
+      },
+      "OMITTED",
+      "OMITTED",
+    ],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    mutate(responses[6].Stacks[0]);
+    const receipt = parseCertificateChangeSetPreparationReceipt(
+      await prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+    );
+    const compatibility = receipt.normalization.provenance.providerCompatibility;
+    assert.equal(compatibility.stackParameterReadback.stackParametersObservation,
+      parameterObservation);
+    assert.equal(compatibility.stackParameterReadback.applicationClaim,
+      "NOT_CLAIMED_BEFORE_EXECUTION");
+    assert.equal(
+      compatibility.stackRollbackConfigurationReadback.stackRollbackConfigurationObservation,
+      rollbackObservation,
+    );
+    assert.equal(compatibility.stackRollbackConfigurationReadback.applicationClaim,
+      "NOT_CLAIMED_BEFORE_EXECUTION");
   });
 });
 
@@ -658,12 +748,12 @@ test("rejects unexpected resource changes, execution role and physical resources
       /Prepared stack\/change-set correspondence mismatch/,
     );
   });
-  await t.test("malformed optional stack parameters", async () => {
+  await t.test("substituted nonempty stack parameters", async () => {
     const responses = successfulResponses();
-    responses[6].Stacks[0].Parameters = [];
+    responses[6].Stacks[0].Parameters[0].ResolvedValue = "5";
     await assert.rejects(
       () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
-      /exact resolved bootstrap parameter required/,
+      /incompatible bootstrap version/,
     );
   });
   for (const [name, value, pattern] of [
@@ -675,6 +765,22 @@ test("rejects unexpected resource changes, execution role and physical resources
   ]) await t.test(name, async () => {
     const responses = successfulResponses();
     responses[6].Stacks[0].Tags = structuredClone(value);
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      pattern,
+    );
+  });
+  for (const [name, value, pattern] of [
+    ["partial stack rollback configuration", { RollbackTriggers: [] }, /rollback configuration substitution/],
+    ["substituted stack rollback monitoring", { MonitoringTimeInMinutes: 1, RollbackTriggers: [] }, /rollback configuration substitution/],
+    ["substituted stack rollback trigger", {
+      MonitoringTimeInMinutes: 0,
+      RollbackTriggers: [{ Arn: "arn:aws:cloudwatch:us-east-1:111122223333:alarm/substituted", Type: "AWS::CloudWatch::Alarm" }],
+    }, /rollback configuration substitution/],
+    ["malformed stack rollback configuration", [], /rollback configuration object required/],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].RollbackConfiguration = structuredClone(value);
     await assert.rejects(
       () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
       pattern,

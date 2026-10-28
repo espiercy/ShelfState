@@ -362,6 +362,56 @@ function assertPlaceholderStackTags(stack) {
   };
 }
 
+function assertPlaceholderStackParameters(stack) {
+  if (!Object.hasOwn(stack, "Parameters")) {
+    return {
+      proposedParametersSource: "DESCRIBE_CHANGE_SET",
+      stackParametersObservation: "OMITTED",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    };
+  }
+  assert.ok(Array.isArray(stack.Parameters), "DescribeStacks: parameters array required");
+  if (stack.Parameters.length === 0) {
+    return {
+      proposedParametersSource: "DESCRIBE_CHANGE_SET",
+      stackParametersObservation: "EMPTY_PLACEHOLDER_ARRAY",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    };
+  }
+  assertDefaultParameters(stack.Parameters, "DescribeStacks");
+  return {
+    proposedParametersSource: "DESCRIBE_CHANGE_SET",
+    stackParametersObservation: "MATCHING_REVIEWED_PARAMETERS",
+    applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+  };
+}
+
+function assertPlaceholderStackRollbackConfiguration(stack) {
+  if (!Object.hasOwn(stack, "RollbackConfiguration")) {
+    return {
+      proposedRollbackConfigurationSource: "DESCRIBE_CHANGE_SET",
+      stackRollbackConfigurationObservation: "OMITTED",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    };
+  }
+  const value = stack.RollbackConfiguration;
+  assert.ok(value && Object.getPrototypeOf(value) === Object.prototype,
+    "DescribeStacks: rollback configuration object required");
+  if (Object.keys(value).length === 0) {
+    return {
+      proposedRollbackConfigurationSource: "DESCRIBE_CHANGE_SET",
+      stackRollbackConfigurationObservation: "EMPTY_PLACEHOLDER_OBJECT",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    };
+  }
+  assertRollback(value, "DescribeStacks");
+  return {
+    proposedRollbackConfigurationSource: "DESCRIBE_CHANGE_SET",
+    stackRollbackConfigurationObservation: "MATCHING_REVIEWED_CONFIGURATION",
+    applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+  };
+}
+
 function deploymentConfig(response, label) {
   if (!Object.hasOwn(response, "DeploymentConfig")) return null;
   const deployment = allowedKeys(
@@ -554,19 +604,17 @@ function assertStackResponse(response, created, target) {
   equal(stack.NotificationARNs ?? [], [], "Unexpected prepared stack notification ARNs");
   equal(stack.Outputs ?? [], [], "Unexecuted prepared stack must not have outputs");
   const tagReadback = assertPlaceholderStackTags(stack);
-  assertRollback(stack.RollbackConfiguration, "DescribeStacks");
-  const hasParameters = Object.hasOwn(stack, "Parameters");
-  if (hasParameters) assertDefaultParameters(stack.Parameters, "DescribeStacks");
+  const parameterReadback = assertPlaceholderStackParameters(stack);
+  const rollbackConfigurationReadback = assertPlaceholderStackRollbackConfiguration(stack);
   return {
     deploymentConfig: deploymentConfig(stack, "DESCRIBE_STACKS"),
     providerCompatibility: {
       changeSetIdentitySource: hasChangeSetId
         ? "DESCRIBE_STACKS_CHANGE_SET_ID"
         : "DESCRIBE_CHANGE_SET_ID_WITH_MATCHING_DESCRIBE_STACKS_STACK_ID",
-      parametersSource: hasParameters
-        ? "DESCRIBE_STACKS"
-        : "DESCRIBE_CHANGE_SET",
+      parameterReadback,
       tagReadback,
+      rollbackConfigurationReadback,
     },
   };
 }
@@ -734,8 +782,11 @@ function normalizeTranscript(calls, assembly, template, target, create) {
     proposal,
     normalization: {
       changeSetTypeSource: "SUBMITTED_CREATE_CHANGE_SET_REQUEST",
-      executionRoleSource: "DESCRIBE_STACKS_ROLE_ARN",
+      executionRoleSource:
+        "SUBMITTED_CREATE_CHANGE_SET_REQUEST_WITH_MATCHING_DESCRIBE_STACKS_ROLE_ARN",
       parameterOverridesSource: "SUBMITTED_EMPTY_OVERRIDE_SET",
+      rollbackConfigurationSource: "DESCRIBE_CHANGE_SET",
+      onStackFailureSource: "DESCRIBE_CHANGE_SET",
       replacementSource: change.replacementSource,
       templateComparison,
       providerCompatibility: {
@@ -743,10 +794,12 @@ function normalizeTranscript(calls, assembly, template, target, create) {
           structuredClone(terminalProviderCompatibility.documentedOptionalNullFields),
         stackChangeSetIdentitySource:
           stackReadback.providerCompatibility.changeSetIdentitySource,
-        stackParametersSource:
-          stackReadback.providerCompatibility.parametersSource,
+        stackParameterReadback:
+          structuredClone(stackReadback.providerCompatibility.parameterReadback),
         tagReadback:
           structuredClone(stackReadback.providerCompatibility.tagReadback),
+        stackRollbackConfigurationReadback:
+          structuredClone(stackReadback.providerCompatibility.rollbackConfigurationReadback),
       },
       ...(terminalDeploymentConfig === null ? {} : {
         deploymentConfig: structuredClone(terminalDeploymentConfig.provenance),

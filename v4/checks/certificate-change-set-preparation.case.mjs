@@ -181,6 +181,7 @@ function capturedProviderStackResponse() {
     CreationTime: "2026-10-27T16:29:12.000Z",
     DriftInformation: { StackDriftStatus: "NOT_CHECKED" },
     StackStatusReason: "User initiated",
+    Tags: [],
   });
   return response;
 }
@@ -392,6 +393,7 @@ test("accepts service tag reordering while rejecting tag substitution", async (t
   );
   assert.equal(accepted.status, CERTIFICATE_CHANGE_SET_PREPARATION_STATUS);
   for (const [name, mutate, pattern] of [
+    ["missing proposed tags", value => { value.splice(0); }, /exact tag count/],
     ["changed value", value => { value[0].Value = "production"; }, /tag substitution/],
     ["duplicate key", value => { value[1].Key = value[0].Key; }, /duplicate tag key/],
     ["extra tag", value => { value.push({ Key: "Other", Value: "other" }); }, /exact tag count/],
@@ -521,6 +523,11 @@ test("completes the remaining review path with the captured provider response re
     stackChangeSetIdentitySource:
       "DESCRIBE_CHANGE_SET_ID_WITH_MATCHING_DESCRIBE_STACKS_STACK_ID",
     stackParametersSource: "DESCRIBE_CHANGE_SET",
+    tagReadback: {
+      proposedTagsSource: "DESCRIBE_CHANGE_SET",
+      stackTagsObservation: "EMPTY_PLACEHOLDER_ARRAY",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    },
   });
   assert.equal(
     receipt.normalization.provenance.templateComparison,
@@ -536,6 +543,19 @@ test("completes the remaining review path with the captured provider response re
   assert.equal(continuation.executionAuthorized, false);
   assert.equal(continuation.authority.createChangeSetInvoked, false);
   assert.equal(continuation.authority.executeChangeSetInvoked, false);
+});
+
+test("accepts omitted optional placeholder stack tags without claiming application", async () => {
+  const responses = successfulResponses();
+  delete responses[6].Stacks[0].Tags;
+  const receipt = parseCertificateChangeSetPreparationReceipt(
+    await prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+  );
+  assert.deepEqual(receipt.normalization.provenance.providerCompatibility.tagReadback, {
+    proposedTagsSource: "DESCRIBE_CHANGE_SET",
+    stackTagsObservation: "OMITTED",
+    applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+  });
 });
 
 test("rejects non-null unsupported optional provider fields", async (t) => {
@@ -644,6 +664,20 @@ test("rejects unexpected resource changes, execution role and physical resources
     await assert.rejects(
       () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
       /exact resolved bootstrap parameter required/,
+    );
+  });
+  for (const [name, value, pattern] of [
+    ["partial stack tags", tags.slice(0, 2), /exact tag count/],
+    ["substituted stack tag", tags.map((tag, index) => index === 0 ? { ...tag, Value: "production" } : tag), /tag substitution/],
+    ["duplicated stack tag", [tags[0], tags[0], tags[2]], /duplicate tag key/],
+    ["unexpected stack tag", [...tags, { Key: "Other", Value: "other" }], /exact tag count/],
+    ["malformed stack tags", "not-an-array", /tags array required/],
+  ]) await t.test(name, async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].Tags = structuredClone(value);
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      pattern,
     );
   });
   await t.test("existing physical resource", async () => {

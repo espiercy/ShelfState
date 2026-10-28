@@ -338,6 +338,30 @@ function assertStackTags(value, label) {
     `${label}: tag substitution`);
 }
 
+function assertPlaceholderStackTags(stack) {
+  if (!Object.hasOwn(stack, "Tags")) {
+    return {
+      proposedTagsSource: "DESCRIBE_CHANGE_SET",
+      stackTagsObservation: "OMITTED",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    };
+  }
+  assert.ok(Array.isArray(stack.Tags), "DescribeStacks: tags array required");
+  if (stack.Tags.length === 0) {
+    return {
+      proposedTagsSource: "DESCRIBE_CHANGE_SET",
+      stackTagsObservation: "EMPTY_PLACEHOLDER_ARRAY",
+      applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+    };
+  }
+  assertStackTags(stack.Tags, "DescribeStacks");
+  return {
+    proposedTagsSource: "DESCRIBE_CHANGE_SET",
+    stackTagsObservation: "MATCHING_REVIEWED_TAGS",
+    applicationClaim: "NOT_CLAIMED_BEFORE_EXECUTION",
+  };
+}
+
 function deploymentConfig(response, label) {
   if (!Object.hasOwn(response, "DeploymentConfig")) return null;
   const deployment = allowedKeys(
@@ -529,7 +553,7 @@ function assertStackResponse(response, created, target) {
   equal(stack.Capabilities ?? [], [], "Unexpected prepared stack capabilities");
   equal(stack.NotificationARNs ?? [], [], "Unexpected prepared stack notification ARNs");
   equal(stack.Outputs ?? [], [], "Unexecuted prepared stack must not have outputs");
-  assertStackTags(stack.Tags, "DescribeStacks");
+  const tagReadback = assertPlaceholderStackTags(stack);
   assertRollback(stack.RollbackConfiguration, "DescribeStacks");
   const hasParameters = Object.hasOwn(stack, "Parameters");
   if (hasParameters) assertDefaultParameters(stack.Parameters, "DescribeStacks");
@@ -542,6 +566,7 @@ function assertStackResponse(response, created, target) {
       parametersSource: hasParameters
         ? "DESCRIBE_STACKS"
         : "DESCRIBE_CHANGE_SET",
+      tagReadback,
     },
   };
 }
@@ -720,6 +745,8 @@ function normalizeTranscript(calls, assembly, template, target, create) {
           stackReadback.providerCompatibility.changeSetIdentitySource,
         stackParametersSource:
           stackReadback.providerCompatibility.parametersSource,
+        tagReadback:
+          structuredClone(stackReadback.providerCompatibility.tagReadback),
       },
       ...(terminalDeploymentConfig === null ? {} : {
         deploymentConfig: structuredClone(terminalDeploymentConfig.provenance),

@@ -361,6 +361,22 @@ function deploymentConfig(response, label) {
   };
 }
 
+function describeChangeSetProviderCompatibility(response) {
+  const documentedOptionalNullFields = [];
+  for (const field of [
+    "DeploymentMode",
+    "Description",
+    "ParentChangeSetId",
+    "RootChangeSetId",
+    "StackDriftStatus",
+  ]) {
+    if (!Object.hasOwn(response, field)) continue;
+    assert.equal(response[field], null, `DescribeChangeSet ${field} substitution`);
+    documentedOptionalNullFields.push(field);
+  }
+  return { documentedOptionalNullFields };
+}
+
 function assertDescribeBase(response, created, target) {
   allowedKeys(response, [
     "Capabilities",
@@ -369,6 +385,8 @@ function assertDescribeBase(response, created, target) {
     "ChangeSetName",
     "CreationTime",
     "DeploymentConfig",
+    "DeploymentMode",
+    "Description",
     "ExecutionStatus",
     "ImportExistingResources",
     "IncludeNestedStacks",
@@ -376,7 +394,10 @@ function assertDescribeBase(response, created, target) {
     "NotificationARNs",
     "OnStackFailure",
     "Parameters",
+    "ParentChangeSetId",
     "RollbackConfiguration",
+    "RootChangeSetId",
+    "StackDriftStatus",
     "StackId",
     "StackName",
     "Status",
@@ -400,7 +421,10 @@ function assertDescribeBase(response, created, target) {
     assert.equal(typeof response.NextToken, "string", "Invalid pagination token");
     assert.ok(response.NextToken.length >= 1 && response.NextToken.length <= 1024 && !/[\x00-\x1f]/.test(response.NextToken), "Invalid pagination token");
   }
-  return deploymentConfig(response, "DESCRIBE_CHANGE_SET");
+  return {
+    deploymentConfig: deploymentConfig(response, "DESCRIBE_CHANGE_SET"),
+    providerCompatibility: describeChangeSetProviderCompatibility(response),
+  };
 }
 
 function describeRequest(created, nextToken) {
@@ -493,7 +517,10 @@ function assertStackResponse(response, created, target) {
   ], "prepared stack");
   assert.equal(stack.StackId, created.StackId);
   assert.equal(stack.StackName, target.stack);
-  assert.equal(stack.ChangeSetId, created.Id, "Prepared stack/change-set correspondence mismatch");
+  const hasChangeSetId = Object.hasOwn(stack, "ChangeSetId");
+  if (hasChangeSetId) {
+    assert.equal(stack.ChangeSetId, created.Id, "Prepared stack/change-set correspondence mismatch");
+  }
   assert.equal(stack.StackStatus, "REVIEW_IN_PROGRESS", "Preparation must stop at REVIEW_IN_PROGRESS");
   assert.equal(stack.RoleARN, target.executionRole, "Prepared stack execution-role substitution");
   assert.equal(stack.DisableRollback, false, "Prepared stack rollback disabled");
@@ -504,8 +531,19 @@ function assertStackResponse(response, created, target) {
   equal(stack.Outputs ?? [], [], "Unexecuted prepared stack must not have outputs");
   assertStackTags(stack.Tags, "DescribeStacks");
   assertRollback(stack.RollbackConfiguration, "DescribeStacks");
-  assertDefaultParameters(stack.Parameters, "DescribeStacks");
-  return deploymentConfig(stack, "DESCRIBE_STACKS");
+  const hasParameters = Object.hasOwn(stack, "Parameters");
+  if (hasParameters) assertDefaultParameters(stack.Parameters, "DescribeStacks");
+  return {
+    deploymentConfig: deploymentConfig(stack, "DESCRIBE_STACKS"),
+    providerCompatibility: {
+      changeSetIdentitySource: hasChangeSetId
+        ? "DESCRIBE_STACKS_CHANGE_SET_ID"
+        : "DESCRIBE_CHANGE_SET_ID_WITH_MATCHING_DESCRIBE_STACKS_STACK_ID",
+      parametersSource: hasParameters
+        ? "DESCRIBE_STACKS"
+        : "DESCRIBE_CHANGE_SET",
+    },
+  };
 }
 
 function assertResourcesResponse(response) {
@@ -545,6 +583,7 @@ function normalizeTranscript(calls, assembly, template, target, create) {
 
   let terminal;
   let terminalDeploymentConfig;
+  let terminalProviderCompatibility;
   let nextToken;
   let paginating = false;
   let pollingAttempts = 0;
@@ -558,7 +597,8 @@ function normalizeTranscript(calls, assembly, template, target, create) {
     }
     const expectedRequest = describeRequest(created, paginating ? nextToken : undefined);
     equal(call.request, expectedRequest, "DescribeChangeSet request/pagination correspondence changed");
-    const deploymentConfig = assertDescribeBase(call.response, created, target);
+    const describeReadback = assertDescribeBase(call.response, created, target);
+    const deploymentConfig = describeReadback.deploymentConfig;
     if (!terminal) {
       if (call.response.Status === "FAILED") {
         throw new CertificateChangeSetPreparationError("CHANGE_SET_FAILED", "CloudFormation reported failed change-set preparation");
@@ -567,6 +607,7 @@ function normalizeTranscript(calls, assembly, template, target, create) {
         assert.equal(call.response.ExecutionStatus, "AVAILABLE", "Prepared change set unavailable");
         terminal = call.response;
         terminalDeploymentConfig = deploymentConfig;
+        terminalProviderCompatibility = describeReadback.providerCompatibility;
         terminalChanges.push(...call.response.Changes);
         nextToken = call.response.NextToken;
         paginating = nextToken !== undefined;
@@ -602,9 +643,9 @@ function normalizeTranscript(calls, assembly, template, target, create) {
 
   const stackCall = parsed[templateIndex + 1];
   equal(stackCall.request, { StackName: created.StackId }, "DescribeStacks request correspondence changed");
-  const stackDeploymentConfig = assertStackResponse(stackCall.response, created, target);
+  const stackReadback = assertStackResponse(stackCall.response, created, target);
   equal(
-    stackDeploymentConfig?.value ?? { mode: "STANDARD", disableRollback: false },
+    stackReadback.deploymentConfig?.value ?? { mode: "STANDARD", disableRollback: false },
     terminalDeploymentConfig?.value ?? { mode: "STANDARD", disableRollback: false },
     "DescribeStacks/DescribeChangeSet deployment configuration mismatch",
   );
@@ -672,6 +713,14 @@ function normalizeTranscript(calls, assembly, template, target, create) {
       parameterOverridesSource: "SUBMITTED_EMPTY_OVERRIDE_SET",
       replacementSource: change.replacementSource,
       templateComparison,
+      providerCompatibility: {
+        describeChangeSetDocumentedOptionalNullFields:
+          structuredClone(terminalProviderCompatibility.documentedOptionalNullFields),
+        stackChangeSetIdentitySource:
+          stackReadback.providerCompatibility.changeSetIdentitySource,
+        stackParametersSource:
+          stackReadback.providerCompatibility.parametersSource,
+      },
       ...(terminalDeploymentConfig === null ? {} : {
         deploymentConfig: structuredClone(terminalDeploymentConfig.provenance),
       }),

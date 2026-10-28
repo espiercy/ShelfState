@@ -144,14 +144,14 @@ function certificateChange(replacement = undefined) {
   };
 }
 
-function stackResponse() {
+function stackResponse({ includeChangeSetId = true, includeParameters = true } = {}) {
   return {
     Stacks: [{
-      ChangeSetId: changeSetId,
+      ...(includeChangeSetId ? { ChangeSetId: changeSetId } : {}),
       DeploymentConfig: { Mode: "STANDARD", DisableRollback: false },
       DisableRollback: false,
       EnableTerminationProtection: false,
-      Parameters: parameters(),
+      ...(includeParameters ? { Parameters: parameters() } : {}),
       RetainExceptOnCreate: false,
       RoleARN: reviewTarget.executionRole,
       RollbackConfiguration: structuredClone(rollback),
@@ -161,6 +161,28 @@ function stackResponse() {
       Tags: structuredClone([...tags].reverse()),
     }],
   };
+}
+
+function capturedProviderDescribeResponse() {
+  return {
+    ...describeResponse({ changes: [certificateChange()] }),
+    DeploymentMode: null,
+    Description: null,
+    ParentChangeSetId: null,
+    RootChangeSetId: null,
+    StackDriftStatus: null,
+    StatusReason: null,
+  };
+}
+
+function capturedProviderStackResponse() {
+  const response = stackResponse({ includeChangeSetId: false, includeParameters: false });
+  Object.assign(response.Stacks[0], {
+    CreationTime: "2026-10-27T16:29:12.000Z",
+    DriftInformation: { StackDriftStatus: "NOT_CHECKED" },
+    StackStatusReason: "User initiated",
+  });
+  return response;
 }
 
 function successfulResponses() {
@@ -449,6 +471,94 @@ test("continues review of the existing change set without another CreateChangeSe
   });
 });
 
+test("completes the remaining review path with the captured provider response representation", async () => {
+  let preservedTranscript;
+  await assert.rejects(
+    () => prepareCertificateChangeSet(operatorInput(fakeTransport([
+      callerResponse(),
+      createResponse(),
+      describeResponse({ status: "CREATE_IN_PROGRESS" }),
+    ]), { maxAttempts: 1 })),
+    (error) => {
+      preservedTranscript = error.preparationTranscript;
+      return error instanceof CertificateChangeSetPreparationError &&
+        error.code === "POLLING_EXHAUSTED";
+    },
+  );
+
+  const transport = fakeTransport([
+    callerResponse(),
+    capturedProviderDescribeResponse(),
+    { TemplateBody: JSON.parse(templateRaw), StagesAvailable: ["Original", "Processed"] },
+    capturedProviderStackResponse(),
+    { StackResources: [] },
+  ]);
+  const result = await reviewExistingCertificateChangeSet({
+    ...operatorInput(transport),
+    preservedTranscriptBytes: Buffer.from(canonical(preservedTranscript)),
+    expectedChangeSetId: changeSetId,
+    expectedStackId: stackId,
+  });
+  const receipt = parseCertificateChangeSetPreparationReceipt(result.receiptBytes);
+  const continuation = JSON.parse(result.continuationEvidenceBytes.toString("utf8"));
+  const review = parseCertificateChangeSetReviewPackage(Buffer.from(receipt.reviewPackage.raw));
+
+  assert.deepEqual(transport.calls.map((call) => call.operation), [
+    "sts:GetCallerIdentity",
+    "cloudformation:DescribeChangeSet",
+    "cloudformation:GetTemplate",
+    "cloudformation:DescribeStacks",
+    "cloudformation:DescribeStackResources",
+  ]);
+  assert.deepEqual(receipt.normalization.provenance.providerCompatibility, {
+    describeChangeSetDocumentedOptionalNullFields: [
+      "DeploymentMode",
+      "Description",
+      "ParentChangeSetId",
+      "RootChangeSetId",
+      "StackDriftStatus",
+    ],
+    stackChangeSetIdentitySource:
+      "DESCRIBE_CHANGE_SET_ID_WITH_MATCHING_DESCRIBE_STACKS_STACK_ID",
+    stackParametersSource: "DESCRIBE_CHANGE_SET",
+  });
+  assert.equal(
+    receipt.normalization.provenance.templateComparison,
+    "AWS_CLI_JSON_DECODED_CANONICAL_TEMPLATE_EQUIVALENCE",
+  );
+  assert.equal(review.review.changeSetId, changeSetId);
+  assert.deepEqual(review.review.resourceChanges, [{
+    logicalId: "Certificate",
+    type: "AWS::CertificateManager::Certificate",
+    action: "Add",
+    replacement: "False",
+  }]);
+  assert.equal(continuation.executionAuthorized, false);
+  assert.equal(continuation.authority.createChangeSetInvoked, false);
+  assert.equal(continuation.authority.executeChangeSetInvoked, false);
+});
+
+test("rejects non-null unsupported optional provider fields", async (t) => {
+  for (const [field, value] of [
+    ["DeploymentMode", "REVERT_DRIFT"],
+    ["Description", "substituted"],
+    ["ParentChangeSetId", changeSetId],
+    ["RootChangeSetId", changeSetId],
+    ["StackDriftStatus", "IN_SYNC"],
+  ]) await t.test(field, async () => {
+    const response = describeResponse({ changes: [certificateChange()] });
+    response[field] = value;
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport([
+        callerResponse(),
+        createResponse(),
+        response,
+      ]))),
+      new RegExp(`DescribeChangeSet ${field} substitution`),
+    );
+  });
+});
+
 test("rejects wrong caller identity before CreateChangeSet", async () => {
   const wrong = callerResponse();
   wrong.Arn = `arn:aws:sts::${ACCOUNT}:assumed-role/other-role/session`;
@@ -516,6 +626,25 @@ test("rejects unexpected resource changes, execution role and physical resources
     const responses = successfulResponses();
     responses[6].Stacks[0].RoleARN = responses[6].Stacks[0].RoleARN.replace("cfn-exec-role", "other-role");
     await assert.rejects(() => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))), /execution-role substitution/);
+  });
+  await t.test("wrong optional stack change-set identity", async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].ChangeSetId = responses[6].Stacks[0].ChangeSetId.replace(
+      "fixture-change-set-id",
+      "substituted-change-set-id",
+    );
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      /Prepared stack\/change-set correspondence mismatch/,
+    );
+  });
+  await t.test("malformed optional stack parameters", async () => {
+    const responses = successfulResponses();
+    responses[6].Stacks[0].Parameters = [];
+    await assert.rejects(
+      () => prepareCertificateChangeSet(operatorInput(fakeTransport(responses))),
+      /exact resolved bootstrap parameter required/,
+    );
   });
   await t.test("existing physical resource", async () => {
     const responses = successfulResponses();

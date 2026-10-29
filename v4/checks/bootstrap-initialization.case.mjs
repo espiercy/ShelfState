@@ -87,15 +87,55 @@ test("HTTP child authority never reaches another API; parent initialization resi
   assert.throws(() => generatedAuthority(ACCOUNT, "api-children", "initialization"));
 });
 
-test("east initialization enforces certificate request conditions and never grants DNS publication", () => {
+test("east certificate creation preserves hard constraints while accepting documented safe omissions", () => {
   const p = generatedAuthority(ACCOUNT, "certificate", "initialization");
-  const ctx = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK",
-    "aws:RequestedRegion": "us-east-1", "acm:ValidationMethod": "DNS", "acm:Export": "DISABLED", "acm:DomainNames": ["dev.shelfstate.codecorax.com"] };
-  assert.equal(allows(p, "acm:RequestCertificate", "*", ctx), true);
+  const required = { "aws:RequestedRegion": "us-east-1", "acm:ValidationMethod": "DNS", "acm:DomainNames": ["dev.shelfstate.codecorax.com"] };
+  const ownership = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK" };
+  assert.equal(allows(p, "acm:RequestCertificate", "*", required), true, "Omitted tags and export use documented provider/default behavior");
+  assert.equal(allows(p, "acm:RequestCertificate", "*", { ...required, ...ownership, "acm:Export": "DISABLED" }), true);
   for (const delta of [{ "acm:DomainNames": ["*.dev.shelfstate.codecorax.com"] }, { "acm:DomainNames": ["dev.shelfstate.codecorax.com", "other.example"] },
-    { "aws:RequestedRegion": "us-west-2" }, { "acm:CertificateAuthority": "private" }, { "acm:Export": "ENABLED" }]) assert.equal(allows(p, "acm:RequestCertificate", "*", { ...ctx, ...delta }), false);
-  const missing = { ...ctx }; delete missing["acm:DomainNames"]; assert.equal(allows(p, "acm:RequestCertificate", "*", missing), false);
+    { "aws:RequestedRegion": "us-west-2" }, { "acm:ValidationMethod": "EMAIL" }, { "acm:CertificateAuthority": "private" }, { "acm:Export": "ENABLED" },
+    { "aws:RequestTag/Project": "Other" }, { "aws:RequestTag/Environment": "prod" }, { "aws:RequestTag/ManagedBy": "Other" }]) {
+    assert.equal(allows(p, "acm:RequestCertificate", "*", { ...required, ...ownership, ...delta }), false);
+  }
+  for (const key of ["acm:DomainNames", "acm:ValidationMethod"]) {
+    const missing = { ...required }; delete missing[key];
+    assert.equal(allows(p, "acm:RequestCertificate", "*", missing), false);
+  }
   for (const full of executionPolicies(ACCOUNT, "certificate", "initialization", IDS)) assert.equal(full.Statement.some(s => s.Action.some(a => a.startsWith("route53:"))), false);
+});
+
+test("east certificate tagging requires reviewed ownership and only application or CloudFormation system keys", () => {
+  const p = generatedAuthority(ACCOUNT, "certificate", "initialization");
+  const cert = `arn:aws:acm:us-east-1:${ACCOUNT}:certificate/new-certificate`;
+  const ownership = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK" };
+  const applicationKeys = ["Project", "Environment", "ManagedBy"];
+  const systemKeys = ["aws:cloudformation:logical-id", "aws:cloudformation:stack-id", "aws:cloudformation:stack-name"];
+  assert.equal(allows(p, "acm:AddTagsToCertificate", cert, { ...ownership, "aws:TagKeys": applicationKeys }), true);
+  assert.equal(allows(p, "acm:AddTagsToCertificate", cert, { ...ownership, "aws:TagKeys": [...applicationKeys, ...systemKeys] }), true);
+  for (const context of [
+    ownership,
+    { ...ownership, "aws:TagKeys": [...applicationKeys, "Unreviewed"] },
+    { ...ownership, "aws:RequestTag/Environment": "prod", "aws:TagKeys": applicationKeys },
+    { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:TagKeys": ["Project", "Environment"] },
+  ]) assert.equal(allows(p, "acm:AddTagsToCertificate", cert, context), false);
+  assert.equal(allows(p, "acm:AddTagsToCertificate", cert.replace("us-east-1", "us-west-2"), { ...ownership, "aws:TagKeys": applicationKeys }), false);
+  assert.equal(allows(p, "acm:AddTagsToCertificate", cert.replace(ACCOUNT, "999999999999"), { ...ownership, "aws:TagKeys": applicationKeys }), false);
+});
+
+test("east initialization permits pre-tag stabilization and rollback then narrows to the exact certificate", () => {
+  const initial = generatedAuthority(ACCOUNT, "certificate", "initialization");
+  const pending = `arn:aws:acm:us-east-1:${ACCOUNT}:certificate/pending-certificate`;
+  for (const action of ["acm:DescribeCertificate", "acm:ListTagsForCertificate", "acm:DeleteCertificate"]) {
+    assert.equal(allows(initial, action, pending), true, `${action} must not depend on tags before provider ordering is established`);
+    assert.equal(allows(initial, action, pending.replace("us-east-1", "us-west-2")), false);
+    assert.equal(allows(initial, action, pending.replace(ACCOUNT, "999999999999")), false);
+  }
+  const steady = generatedAuthority(ACCOUNT, "certificate", "steady", IDS);
+  const exact = `arn:aws:acm:us-east-1:${ACCOUNT}:certificate/${IDS.certificateId}`;
+  assert.equal(allows(steady, "acm:DescribeCertificate", exact), true);
+  assert.equal(allows(steady, "acm:DeleteCertificate", pending), false);
+  assert.equal(allows(steady, "acm:RequestCertificate", "*", { "aws:RequestedRegion": "us-east-1", "acm:ValidationMethod": "DNS", "acm:DomainNames": ["dev.shelfstate.codecorax.com"] }), false);
 });
 
 test("full steady compositions do not retain legacy creation statements or unresolved bindings", () => {

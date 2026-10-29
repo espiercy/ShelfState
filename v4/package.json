@@ -24,7 +24,7 @@
     "verify": "npm test && npm run test:contract && npm run test:security && npm run test:design && npm run test:release && npm run infra:test && npm run infra:synth && npm run infra:preview && npm run build"
   },
   "dependencies": {
-    "aws-cdk-lib": "2.273.0",
+    "aws-cdk-lib": "2.274.0",
     "constructs": "10.8.1"
   },
   "devDependencies": {

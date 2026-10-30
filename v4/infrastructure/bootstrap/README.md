@@ -136,17 +136,17 @@ These artifacts are **not immediately installable**. Generated identifiers inten
 
 ### R1 — managed-policy size and authority-preserving partition
 
-The original west document was 8,078 minified characters. Removing Sids reduced it to 7,454; additionally merging only identical Effect/Action/Condition statements by unioning their resources left 7,145, still over the non-adjustable 6,144 limit. These straightforward safe optimizations did not suffice; no resources, actions or conditions were broadened to compress it. Two coherent policies instead retain every original statement unchanged, including Sids. An independently captured sorted-statement SHA-256 (`64efd611ef5b7e8ab8f0092a72a90f0b883c73fccc0e41dbc7d3768343db3f41`) locks the combined authority to its pre-remediation form. All existing west negative cases now evaluate that combined set.
+The original west document was 8,078 minified characters. Removing Sids reduced it to 7,454; additionally merging only identical Effect/Action/Condition statements by unioning their resources left 7,145, still over the non-adjustable 6,144 limit. These straightforward safe optimizations did not suffice; no resources, actions or conditions were broadened to compress it. Two coherent policies instead retain whole statements, including Sids. The current provider-compatible sorted-statement SHA-256 is `82210b2b1799158e77e1fb052373cd3ae3be515423b660e56763f4bc33696528`; the prior historical catalog identity was `64efd611ef5b7e8ab8f0092a72a90f0b883c73fccc0e41dbc7d3768343db3f41`. All west negative cases evaluate the current combined set.
 
 | Review artifact | Symbolic minified characters | Conservatively bound characters |
 | --- | ---: | ---: |
-| `execution-west.policy.json` | 3,719 | 3,907 |
+| `execution-west.policy.json` | 4,589 | 4,823 |
 | `execution-west-edge.policy.json` | 4,397 | 4,483 |
 | `execution-east.policy.json` | 2,067 | 2,178 |
 | `health-runtime-boundary.policy.json` | 591 | 589 |
 | `github-dev-assumptions.policy.json` (also checked conservatively) | 491 | 483 |
 
-Sizes use serialized JSON without formatting whitespace, a synthetic 12-digit account, 32-character zone/distribution/OAC/API/integration/route allowances, 36-character UUID policy/certificate IDs, and a 64-hex-character validation-token allowance. These are conservative production-like fixtures, not asserted service maxima. Concrete future bindings must be size-checked again; no binding is authorized by this fixture. Each proposed managed policy is below 6,144, with the largest retaining 1,661 characters of headroom. West has exactly two execution-role managed attachments; east has one, below even the test's conservative ten-attachment ceiling. See [IAM size and attachment quotas](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html).
+Sizes use serialized JSON without formatting whitespace, a synthetic 12-digit account, 32-character zone/distribution/OAC/API/integration/route allowances, 36-character UUID policy/certificate IDs, and a 64-hex-character validation-token allowance. These are conservative production-like fixtures, not asserted service maxima. Concrete future bindings must be size-checked again; no binding is authorized by this fixture. Each proposed managed policy is below 6,144, with the largest retaining 1,321 characters of headroom. West has exactly two execution-role managed attachments; east has one, below even the test's conservative ten-attachment ceiling. See [IAM size and attachment quotas](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html).
 
 The additional `execution-west-edge.policy.json` is the sole 15th pending file and directly necessary for R1. It is not a new capability or an additional live resource in this local slice.
 
@@ -154,8 +154,8 @@ The additional `execution-west-edge.policy.json` is the sole 15th pending file a
 | --- | --- |
 | West static S3 | One explicit account/region-qualified dev static bucket; creation with west location condition, configuration/policy and lifecycle only. No static-object publication grant here. |
 | West CloudFront | Distribution creation with required request tags; OAC/cache/origin-request/response-header policy creation. Lifecycle operations bind exact future IDs. Do not add Functions, Lambda@Edge, WAF, VPC origins, invalidation or general inventory. |
-| West HTTP API | `/apis` creation requires exact API name and dev request tags. API/integration/route IDs are unresolved; child creation and selected lifecycle paths are enumerated, `$default` stage fixed. |
-| West health Lambda/logs | One named health function and log group; configuration/invoke permission only for API Gateway principal. Future template must constrain invocation `SourceArn` to the intended API; the principal condition alone does not do that. |
+| West HTTP API | `/apis` creation requires exact API name and dev request tags. API/integration/route IDs are unresolved; child creation and selected lifecycle paths are enumerated. Tagged stage creation is restricted to the exact API's stages collection; later tag lifecycle is restricted to `$default`. |
+| West health Lambda/logs | One named health function and log group; configuration/invoke permission only for API Gateway principal. Provider-declared Lambda configuration and Logs metadata readbacks are included with exact-resource or west-endpoint bounds. The reviewed template constrains invocation `SourceArn` to the intended API. |
 | West IAM | Only named health role, mandatory independently managed boundary at creation, exact Lambda-only PassRole. No boundary editing, replacing/removing or unrelated IAM authority. |
 | East ACM | Public DNS-validated, non-exportable certificate request, exact dev domain set, east region, required request tags; lifecycle bound to future certificate ID. |
 | Regional support | Exact bootstrap objects/version; selected-zone metadata/record read and DNS change-status polling. No east S3 administration, IAM, Lambda or API. |
@@ -171,7 +171,7 @@ Every execution-policy `Resource: "*"` is inventoried in `pending-decisions.json
 | `cloudfront:CreateDistribution` | Required Project/Environment/ManagedBy request tags | Multiple matching distributions/cost; future ID unknown. |
 | `cloudfront:CreateOriginAccessControl`, `CreateCachePolicy`, `CreateOriginRequestPolicy`, `CreateResponseHeadersPolicy` | No supported exact-name/tag creation condition in this proposal | Account-wide creation of these types. Not lifecycle access. |
 | `acm:RequestCertificate` | Exact domains, DNS, public, export disabled, east, request tags | Multiple certificates for same name. |
-| `logs:DescribeLogGroups` | West endpoint | Account-region log-group metadata, not log content. |
+| `logs:DescribeLogGroups`, `DescribeIndexPolicies`, `DescribeResourcePolicies` | West endpoint | Account-region log-group and service-configuration metadata, not log content. |
 
 `route53:GetChange` uses `change/*` because change IDs are generated, not zone ARNs. This is DNS-change status read authority, not record mutation. Selected-zone `ListResourceRecordSets` cannot filter to only the dev records; it reads zone records and is not authorization to inspect them now. Canonical bootstrap object reads and health log-stream wildcards are confined to their named containers.
 
@@ -199,7 +199,7 @@ No extra boundary is proposed for the bootstrap execution roles: duplicating the
 
 ## Future gates, operational stops and cost
 
-This package does not satisfy any live gate. The generated east-only bootstrap intent now classifies `handler-and-rollback-proof` and `staged-exact-dns-live-proof` as deferred certificate-operation requirements rather than bootstrap-installation prerequisites. They remain explicit and unresolved before certificate execution, DNS validation or stabilization. The west bootstrap intent and its historical combined-region gate sequence below remain unchanged. This classification does not authorize bootstrap installation or any later certificate operation.
+The generated regional bootstrap intents classify `handler-and-rollback-proof` and `staged-exact-dns-live-proof` as deferred capability-operation requirements rather than toolkit-installation prerequisites. They remain explicit and unresolved before the applicable certificate, API, edge, DNS or stabilization operation. This classification does not authorize bootstrap installation or any later capability operation.
 
 Before a separately authorized combined-region bootstrap:
 

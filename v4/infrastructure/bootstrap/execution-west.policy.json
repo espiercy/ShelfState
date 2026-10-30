@@ -96,6 +96,34 @@
       ]
     },
     {
+      "Sid": "TagDefaultStageOnCreate",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:TagResource"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}/stages"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Project": "ShelfState",
+          "aws:RequestTag/Environment": "dev",
+          "aws:RequestTag/ManagedBy": "AWS-CDK"
+        }
+      }
+    },
+    {
+      "Sid": "ManageDefaultStageTags",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:TagResource",
+        "apigateway:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:us-west-2::/apis/${API_ID}/stages/$default"
+      ]
+    },
+    {
       "Sid": "CreateHealthFunction",
       "Effect": "Allow",
       "Action": [
@@ -118,6 +146,10 @@
       "Action": [
         "lambda:GetFunction",
         "lambda:GetFunctionConfiguration",
+        "lambda:GetFunctionCodeSigningConfig",
+        "lambda:GetFunctionRecursionConfig",
+        "lambda:GetRuntimeManagementConfig",
+        "lambda:GetFunctionScalingConfig",
         "lambda:UpdateFunctionCode",
         "lambda:UpdateFunctionConfiguration",
         "lambda:DeleteFunction",
@@ -156,7 +188,8 @@
         "logs:DeleteRetentionPolicy",
         "logs:ListTagsForResource",
         "logs:TagResource",
-        "logs:UntagResource"
+        "logs:UntagResource",
+        "logs:GetDataProtectionPolicy"
       ],
       "Resource": [
         "arn:aws:logs:us-west-2:${ACCOUNT_ID}:log-group:/aws/lambda/shelfstate-v4-dev-health",
@@ -168,6 +201,22 @@
       "Effect": "Allow",
       "Action": [
         "logs:DescribeLogGroups"
+      ],
+      "Resource": [
+        "*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-west-2"
+        }
+      }
+    },
+    {
+      "Sid": "ReadLogServiceConfiguration",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeIndexPolicies",
+        "logs:DescribeResourcePolicies"
       ],
       "Resource": [
         "*"

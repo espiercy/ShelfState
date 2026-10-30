@@ -101,10 +101,12 @@
     },
     {
       "actions": [
-        "logs:DescribeLogGroups"
+        "logs:DescribeLogGroups",
+        "logs:DescribeIndexPolicies",
+        "logs:DescribeResourcePolicies"
       ],
       "conditions": "west endpoint only",
-      "residual": "Log-group metadata listing, not log content"
+      "residual": "Log-group and service-configuration metadata, not log content"
     }
   ]
 }

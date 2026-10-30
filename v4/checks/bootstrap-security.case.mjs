@@ -83,16 +83,16 @@ test("all policy/intent/adjudication snapshots exactly match deterministic defin
   }
 });
 
-test("east bootstrap intent defers certificate-operation gates without changing west", () => {
+test("regional bootstrap intents defer handler and DNS proofs to their capability operations", () => {
   const commonBootstrapGates = ["dependency-security", "WP-006B-live-proof", "single-stack-effective-containment", "policy-review", "policy-creation-authorization", "bootstrap-authorization"];
-  const deferredCertificateOperationGates = ["handler-and-rollback-proof", "staged-exact-dns-live-proof"];
+  const deferredOperationGates = ["handler-and-rollback-proof", "staged-exact-dns-live-proof"];
   const eastIntent = bootstrapIntent("us-east-1", account);
   assert.deepEqual(eastIntent.requiredGates, commonBootstrapGates);
-  assert.deepEqual(eastIntent.deferredCertificateOperationGates, deferredCertificateOperationGates);
+  assert.deepEqual(eastIntent.deferredCertificateOperationGates, deferredOperationGates);
   assert.equal(eastIntent.status, "LOCAL_REVIEW_ONLY_NOT_AUTHORIZED");
   assert.equal(eastIntent.execute, false);
   assert.ok(eastIntent.requiredGates.includes("bootstrap-authorization"));
-  for (const gate of deferredCertificateOperationGates) {
+  for (const gate of deferredOperationGates) {
     assert.equal(eastIntent.requiredGates.includes(gate), false);
     const changed = structuredClone(eastIntent);
     changed.deferredCertificateOperationGates = changed.deferredCertificateOperationGates.filter(candidate => candidate !== gate);
@@ -100,12 +100,15 @@ test("east bootstrap intent defers certificate-operation gates without changing 
   }
 
   const westIntent = bootstrapIntent("us-west-2", account);
-  assert.deepEqual(westIntent.requiredGates, [
-    "dependency-security", "WP-006B-live-proof", "single-stack-effective-containment",
-    ...deferredCertificateOperationGates,
-    "policy-review", "policy-creation-authorization", "bootstrap-authorization",
-  ]);
+  assert.deepEqual(westIntent.requiredGates, commonBootstrapGates);
+  assert.deepEqual(westIntent.deferredCapabilityOperationGates, deferredOperationGates);
   assert.equal(Object.hasOwn(westIntent, "deferredCertificateOperationGates"), false);
+  for (const gate of deferredOperationGates) {
+    assert.equal(westIntent.requiredGates.includes(gate), false);
+    const changed = structuredClone(westIntent);
+    changed.deferredCapabilityOperationGates = changed.deferredCapabilityOperationGates.filter(candidate => candidate !== gate);
+    assert.throws(() => assertBootstrapIntent(changed, "us-west-2", account));
+  }
 });
 
 test("structural upstream comparison permits only the enumerated customizations", () => {
@@ -314,6 +317,25 @@ test("execution policies keep named resources and generated-ID lifecycle binding
   assert.equal(allows(west, "apigateway:POST", api, { ...tags, "apigateway:Request/ApiName": "shelfstate-v4-dev-health" }), true);
   assert.equal(allows(west, "apigateway:POST", api, { ...tags, "apigateway:Request/ApiName": "unrelated" }), false);
   assert.equal(allows(west, "apigateway:POST", api), false);
+  const stages = `${api}/apitest/stages`, stage = `${stages}/$default`;
+  assert.equal(allows(west, "apigateway:TagResource", stages, tags), true);
+  assert.equal(allows(west, "apigateway:TagResource", stages, {}), false);
+  for (const action of ["apigateway:TagResource", "apigateway:UntagResource"]) {
+    assert.equal(allows(west, action, stage), true);
+    assert.equal(allows(west, action, `${api}/apitest/stages/other`), false);
+  }
+  const fn = `arn:aws:lambda:us-west-2:${account}:function:shelfstate-v4-dev-health`;
+  for (const action of ["lambda:GetFunctionCodeSigningConfig", "lambda:GetFunctionRecursionConfig", "lambda:GetRuntimeManagementConfig", "lambda:GetFunctionScalingConfig", "lambda:TagResource"]) {
+    assert.equal(allows(west, action, fn), true, action);
+    assert.equal(allows(west, action, `${fn}-other`), false, action);
+  }
+  const logGroup = `arn:aws:logs:us-west-2:${account}:log-group:/aws/lambda/shelfstate-v4-dev-health`;
+  assert.equal(allows(west, "logs:GetDataProtectionPolicy", logGroup), true);
+  assert.equal(allows(west, "logs:GetDataProtectionPolicy", `${logGroup}-other`), false);
+  for (const action of ["logs:DescribeIndexPolicies", "logs:DescribeResourcePolicies"]) {
+    assert.equal(allows(west, action, "*", { "aws:RequestedRegion": "us-west-2" }), true, action);
+    assert.equal(allows(west, action, "*", { "aws:RequestedRegion": "us-east-1" }), false, action);
+  }
   for (const [action, resource] of [
     ["cloudfront:UpdateDistribution", `arn:aws:cloudfront::${account}:distribution/EDISTTEST`],
     ["cloudfront:UpdateOriginAccessControl", `arn:aws:cloudfront::${account}:origin-access-control/EOACTEST`],
@@ -346,6 +368,8 @@ test("every execution-policy Resource star has an explicit pending decision and 
   assert.equal(allows(west, "cloudfront:CreateDistribution", "*", {}), false);
   assert.equal(allows(west, "cloudfront:CreateDistribution", "*", { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "prod", "aws:RequestTag/ManagedBy": "AWS-CDK" }), false);
   assert.equal(allows(west, "logs:DescribeLogGroups", "*", { "aws:RequestedRegion": "us-east-1" }), false);
+  assert.equal(allows(west, "logs:DescribeIndexPolicies", "*", { "aws:RequestedRegion": "us-east-1" }), false);
+  assert.equal(allows(west, "logs:DescribeResourcePolicies", "*", { "aws:RequestedRegion": "us-east-1" }), false);
   assert.equal(allows(west, "cloudfront:UpdateOriginAccessControl", `arn:aws:cloudfront::${account}:origin-access-control/UNRELATED`), false);
   assert.equal(allows(west, "apigateway:PATCH", "arn:aws:apigateway:us-west-2::/apis/unrelated"), false);
   for (const action of ["cloudfront:CreateFunction", "cloudfront:CreateVpcOrigin", "cloudfront:CreateStreamingDistribution", "cloudfront:CreateMonitoringSubscription", "wafv2:CreateWebACL", "ec2:CreateVpc", "cognito-idp:CreateUserPool", "dynamodb:CreateTable", "secretsmanager:CreateSecret"]) assert.equal(allows(west, action, "*"), false);
@@ -376,10 +400,10 @@ test("R1: each bound managed policy fits 6144 characters with conservative ID al
   }
 });
 
-test("R1: partitioned west statements exactly preserve the pre-remediation authority", () => {
+test("R1: partitioned west statements exactly preserve the provider-compatible authority", () => {
   const combined = westParts.flatMap(p => p.Statement).sort((a, b) => a.Sid.localeCompare(b.Sid, "en"));
-  // Independently captured before remediation, not derived from the current constructor.
-  assert.equal(sha256(JSON.stringify(combined)), "64efd611ef5b7e8ab8f0092a72a90f0b883c73fccc0e41dbc7d3768343db3f41");
+  // Fixed review identity for the complete partitioned catalog, not a runtime-derived expectation.
+  assert.equal(sha256(JSON.stringify(combined)), "82210b2b1799158e77e1fb052373cd3ae3be515423b660e56763f4bc33696528");
   assert.equal(new Set(combined.map(s => s.Sid)).size, combined.length);
   assert.ok(westParts[0].Statement.every(s => s.Action.every(a => /^(s3|apigateway|lambda|logs|ssm):/.test(a))));
   assert.ok(westParts[1].Statement.every(s => s.Action.every(a => /^(cloudfront|route53|iam):/.test(a))));

@@ -109,8 +109,8 @@ export function customizeBootstrap(upstream, rawBytes) {
 
 export function bootstrapIntent(region, account = "${ACCOUNT_ID}") {
   devStackNames(region);
-  const requiredGates = ["dependency-security", "WP-006B-live-proof", "single-stack-effective-containment", "handler-and-rollback-proof", "staged-exact-dns-live-proof", "policy-review", "policy-creation-authorization", "bootstrap-authorization"];
-  const eastDeferredCertificateOperationGates = ["handler-and-rollback-proof", "staged-exact-dns-live-proof"];
+  const requiredGates = ["dependency-security", "WP-006B-live-proof", "single-stack-effective-containment", "policy-review", "policy-creation-authorization", "bootstrap-authorization"];
+  const deferredOperationGates = ["handler-and-rollback-proof", "staged-exact-dns-live-proof"];
   return {
     status: "LOCAL_REVIEW_ONLY_NOT_AUTHORIZED", region, account,
     stackName: "CDKToolkit", terminationProtection: true, execute: false,
@@ -121,10 +121,10 @@ export function bootstrapIntent(region, account = "${ACCOUNT_ID}") {
       FileAssetsBucketKmsKeyId: "AWS_MANAGED_KEY", TrustedAccounts: "", TrustedAccountsForLookup: "",
       FileAssetsBucketName: "", ContainerAssetsRepositoryName: "", InputPermissionsBoundary: "",
       UseExamplePermissionsBoundary: "false", PublicAccessBlockConfiguration: "true", DenyExternalId: "true" },
-    requiredGates: region === "us-east-1"
-      ? requiredGates.filter(gate => !eastDeferredCertificateOperationGates.includes(gate))
-      : requiredGates,
-    ...(region === "us-east-1" ? { deferredCertificateOperationGates: eastDeferredCertificateOperationGates } : {}),
+    requiredGates,
+    ...(region === "us-east-1"
+      ? { deferredCertificateOperationGates: deferredOperationGates }
+      : { deferredCapabilityOperationGates: deferredOperationGates }),
   };
 }
 
@@ -195,11 +195,14 @@ export function westExecutionPolicy() {
     allow("ManageHttpApi", ["apigateway:GET", "apigateway:PATCH", "apigateway:DELETE"], [api]),
     allow("CreateHttpChildren", ["apigateway:POST"], [`${api}/integrations`, `${api}/routes`, `${api}/stages`]),
     allow("ManageHttpChildren", ["apigateway:GET", "apigateway:PATCH", "apigateway:DELETE"], [`${api}/integrations/\${INTEGRATION_ID}`, `${api}/routes/\${ROUTE_ID}`, `${api}/stages/$default`]),
+    allow("TagDefaultStageOnCreate", ["apigateway:TagResource"], [`${api}/stages`], { StringEquals: tags }),
+    allow("ManageDefaultStageTags", ["apigateway:TagResource", "apigateway:UntagResource"], [`${api}/stages/$default`]),
     allow("CreateHealthFunction", ["lambda:CreateFunction"], [fn], { StringEquals: tags }),
-    allow("ManageHealthFunction", ["lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:DeleteFunction", "lambda:GetPolicy", "lambda:RemovePermission", "lambda:ListTags", "lambda:TagResource", "lambda:UntagResource"], [fn]),
+    allow("ManageHealthFunction", ["lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:GetFunctionCodeSigningConfig", "lambda:GetFunctionRecursionConfig", "lambda:GetRuntimeManagementConfig", "lambda:GetFunctionScalingConfig", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:DeleteFunction", "lambda:GetPolicy", "lambda:RemovePermission", "lambda:ListTags", "lambda:TagResource", "lambda:UntagResource"], [fn]),
     allow("ApiMayInvokeHealth", ["lambda:AddPermission"], [fn], { StringEquals: { "lambda:Principal": "apigateway.amazonaws.com" } }),
-    allow("HealthLogGroup", ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy", "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource"], [logGroup, `${logGroup}:*`]),
+    allow("HealthLogGroup", ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy", "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource", "logs:GetDataProtectionPolicy"], [logGroup, `${logGroup}:*`]),
     allow("FindLogGroupMetadata", ["logs:DescribeLogGroups"], ["*"], { StringEquals: { "aws:RequestedRegion": "us-west-2" } }),
+    allow("ReadLogServiceConfiguration", ["logs:DescribeIndexPolicies", "logs:DescribeResourcePolicies"], ["*"], { StringEquals: { "aws:RequestedRegion": "us-west-2" } }),
     allow("CreateBoundedHealthRole", ["iam:CreateRole"], [healthRole], { StringEquals: { "iam:PermissionsBoundary": boundaryArn, ...tags } }),
     allow("ManageHealthRole", ["iam:GetRole", "iam:DeleteRole", "iam:GetRolePolicy", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:PutRolePolicy", "iam:DeleteRolePolicy", "iam:UpdateAssumeRolePolicy", "iam:TagRole", "iam:UntagRole"], [healthRole]),
     deny("NeverChangeApplicationBoundary", ["iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary"], [healthRole]),
@@ -244,7 +247,7 @@ export function pendingDecisions() {
       { actions: ["cloudfront:CreateDistribution"], conditions: "Project/Environment/ManagedBy request tags; no exact future ID", residual: "Additional tagged distributions and spend are possible" },
       { actions: ["cloudfront:CreateOriginAccessControl", "cloudfront:CreateCachePolicy", "cloudfront:CreateOriginRequestPolicy", "cloudfront:CreateResponseHeadersPolicy"], conditions: "No supported name/tag creation restriction", residual: "Account-wide creation for these types; not an update/delete grant" },
       { actions: ["acm:RequestCertificate"], conditions: "Exact domain set, DNS, public/non-exportable, east region, request tags", residual: "Multiple certificates for the same name are possible" },
-      { actions: ["logs:DescribeLogGroups"], conditions: "west endpoint only", residual: "Log-group metadata listing, not log content" },
+      { actions: ["logs:DescribeLogGroups", "logs:DescribeIndexPolicies", "logs:DescribeResourcePolicies"], conditions: "west endpoint only", residual: "Log-group and service-configuration metadata, not log content" },
     ],
   };
 }

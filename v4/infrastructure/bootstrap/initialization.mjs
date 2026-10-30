@@ -37,7 +37,8 @@ export const ACTION_INVENTORY = Object.freeze([
     proof: "Handler-specific tag endpoints and any create-time PATCH require separate evidence before adding. No REST tag inheritance premise." },
   { kind: "http-children", phase: "api-children", create: ["apigateway:POST"], read: ["apigateway:GET"],
     rollback: ["apigateway:DELETE"], update: ["apigateway:PATCH"],
-    proof: "Fixed stage name, integration/route IDs; stage tags and any create-time PATCH remain ungranted pending handler evidence." },
+    stageTagCreate: ["apigateway:TagResource"], stageTagUpdate: ["apigateway:TagResource", "apigateway:UntagResource"],
+    proof: "Fixed stage name, integration/route IDs and provider-declared stage tagging. Any create-time PATCH remains ungranted pending handler evidence." },
   { kind: "certificate", phase: "certificate", id: "certificateId", create: ["acm:RequestCertificate", "acm:AddTagsToCertificate"],
     read: ["acm:DescribeCertificate", "acm:ListTagsForCertificate"], rollback: ["acm:DeleteCertificate"],
     update: ["acm:UpdateCertificateOptions", "acm:AddTagsToCertificate", "acm:RemoveTagsFromCertificate"],
@@ -82,6 +83,8 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
         `${api}/integrations/${initial ? "*" : id(bindings.integrationId)}`,
         `${api}/routes/${initial ? "*" : id(bindings.routeId)}`, `${api}/stages/$default`,
       ]);
+      add("DefaultStageTags", initial ? row.stageTagCreate : row.stageTagUpdate,
+        [initial ? `${api}/stages` : `${api}/stages/$default`], initial ? { StringEquals: ownership } : undefined);
     } else {
       const cert = `arn:aws:acm:us-east-1:${account}:certificate/${initial ? "*" : id(bindings.certificateId)}`;
       if (initial) {
@@ -123,11 +126,18 @@ export function executionPolicies(account, phase, mode, bindings, retainedPhases
   assert.equal(new Set(retainedPhases).size, retainedPhases.length);
   assert.ok(!retainedPhases.includes(phase));
   for (const retained of retainedPhases) assert.equal(target(account, retained).region, t.region);
-  if (phase === "api-children") assert.ok(retainedPhases.includes("api-parent"), "Exact parent authority must survive child phase rollback");
+  if (phase === "api-parent") assert.deepEqual(retainedPhases, [], "Parent API window cannot retain unrelated phase authority");
+  if (phase === "api-children") assert.deepEqual(retainedPhases, ["api-parent"], "Only exact parent authority may survive child phase rollback");
   const base = t.region === "us-west-2" ? westExecutionPolicy() : eastExecutionPolicy();
-  const original = base.Statement.filter(s => (!isolatedEdgePhase || ["CreateStaticBucket", "ConfigureStaticBucket", "ReadRegionalTemplateAssets", "ResolveBootstrapVersion"].includes(s.Sid)) &&
-    !s.Action.some(a => /^(cloudfront|apigateway|acm):/.test(a)) &&
-    !(t.region === "us-east-1" && s.Action.some(a => a.startsWith("route53:"))));
+  const apiPhase = ["api-parent", "api-children"].includes(phase);
+  const apiShared = new Set(["ReadRegionalTemplateAssets", "ResolveBootstrapVersion", "NeverEditBoundaryPolicy"]);
+  const apiChildren = new Set(["CreateHealthFunction", "ManageHealthFunction", "ApiMayInvokeHealth", "HealthLogGroup", "FindLogGroupMetadata", "ReadLogServiceConfiguration",
+    "CreateBoundedHealthRole", "ManageHealthRole", "NeverChangeApplicationBoundary", "PassHealthToLambdaOnly"]);
+  const original = apiPhase
+    ? base.Statement.filter(s => apiShared.has(s.Sid) || (phase === "api-children" && apiChildren.has(s.Sid)))
+    : base.Statement.filter(s => (!isolatedEdgePhase || ["CreateStaticBucket", "ConfigureStaticBucket", "ReadRegionalTemplateAssets", "ResolveBootstrapVersion"].includes(s.Sid)) &&
+      !s.Action.some(a => /^(cloudfront|apigateway|acm):/.test(a)) &&
+      !(t.region === "us-east-1" && s.Action.some(a => a.startsWith("route53:"))));
   // Named resource creation also ceases after initialization. Independently
   // reviewed config/update/delete permissions remain on exact named resources.
   const steadyExcluded = new Set(["s3:CreateBucket", "lambda:CreateFunction", "iam:CreateRole", "logs:CreateLogGroup"]);

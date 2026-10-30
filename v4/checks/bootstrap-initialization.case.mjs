@@ -80,11 +80,47 @@ test("temporary tag/lifecycle reach is exposed, not falsely called unrelated-res
 test("HTTP child authority never reaches another API; parent initialization residual remains explicit", () => {
   const p = generatedAuthority(ACCOUNT, "api-children", "initialization", IDS);
   const base = `arn:aws:apigateway:us-west-2::/apis/${IDS.apiId}`;
+  const ownership = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK" };
   assert.equal(allows(p, "apigateway:POST", `${base}/routes`), true);
   assert.equal(allows(p, "apigateway:DELETE", `${base}/routes/new`), true);
+  assert.equal(allows(p, "apigateway:TagResource", `${base}/stages`, ownership), true);
+  assert.equal(allows(p, "apigateway:TagResource", `${base}/stages`, {}), false);
+  assert.equal(allows(p, "apigateway:TagResource", `${base}/stages/$default`, ownership), false);
+  assert.equal(allows(p, "apigateway:TagResource", `${base}/stages/other`, ownership), false);
+  assert.equal(allows(p, "apigateway:UntagResource", `${base}/stages/$default`), false);
   assert.equal(allows(p, "apigateway:DELETE", base), false);
   assert.equal(allows(p, "apigateway:DELETE", `${base}-other/routes/new`), false);
+  const steady = generatedAuthority(ACCOUNT, "api-children", "steady", IDS);
+  assert.equal(allows(steady, "apigateway:TagResource", `${base}/stages/$default`, ownership), true);
+  assert.equal(allows(steady, "apigateway:UntagResource", `${base}/stages/$default`), true);
+  assert.equal(allows(steady, "apigateway:TagResource", `${base}/stages`, ownership), false);
   assert.throws(() => generatedAuthority(ACCOUNT, "api-children", "initialization"));
+});
+
+test("API compositions include provider readback but exclude static, edge and DNS authority", () => {
+  const parent = join(...executionPolicies(ACCOUNT, "api-parent", "initialization", IDS));
+  const child = join(...executionPolicies(ACCOUNT, "api-children", "initialization", IDS, ["api-parent"]));
+  const fn = `arn:aws:lambda:us-west-2:${ACCOUNT}:function:shelfstate-v4-dev-health`;
+  const group = `arn:aws:logs:us-west-2:${ACCOUNT}:log-group:/aws/lambda/shelfstate-v4-dev-health`;
+  const west = { "aws:RequestedRegion": "us-west-2" };
+  for (const action of ["lambda:GetFunctionCodeSigningConfig", "lambda:GetFunctionRecursionConfig", "lambda:GetRuntimeManagementConfig", "lambda:GetFunctionScalingConfig", "lambda:TagResource"]) {
+    assert.equal(allows(child, action, fn), true, action);
+    assert.equal(allows(child, action, `${fn}-other`), false, action);
+    assert.equal(allows(parent, action, fn), false, action);
+  }
+  assert.equal(allows(child, "logs:GetDataProtectionPolicy", group), true);
+  assert.equal(allows(child, "logs:GetDataProtectionPolicy", `${group}-other`), false);
+  for (const action of ["logs:DescribeIndexPolicies", "logs:DescribeResourcePolicies"]) {
+    assert.equal(allows(child, action, "*", west), true, action);
+    assert.equal(allows(child, action, "*", { "aws:RequestedRegion": "us-east-1" }), false, action);
+  }
+  for (const policy of [parent, child]) for (const [action, resource] of [
+    ["s3:CreateBucket", `arn:aws:s3:::shelfstate-v4-dev-static-${ACCOUNT}-us-west-2`],
+    ["route53:ChangeResourceRecordSets", "arn:aws:route53:::hostedzone/ZTESTONLY"],
+    ["cloudfront:CreateDistribution", "*"],
+  ]) assert.equal(allows(policy, action, resource), false, action);
+  assert.throws(() => executionPolicies(ACCOUNT, "api-parent", "initialization", IDS, ["edge"]), /unrelated/);
+  assert.throws(() => executionPolicies(ACCOUNT, "api-children", "initialization", IDS, ["api-parent", "edge"]), /Only exact parent/);
 });
 
 test("east certificate creation preserves hard constraints while accepting documented safe omissions", () => {
@@ -311,7 +347,7 @@ test("conservatively bound managed policy fragments/caps stay under 6144 charact
     for (const mode of ["initialization", "steady"]) {
       const p = generatedAuthority(ACCOUNT, phase, mode, sized);
       assert.ok(JSON.stringify(p).length <= 6144, `${phase}/${mode}`);
-      const retained = phase === "api-children" ? ["api-parent", "edge"] : phase === "edge" ? ["api-parent", "api-children"] : [];
+      const retained = phase === "api-children" ? ["api-parent"] : phase === "edge" ? ["api-parent", "api-children"] : [];
       for (const full of executionPolicies(ACCOUNT, phase, mode, sized, retained)) assert.ok(JSON.stringify(full).length <= 6144, `Full composition ${phase}/${mode}: ${JSON.stringify(full).length}`);
     }
     for (const region of ["us-west-2", "us-east-1"]) for (const state of ["prepare", "execute", "closed"]) assert.ok(JSON.stringify(callerWindowCap(ACCOUNT, phase, region, name, state)).length <= 6144);

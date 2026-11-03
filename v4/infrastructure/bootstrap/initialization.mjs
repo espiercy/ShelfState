@@ -16,6 +16,7 @@ const allow = (Sid, Action, Resource, Condition) => ({ Sid, Effect: "Allow", Act
 const ownership = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK" };
 const owned = { StringEquals: Object.fromEntries(Object.entries(ownership).map(([k, v]) => [k.replace("RequestTag", "ResourceTag"), v])) };
 const certificateTagKeys = ["Project", "Environment", "ManagedBy", "aws:cloudformation:logical-id", "aws:cloudformation:stack-id", "aws:cloudformation:stack-name"];
+const apiParentTagResource = "arn:aws:apigateway:us-west-2::/tags/arn%3Aaws%3Aapigateway%3Aus-west-2%3A%3A%2Fv2%2Fapis%2F*";
 
 // Required service-level classes, NOT a claim of a fully observed handler trace.
 // Unknown handler requirements are proof obligations, never speculative grants.
@@ -34,7 +35,7 @@ export const ACTION_INVENTORY = Object.freeze([
       proof: "Provider Get versus GetConfig sequence; ETag and dependency teardown. No speculative List, Update, or tag grant during initialization." })),
   { kind: "http-api", phase: "api-parent", id: "apiId", create: ["apigateway:POST"], read: ["apigateway:GET"],
     rollback: ["apigateway:DELETE"], update: ["apigateway:PATCH"],
-    proof: "Handler-specific tag endpoints and any create-time PATCH require separate evidence before adding. No REST tag inheritance premise." },
+    proof: "The observed CloudFormation handler performs a separate TagResource POST on the encoded west API tag endpoint. Any create-time PATCH still requires separate evidence. No REST tag inheritance premise." },
   { kind: "http-children", phase: "api-children", create: ["apigateway:POST"], read: ["apigateway:GET"],
     rollback: ["apigateway:DELETE"], update: ["apigateway:PATCH"],
     stageTagCreate: ["apigateway:TagResource"], stageTagUpdate: ["apigateway:TagResource", "apigateway:UntagResource"],
@@ -74,7 +75,14 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
       add(`Lifecycle${row.id}`, [...row.read, ...row.rollback, ...(initial ? [] : row.update)], [resource], initial && row.kind === "distribution" ? owned : undefined);
     } else if (phase === "api-parent") {
       const api = `arn:aws:apigateway:us-west-2::/apis/${initial ? "*" : id(bindings.apiId)}`;
-      if (initial) add("CreateExactNamedApi", row.create, ["arn:aws:apigateway:us-west-2::/apis"], { StringEquals: { "apigateway:Request/ApiName": "shelfstate-v4-dev-health", ...ownership } });
+      if (initial) {
+        add("CreateExactNamedApi", row.create, ["arn:aws:apigateway:us-west-2::/apis"], { StringEquals: { "apigateway:Request/ApiName": "shelfstate-v4-dev-health", ...ownership } });
+        // TagResource is a separate POST /v2/tags/{resource-arn} operation. Its
+        // IAM resource is the URL-encoded API tag path observed from the provider,
+        // not /apis. The pre-ID wildcard is west/API-only but can tag another API;
+        // the exact caller window contains that residual and steady mode removes it.
+        add("TagCreatedApiDuringInitialization", ["apigateway:POST"], [apiParentTagResource]);
+      }
       add("ApiLifecycle", [...row.read, ...row.rollback, ...(initial ? [] : row.update)], [api]);
     } else if (phase === "api-children") {
       const api = `arn:aws:apigateway:us-west-2::/apis/${id(bindings.apiId)}`;

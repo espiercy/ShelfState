@@ -97,6 +97,25 @@ test("HTTP child authority never reaches another API; parent initialization resi
   assert.throws(() => generatedAuthority(ACCOUNT, "api-children", "initialization"));
 });
 
+test("API parent initialization admits only the observed west API tagging endpoint and removes it in steady state", () => {
+  const initial = generatedAuthority(ACCOUNT, "api-parent", "initialization");
+  const observed = "arn:aws:apigateway:us-west-2::/tags/arn%3Aaws%3Aapigateway%3Aus-west-2%3A%3A%2Fv2%2Fapis%2F*";
+  const create = "arn:aws:apigateway:us-west-2::/apis";
+  const ownership = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK" };
+  const createContext = { ...ownership, "apigateway:Request/ApiName": "shelfstate-v4-dev-health" };
+  const tagging = initial.Statement.find(statement => statement.Sid === "TagCreatedApiDuringInitialization");
+  assert.deepEqual(tagging, { Sid: "TagCreatedApiDuringInitialization", Effect: "Allow", Action: ["apigateway:POST"], Resource: [observed] });
+  assert.equal(allows(initial, "apigateway:POST", observed), true, "Authentic provider request omits optional IAM tag context");
+  assert.equal(allows(initial, "apigateway:POST", observed, ownership), true);
+  assert.equal(allows(initial, "apigateway:POST", create, createContext), true, "Existing exact-name creation remains authorized");
+  assert.equal(allows(initial, "apigateway:POST", create, {}), false, "Creation still requires name and ownership context");
+  assert.equal(allows(initial, "apigateway:POST", observed.replace("us-west-2", "us-east-1")), false);
+  assert.equal(allows(initial, "apigateway:POST", observed.replace("%2Fv2%2Fapis%2F*", "%2Fv2%2Fstages%2F*")), false);
+  assert.equal(allows(initial, "apigateway:POST", "arn:aws:apigateway:us-west-2::/domainnames"), false);
+  assert.equal(allows(initial, "apigateway:PATCH", "arn:aws:apigateway:us-west-2::/apis/new"), false);
+  assert.equal(allows(generatedAuthority(ACCOUNT, "api-parent", "steady", IDS), "apigateway:POST", observed), false);
+});
+
 test("API compositions include provider readback but exclude static, edge and DNS authority", () => {
   const parent = join(...executionPolicies(ACCOUNT, "api-parent", "initialization", IDS));
   const child = join(...executionPolicies(ACCOUNT, "api-children", "initialization", IDS, ["api-parent"]));

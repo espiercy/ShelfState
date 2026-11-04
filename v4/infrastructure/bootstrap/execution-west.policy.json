@@ -152,6 +152,8 @@
         "lambda:GetFunctionScalingConfig",
         "lambda:UpdateFunctionCode",
         "lambda:UpdateFunctionConfiguration",
+        "lambda:PutFunctionConcurrency",
+        "lambda:DeleteFunctionConcurrency",
         "lambda:DeleteFunction",
         "lambda:GetPolicy",
         "lambda:RemovePermission",

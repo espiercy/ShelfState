@@ -49,7 +49,8 @@ export function assertLibraryApiTemplate(template, account, phase) {
       ] } }],
     },
     HealthFunction: { FunctionName: "shelfstate-v4-dev-health", Handler: "index.handler", Runtime: "nodejs24.x",
-      Architectures: ["arm64"], MemorySize: 128, Timeout: 3, Role: arn("HealthRole"), Tags: tagList,
+      Architectures: ["arm64"], MemorySize: 128, Timeout: 3, ReservedConcurrentExecutions: 2,
+      Role: arn("HealthRole"), Tags: tagList,
       LoggingConfig: { LogGroup: ref("HealthLogGroup") },
       Code: { ZipFile: readFileSync(new URL("../../backend/health.cjs", import.meta.url), "utf8").replace(/\r\n/g, "\n") },
     },
@@ -58,7 +59,8 @@ export function assertLibraryApiTemplate(template, account, phase) {
       Target: { "Fn::Join": ["/", ["integrations", ref("Integration")]] } },
     InvokePermission: { Action: "lambda:InvokeFunction", FunctionName: arn("HealthFunction"), Principal: "apigateway.amazonaws.com",
       SourceAccount: account, SourceArn: { "Fn::Join": ["", [`arn:aws:execute-api:us-west-2:${account}:`, ref("Api"), "/$default/GET/api/v1/health"]] } },
-    DefaultStage: { ApiId: ref("Api"), StageName: "$default", AutoDeploy: true, Tags: tags },
+    DefaultStage: { ApiId: ref("Api"), StageName: "$default", AutoDeploy: true,
+      DefaultRouteSettings: { ThrottlingBurstLimit: 5, ThrottlingRateLimit: 1 }, Tags: tags },
   });
   object(template.Resources, Object.keys(types), "Exact library-api inventory");
   for (const [id, Type] of Object.entries(types)) {

@@ -325,7 +325,7 @@ test("execution policies keep named resources and generated-ID lifecycle binding
     assert.equal(allows(west, action, `${api}/apitest/stages/other`), false);
   }
   const fn = `arn:aws:lambda:us-west-2:${account}:function:shelfstate-v4-dev-health`;
-  for (const action of ["lambda:GetFunctionCodeSigningConfig", "lambda:GetFunctionRecursionConfig", "lambda:GetRuntimeManagementConfig", "lambda:GetFunctionScalingConfig", "lambda:TagResource"]) {
+  for (const action of ["lambda:GetFunctionCodeSigningConfig", "lambda:GetFunctionRecursionConfig", "lambda:GetRuntimeManagementConfig", "lambda:GetFunctionScalingConfig", "lambda:PutFunctionConcurrency", "lambda:DeleteFunctionConcurrency", "lambda:TagResource"]) {
     assert.equal(allows(west, action, fn), true, action);
     assert.equal(allows(west, action, `${fn}-other`), false, action);
   }
@@ -403,7 +403,7 @@ test("R1: each bound managed policy fits 6144 characters with conservative ID al
 test("R1: partitioned west statements exactly preserve the provider-compatible authority", () => {
   const combined = westParts.flatMap(p => p.Statement).sort((a, b) => a.Sid.localeCompare(b.Sid, "en"));
   // Fixed review identity for the complete partitioned catalog, not a runtime-derived expectation.
-  assert.equal(sha256(JSON.stringify(combined)), "82210b2b1799158e77e1fb052373cd3ae3be515423b660e56763f4bc33696528");
+  assert.equal(sha256(JSON.stringify(combined)), "82501f9a5290f8005da075f32723e2de42bb82b81f4e19062351390e2f9d72e0");
   assert.equal(new Set(combined.map(s => s.Sid)).size, combined.length);
   assert.ok(westParts[0].Statement.every(s => s.Action.every(a => /^(s3|apigateway|lambda|logs|ssm):/.test(a))));
   assert.ok(westParts[1].Statement.every(s => s.Action.every(a => /^(cloudfront|route53|iam):/.test(a))));

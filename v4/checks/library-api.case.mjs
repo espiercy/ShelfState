@@ -101,6 +101,11 @@ test("actual API route/integration/stage and resource-based invoke grant are exa
   assert.equal(r.Integration.Properties.PayloadFormatVersion, "2.0");
   assert.equal(r.Integration.Properties.CredentialsArn, undefined);
   assert.equal(r.DefaultStage.Properties.StageName, "$default");
+  assert.equal(r.DefaultStage.Properties.AutoDeploy, true);
+  assert.deepEqual(r.DefaultStage.Properties.DefaultRouteSettings,
+    { ThrottlingBurstLimit: 5, ThrottlingRateLimit: 1 });
+  assert.equal(r.DefaultStage.Properties.RouteSettings, undefined);
+  assert.equal(r.DefaultStage.Properties.AccessLogSettings, undefined);
   assert.deepEqual(r.DefaultStage.DependsOn, ["InvokePermission", "Route"]);
   assert.deepEqual(r.InvokePermission.Properties, { Action: "lambda:InvokeFunction", FunctionName: { "Fn::GetAtt": ["HealthFunction", "Arn"] },
     Principal: "apigateway.amazonaws.com", SourceAccount: ACCOUNT,
@@ -129,8 +134,33 @@ test("actual runtime role uses the independent boundary and only exact precreate
   }
   assert.deepEqual(r.HealthFunction.DependsOn, ["HealthLogGroup"]);
   assert.deepEqual(r.HealthFunction.Properties.LoggingConfig, { LogGroup: { Ref: "HealthLogGroup" } });
+  assert.equal(r.HealthFunction.Properties.ReservedConcurrentExecutions, 2);
+  assert.equal(r.HealthFunction.Properties.ProvisionedConcurrencyConfig, undefined);
+  assert.equal(r.HealthFunction.Properties.Environment, undefined);
   assert.equal(r.HealthLogGroup.Properties.RetentionInDays, 7);
   assert.equal(Object.values(r).some(v => v.Type === "AWS::IAM::ManagedPolicy"), false);
+});
+
+test("hardening is an in-place two-property update with no resource or identity substitution", () => {
+  const hardened = template("api-children"), deployed = structuredClone(hardened);
+  delete deployed.Resources.DefaultStage.Properties.DefaultRouteSettings;
+  delete deployed.Resources.HealthFunction.Properties.ReservedConcurrentExecutions;
+  assert.deepEqual(Object.keys(hardened.Resources), Object.keys(deployed.Resources));
+  for (const id of Object.keys(hardened.Resources)) {
+    assert.equal(hardened.Resources[id].Type, deployed.Resources[id].Type);
+    if (!new Set(["DefaultStage", "HealthFunction"]).has(id)) assert.deepEqual(hardened.Resources[id], deployed.Resources[id]);
+  }
+  assert.deepEqual(hardened.Resources.DefaultStage.Properties, {
+    ...deployed.Resources.DefaultStage.Properties,
+    DefaultRouteSettings: { ThrottlingBurstLimit: 5, ThrottlingRateLimit: 1 },
+  });
+  assert.deepEqual(hardened.Resources.HealthFunction.Properties, {
+    ...deployed.Resources.HealthFunction.Properties,
+    ReservedConcurrentExecutions: 2,
+  });
+  assert.equal(hardened.Resources.Api.Properties.Name, "shelfstate-v4-dev-health");
+  assert.equal(hardened.Resources.DefaultStage.Properties.StageName, "$default");
+  assert.equal(hardened.Resources.HealthFunction.Properties.FunctionName, "shelfstate-v4-dev-health");
 });
 
 for (const [key, value] of [["Target", "https://unrelated.example"], ["RouteKey", "ANY /{proxy+}"], ["Body", { openapi: "3.0.1", paths: {} }],
@@ -151,11 +181,13 @@ for (const [label, id, delta] of [
   ["response header rewrite", "Integration", { ResponseParameters: { "200": { "overwrite:header.Cache-Control": "public" } } }],
   ["other stage", "DefaultStage", { StageName: "other" }],
   ["stage variables", "DefaultStage", { StageVariables: { target: "unrelated" } }],
+  ["weaker throttling", "DefaultStage", { DefaultRouteSettings: { ThrottlingBurstLimit: 50, ThrottlingRateLimit: 10 } }],
   ["arbitrary runtime policy", "HealthRole", { ManagedPolicyArns: [`arn:aws:iam::aws:policy/AdministratorAccess`] }],
   ["boundary substitution", "HealthRole", { PermissionsBoundary: `arn:aws:iam::${ACCOUNT}:policy/unrelated` }],
   ["code substitution", "HealthFunction", { Code: { ZipFile: "exports.handler = async () => process.env;" } }],
   ["external code", "HealthFunction", { Code: { S3Bucket: "unrelated", S3Key: "mutable.zip" } }],
   ["environment disclosure", "HealthFunction", { Environment: { Variables: { EXAMPLE: "unreviewed" } } }],
+  ["unbounded concurrency", "HealthFunction", { ReservedConcurrentExecutions: 100 }],
   ["other log surface", "HealthFunction", { LoggingConfig: { LogGroup: "unrelated" } }],
   ["wildcard invocation", "InvokePermission", { SourceArn: "*" }],
   ["other invoke target", "InvokePermission", { FunctionName: "unrelated" }],

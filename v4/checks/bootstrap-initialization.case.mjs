@@ -122,7 +122,7 @@ test("API compositions include provider readback but exclude static, edge and DN
   const fn = `arn:aws:lambda:us-west-2:${ACCOUNT}:function:shelfstate-v4-dev-health`;
   const group = `arn:aws:logs:us-west-2:${ACCOUNT}:log-group:/aws/lambda/shelfstate-v4-dev-health`;
   const west = { "aws:RequestedRegion": "us-west-2" };
-  for (const action of ["lambda:GetFunctionCodeSigningConfig", "lambda:GetFunctionRecursionConfig", "lambda:GetRuntimeManagementConfig", "lambda:GetFunctionScalingConfig", "lambda:TagResource"]) {
+  for (const action of ["lambda:GetFunctionCodeSigningConfig", "lambda:GetFunctionRecursionConfig", "lambda:GetRuntimeManagementConfig", "lambda:GetFunctionScalingConfig", "lambda:PutFunctionConcurrency", "lambda:DeleteFunctionConcurrency", "lambda:TagResource"]) {
     assert.equal(allows(child, action, fn), true, action);
     assert.equal(allows(child, action, `${fn}-other`), false, action);
     assert.equal(allows(parent, action, fn), false, action);

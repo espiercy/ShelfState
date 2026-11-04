@@ -38,6 +38,7 @@ export function addLibraryApi(stack, config, phase) {
   const health = stable(new CfnFunction(stack, "HealthFunction", {
     functionName: "shelfstate-v4-dev-health", runtime: "nodejs24.x", handler: "index.handler",
     architectures: ["arm64"], memorySize: 128, timeout: 3,
+    reservedConcurrentExecutions: 2,
     role: role.attrArn, code: { zipFile: code }, loggingConfig: { logGroup: logs.ref },
   }), "HealthFunction");
   health.addResourceDependency(logs); // Explicit precreation; runtime cannot CreateLogGroup.
@@ -56,6 +57,7 @@ export function addLibraryApi(stack, config, phase) {
   }), "InvokePermission");
   const stage = stable(new CfnStage(stack, "DefaultStage", {
     apiId: api.ref, stageName: "$default", autoDeploy: true,
+    defaultRouteSettings: { throttlingBurstLimit: 5, throttlingRateLimit: 1 },
   }), "DefaultStage");
   stage.addResourceDependency(route);
   stage.addResourceDependency(permission);

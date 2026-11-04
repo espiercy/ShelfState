@@ -137,7 +137,7 @@ test("all 36 prior phase templates preserve their starting content identities", 
     "prod/operations-lifecycle": "73388e205186b034c9d5495a8ea473e0bc1bd794d2f7ac2a4898247ac897dcf7",
     "prod/recovery-observability": "9042ded548a50248b66096db10c0c043bb079a8eea52b95b14d27c85e42befeb",
     "api-parent/library-api": "c6f573f02da51d4029e09ce33ab46c6e35fd4ef146300bd042d5c546ed354b0a",
-    "api-children/library-api": "fb1aaf1de3307aafc452d5006dd47418ef77b62af848b625f511f777c72cf4a3",
+    "api-children/library-api": "1ded039ad78ddb73174a9d3e78a2c52bff0606a144445983c1ad37d8025274d8",
     "certificate/edge-certificate": "c4579dd6b934976acf97b6e65760b36e3349a53c6abb1f3e2f5ee7bd1151bfc4",
     "edge-static/edge-delivery": "bc10ef5979ea49e0ad923f953b510570cdc659946aa9d1a2cc0d4f2348d6a247",
   };

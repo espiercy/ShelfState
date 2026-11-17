@@ -8,6 +8,7 @@ import { EDGE_CERTIFICATE_REVIEW_SCHEMA, edgeCertificateTypes, assertEdgeCertifi
 import { parseCertificateAssemblyReviewPackage } from "./certificate-assembly-adapter.mjs";
 import { STATIC_EDGE_REVIEW_SCHEMA, staticEdgeTypes, assertStaticEdgeBindings, assertStaticEdgeTemplate } from "./static-edge-contract.mjs";
 import { EDGE_ROUTING_REVIEW_SCHEMA, edgeRoutingTypes, assertEdgeRoutingBindings, assertEdgeRoutingTemplate } from "./edge-routing-contract.mjs";
+import { EDGE_WAF_REVIEW_SCHEMA, edgeWafTypes, assertEdgeWafTemplate } from "./edge-waf-contract.mjs";
 
 const TYPES = Object.freeze({
   edge: { Distribution: "AWS::CloudFront::Distribution", OriginAccessControl: "AWS::CloudFront::OriginAccessControl",
@@ -89,8 +90,9 @@ export function validateInitializationReviewMaterial(approval, trustedApprovalDi
   const actualCertificate = approval.schema === EDGE_CERTIFICATE_REVIEW_SCHEMA;
   const actualStatic = approval.schema === STATIC_EDGE_REVIEW_SCHEMA;
   const actualRouting = approval.schema === EDGE_ROUTING_REVIEW_SCHEMA;
-  assert.ok(actualApi || actualCertificate || actualStatic || actualRouting || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
-  const expectedTypes = actualApi ? libraryApiTypes(approval.phase) : actualCertificate ? edgeCertificateTypes(approval.phase) : actualStatic ? staticEdgeTypes(approval.phase) : actualRouting ? edgeRoutingTypes(approval.phase) : TYPES[approval.phase];
+  const actualWaf = approval.schema === EDGE_WAF_REVIEW_SCHEMA;
+  assert.ok(actualApi || actualCertificate || actualStatic || actualRouting || actualWaf || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
+  const expectedTypes = actualApi ? libraryApiTypes(approval.phase) : actualCertificate ? edgeCertificateTypes(approval.phase) : actualStatic ? staticEdgeTypes(approval.phase) : actualRouting ? edgeRoutingTypes(approval.phase) : actualWaf ? edgeWafTypes(approval.phase) : TYPES[approval.phase];
   assert.ok(expectedTypes, "Unsupported phase for review schema");
   const t = target(approval.account, approval.phase);
   assert.equal(approval.region, t.region); assert.equal(approval.stack, t.name); assert.equal(approval.executionRole, t.executionRole);
@@ -109,6 +111,9 @@ export function validateInitializationReviewMaterial(approval, trustedApprovalDi
   } else if (actualRouting) {
     assertEdgeRoutingBindings(b, approval.account);
     equal(approval.assets, {}, "Edge routing initialization does not publish objects");
+  } else if (actualWaf) {
+    object(b, [], "WAF initialization has no candidate-supplied resource binding");
+    equal(approval.assets, {}, "Edge WAF initialization has no external assets");
   } else {
     object(b, ["apiId", "healthFunctionArn", "zoneId", "certificateArn", "staticBucketDomain"]);
     assert.match(b.apiId, /^[a-z0-9]{1,32}$/);
@@ -127,6 +132,7 @@ export function validateInitializationReviewMaterial(approval, trustedApprovalDi
   else if (actualCertificate) assertEdgeCertificateTemplate(template, approval.account, approval.phase);
   else if (actualStatic) assertStaticEdgeTemplate(template, approval.account, approval.phase, b);
   else if (actualRouting) assertEdgeRoutingTemplate(template, approval.account, approval.phase, b);
+  else if (actualWaf) assertEdgeWafTemplate(template, approval.account, approval.phase);
   else checkTemplate(template, approval);
   if (actualCertificate) {
     parseCertificateAssemblyReviewPackage(bundle.assemblyBytes, {

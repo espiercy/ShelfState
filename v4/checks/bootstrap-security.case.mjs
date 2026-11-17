@@ -173,9 +173,9 @@ test("same-account trust and unchanged file/image/lookup contract are preserved"
   assert.deepEqual(template.Resources.DeploymentActionRole.Properties.AssumeRolePolicyDocument.Statement, upstream.Resources.DeploymentActionRole.Properties.AssumeRolePolicyDocument.Statement.slice(0, 2));
 });
 
-test("exact six names come from existing topology, not a broad prefix", () => {
+test("exact application and explicit WAF stack names are fixed, not a broad prefix", () => {
   assert.deepEqual(devStackNames("us-west-2"), ["shelfstate-v4-dev-edge-delivery", "shelfstate-v4-dev-identity-session", "shelfstate-v4-dev-library-api", "shelfstate-v4-dev-operations-lifecycle", "shelfstate-v4-dev-recovery-observability"]);
-  assert.deepEqual(devStackNames("us-east-1"), ["shelfstate-v4-dev-edge-certificate"]);
+  assert.deepEqual(devStackNames("us-east-1"), ["shelfstate-v4-dev-edge-certificate", "shelfstate-v4-dev-edge-waf"]);
   assert.throws(() => devStackNames("eu-west-1"));
 });
 

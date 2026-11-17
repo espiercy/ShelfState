@@ -1,11 +1,11 @@
 # ShelfState V4 Architecture Baseline
 
 **Status:** Approved Architecture Baseline / Pre-Code Gate cleared 2026-09-15
-**Baseline date:** 2026-09-14; gate status updated 2026-09-15
+**Baseline date:** 2026-09-14; gate status updated 2026-09-15; development WAF amendment approved 2026-11-04
 **Implementation status:** Production-code implementation not yet authorized\
 **Pre-Code Gate:** **CLEARED** — implementation planning authorized; implementation remains separately gated
 **Primary region:** `us-west-2` (Oregon)\
-**Edge certificate region:** `us-east-1` for CloudFront ACM certificate
+**Edge certificate/WAF region:** `us-east-1` for the CloudFront ACM certificate and CloudFront-scope Web ACL
 
 ---
 
@@ -107,7 +107,7 @@ V4.0 intentionally does **not** require:
 - multi-region active deployment;
 - a customer-managed VPC;
 - public self-service registration;
-- AWS WAF at invite-only launch;
+- WAF expansion beyond the required WP-007 development Web ACL, including V3 coverage or a general WAF program;
 - distributed tracing;
 - a custom CloudWatch dashboard;
 - a formal SBOM;
@@ -830,6 +830,19 @@ Use a **private S3 bucket behind CloudFront using Origin Access Control (OAC)**.
 - Route 53 Alias to CloudFront;
 - non-exportable ACM public certificate in `us-east-1`.
 
+Before the V4 development distribution is publicly deployed, create one minimal
+CloudFront-scope AWS WAF Web ACL in `us-east-1` and create the distribution with
+the independently authenticated Web ACL ARN already present in `WebACLId`. An
+unprotected distribution followed by later association is not an accepted
+deployment sequence. The Web ACL defaults to `ALLOW` and contains exactly one
+source-IP rate-based `BLOCK` rule at 120 requests per 60-second evaluation
+window.
+
+This WAF layer supplements, and does not replace, the existing CloudFront
+security-response headers, API Gateway throttling, Lambda concurrency limits,
+direct-endpoint protections, or backend authorization. It adds recurring base
+and request charges and is not an absolute traffic or spending cap.
+
 ### 16.2 Single origin
 
 CloudFront provides one browser-visible production origin.
@@ -913,7 +926,8 @@ Global/service-specific exceptions:
 
 - CloudFront — global edge;
 - Route 53 — global DNS;
-- CloudFront ACM certificate — `us-east-1`.
+- CloudFront ACM certificate — `us-east-1`;
+- CloudFront-scope AWS WAF Web ACL — `us-east-1`.
 
 No multi-region active deployment or cross-region DynamoDB replication initially.
 
@@ -1364,6 +1378,12 @@ The approved cost model intentionally uses normal published pricing assumptions 
 
 Existing Route 53 hosted-zone/domain costs are treated as sunk costs.
 
+The approved WP-007 development Web ACL is a deliberate exception to the
+original low-idle-cost model. The planning estimate is approximately `$5/month`
+for one Web ACL plus approximately `$1/month` for one rule, with additional
+request charges. Current official pricing and the complete development run rate
+must be revalidated before deployment. WAF does not establish a hard bill cap.
+
 Preferred one-user incremental operating target: **approximately $5/month**.
 
 Near-term projection above **approximately $15/month** triggers explicit review and approval/optimization.
@@ -1420,7 +1440,10 @@ The added Library Operations Lambda has no idle charge. A conservative Personal 
 
 ### 23.4 Cost gates
 
-The Personal architecture is financially approved for initial production use at the conservative modeled **~$2.70/month**.
+The production Personal architecture remains modeled at the pre-WAF conservative
+**~$2.70/month** because this amendment is limited to the development
+distribution. Development deployment must separately include and approve the
+WAF base and request charges described above.
 
 After the first complete production billing cycle:
 
@@ -1728,7 +1751,7 @@ The normative implementation requirements are the stable-ID entries in [`V4_REQU
 | [ADR-003](adr/ADR-003-identity-authentication-sessions.md) | Cognito Plus, Managed Login, Authorization Code + PKCE, BFF opaque sessions, internal ShelfState userId | CLOSED / APPROVED; amended 2026-09-14 |
 | [ADR-004](adr/ADR-004-authorization-ownership.md) | Centralized server-side authorization, owner-scoped persistence, USER/ADMIN only, no Verified Permissions | CLOSED / APPROVED; clarified 2026-09-14 |
 | [ADR-005](adr/ADR-005-api-backend-compute.md) | API Gateway HTTP API + capability-aligned synchronous/asynchronous Lambda functions in Node.js/JavaScript | CLOSED / APPROVED; amended 2026-09-14 |
-| [ADR-006](adr/ADR-006-frontend-edge-hosting.md) | Private S3 + CloudFront/OAC, ordinary-traffic single origin, PWA cache/security and isolation policy, WAF deferred | CLOSED / APPROVED; amended 2026-09-14 |
+| [ADR-006](adr/ADR-006-frontend-edge-hosting.md) | Private S3 + CloudFront/OAC, ordinary-traffic single origin, PWA cache/security and isolation policy, required minimal development WAF binding | CLOSED / APPROVED; amended 2026-09-14 and 2026-11-04 |
 | [ADR-007](adr/ADR-007-iac-delivery.md) | CDK v2 JavaScript, GitHub Actions OIDC, hardened human AWS access, deliberate releases | CLOSED / APPROVED; amended 2026-09-14 |
 | [ADR-008](adr/ADR-008-observability.md) | CloudWatch structured logs + minimal alarms; SNS email; custom dashboard deferred; no X-Ray | CLOSED / APPROVED; amended by ADR-021 |
 | [ADR-009](adr/ADR-009-backup-disaster-recovery.md) | PITR + AWS Backup/Governance Vault Lock + tested DR/runbook + separated recovery authority | CLOSED / APPROVED; amended 2026-09-14 |
@@ -1755,7 +1778,7 @@ The normative implementation requirements are the stable-ID entries in [`V4_REQU
 
 | Deferred capability | Why excluded from V4.0 | Reconsideration trigger |
 |---|---|---|
-| AWS WAF | Fixed cost/complexity disproportionate for invite-only launch | Public signup readiness review or observed L7 abuse |
+| Additional AWS WAF scope beyond the WP-007 development Web ACL | Broader rules, logging/inspection, production and V3 coverage remain unjustified by this bounded decision | Public signup readiness review, observed L7 abuse, or a separately approved production edge requirement |
 | Custom CloudWatch dashboard | Convenience cost not justified for one-user launch | After first full production billing cycle if actual cost is comfortable and dashboard provides recurring value |
 | Provisioned Concurrency | Adds idle cost to solve latency not yet demonstrated | Measured cold-start latency becomes a real user problem |
 | Multi-region application | Adds substantial persistence/identity/ops complexity | Availability/DR requirement materially exceeds accepted single-region posture |
@@ -1873,8 +1896,8 @@ Routine implementation details that remain inside these boundaries do not requir
 
 # End state
 
-ShelfState V4 is architected as a low-idle-cost, single-region, serverless AWS application with a vanilla-JavaScript PWA, CloudFront/private-S3 edge, API Gateway HTTP API, capability-aligned Lambda backend, Cognito Plus authentication with server-held BFF sessions, DynamoDB authoritative persistence, strict server-side ownership enforcement, generation-based atomic large mutations, controlled migration/import/export, layered recovery, reproducible CDK infrastructure, and deliberate production releases.
+ShelfState V4 is architected as a low-idle-cost, single-region, serverless AWS application with a vanilla-JavaScript PWA, CloudFront/private-S3 edge, a required minimal development CloudFront WAF binding, API Gateway HTTP API, capability-aligned Lambda backend, Cognito Plus authentication with server-held BFF sessions, DynamoDB authoritative persistence, strict server-side ownership enforcement, generation-based atomic large mutations, controlled migration/import/export, layered recovery, reproducible CDK infrastructure, and deliberate production releases.
 
-The architecture is financially approved for Personal launch under the conservative **~$2.70/month** model. Public signup, offline synchronization, WAF, multi-region operation, richer observability, and other complexity remain intentionally deferred behind explicit reconsideration gates.
+The production Personal architecture remains financially modeled at the pre-WAF conservative **~$2.70/month**. The required development Web ACL adds recurring base and request charges that must be revalidated before deployment and do not guarantee an absolute traffic or spending limit. Public signup, offline synchronization, broader WAF scope, multi-region operation, richer observability, and other complexity remain intentionally deferred behind explicit reconsideration gates.
 
 The architecture discovery, independent consolidation review, and Pre-Code Gate approval are complete. The authorized implementation plan now exists at `docs/V4_IMPLEMENTATION_PLAN.md` and awaits human review. Production implementation remains separately gated.

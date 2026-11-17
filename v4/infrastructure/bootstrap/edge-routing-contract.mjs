@@ -14,10 +14,13 @@ export function edgeRoutingTypes(phase) {
 }
 
 export function assertEdgeRoutingBindings(bindings, account) {
-  object(bindings, ["certificateArn", "apiId"], "Only reviewed certificate ARN and API ID are accepted");
+  object(bindings, ["certificateArn", "apiId", "webAclArn"], "Only reviewed certificate ARN, API ID and Web ACL ARN are accepted");
   assertStaticEdgeBindings({ certificateArn: bindings.certificateArn }, account);
   assert.equal(typeof bindings.apiId, "string");
   assert.match(bindings.apiId, /^[a-z0-9]{1,32}$/, "API ID has unsupported shape");
+  assert.equal(typeof bindings.webAclArn, "string");
+  assert.match(bindings.webAclArn, new RegExp(`^arn:aws:wafv2:us-east-1:${account}:global/webacl/shelfstate-v4-dev-edge/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`),
+    "Exact same-account CloudFront-scope Web ACL ARN required");
 }
 
 export function assertEdgeRoutingTemplate(template, account, phase, bindings) {
@@ -31,6 +34,7 @@ export function assertEdgeRoutingTemplate(template, account, phase, bindings) {
   const distribution = template?.Resources?.Distribution?.Properties?.DistributionConfig;
   assert.ok(distribution && typeof distribution === "object", "Distribution configuration required");
   assert.ok(Array.isArray(distribution.Origins), "Origins array required");
+  assert.equal(distribution.WebACLId, bindings.webAclArn, "Exact reviewed Web ACL ARN binding required");
   assert.equal(distribution.Origins.length, 2, "Exactly static and API origins required");
   equal(distribution.Origins[1], {
     Id: "api",
@@ -56,6 +60,7 @@ export function assertEdgeRoutingTemplate(template, account, phase, bindings) {
   const staticProjection = structuredClone(template);
   staticProjection.Metadata.ShelfState.InitializationPhase = "edge-static";
   staticProjection.Resources.Distribution.Properties.DistributionConfig.Origins.pop();
+  delete staticProjection.Resources.Distribution.Properties.DistributionConfig.WebACLId;
   delete staticProjection.Resources.Distribution.Properties.DistributionConfig.CacheBehaviors;
   assertStaticEdgeTemplate(staticProjection, account, "edge-static", { certificateArn: bindings.certificateArn });
 }

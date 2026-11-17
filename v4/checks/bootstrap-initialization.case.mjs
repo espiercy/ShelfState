@@ -11,8 +11,8 @@ const check = f => validateInitializationBundle(f.approval, f.pin, f.bundle);
 const join = (...policies) => ({ Version: "2012-10-17", Statement: policies.flatMap(p => p.Statement) });
 const name = `wp007-${"a".repeat(64)}`;
 
-test("eight action classes distinguish rollback/update and preserve handler proof obligations", () => {
-  assert.equal(ACTION_INVENTORY.length, 8);
+test("nine action classes distinguish rollback/update and preserve handler proof obligations", () => {
+  assert.equal(ACTION_INVENTORY.length, 9);
   for (const r of ACTION_INVENTORY) { assert.ok(r.create.length && r.read.length && r.rollback.length && r.update.length && r.proof && r.replacement); }
   const initial = generatedAuthority(ACCOUNT, "edge", "initialization");
   assert.equal(allows(initial, "cloudfront:UpdateOriginAccessControl", `arn:aws:cloudfront::${ACCOUNT}:origin-access-control/ANY`), false);
@@ -25,7 +25,7 @@ for (const phase of Object.keys(PHASES)) {
   test(`${phase}: reviewed synthetic assembly passes without enabling deployment`, () => {
     // Actual edge phases have no historical synthetic representation. Their
     // positive emitted-template fixtures live in their dedicated suites.
-    if (["edge-static", "edge-routing"].includes(phase)) return assert.throws(() => check(fixture(phase)), /Unsupported phase for review schema/);
+    if (["edge-static", "edge-routing", "edge-waf"].includes(phase)) return assert.throws(() => check(fixture(phase)), /Unsupported phase for review schema/);
     assert.equal(check(fixture(phase)).status, "LOCAL_REVIEW_VALIDATED_NOT_DEPLOYMENT_AUTHORIZATION");
   });
   test(`${phase}: exact single-stack cap defeats old six-stack allow and opposite-region role`, () => {
@@ -260,7 +260,7 @@ test("R1 rejects integration CredentialsArn under a new valid pin", () => {
 });
 
 // Novel fields and deletions exercise EVERY resource, including empty placeholders.
-for (const phase of Object.keys(PHASES).filter(p => !["edge-static", "edge-routing"].includes(p))) {
+for (const phase of Object.keys(PHASES).filter(p => !["edge-static", "edge-routing", "edge-waf"].includes(p))) {
   const resources = JSON.parse(fixture(phase).bundle.templateBytes).Resources;
   for (const [logicalId, resource] of Object.entries(resources)) {
     test(`${phase}/${logicalId}: closed property set and required values`, () => {

@@ -17,6 +17,7 @@ export function addEdgeRouting(stack, config, bindings) {
   assertEdgeRoutingBindings(bindings, config.accountId);
 
   const { distribution } = addStaticEdge(stack, config, { certificateArn: bindings.certificateArn });
+  distribution.distributionConfig.webAclId = bindings.webAclArn;
   distribution.distributionConfig.origins = [
     ...distribution.distributionConfig.origins,
     {

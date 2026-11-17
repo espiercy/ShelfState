@@ -35,6 +35,7 @@ const phase = "edge-routing";
 const bindings = {
   certificateArn: `arn:aws:acm:us-east-1:${ACCOUNT}:certificate/certificate-test`,
   apiId: "apitest",
+  webAclArn: `arn:aws:wafv2:us-east-1:${ACCOUNT}:global/webacl/shelfstate-v4-dev-edge/11111111-2222-3333-4444-555555555555`,
 };
 const config = resolveEnvironmentConfig("dev", { SHELFSTATE_DEV_AWS_ACCOUNT_ID: ACCOUNT });
 const staticBindings = { certificateArn: bindings.certificateArn };
@@ -152,11 +153,13 @@ test("static origin, default behavior, bucket policy, OAC and headers remain byt
   const projection = structuredClone(routingTemplate);
   projection.Metadata.ShelfState.InitializationPhase = "edge-static";
   projection.Resources.Distribution.Properties.DistributionConfig.Origins.pop();
+  delete projection.Resources.Distribution.Properties.DistributionConfig.WebACLId;
   delete projection.Resources.Distribution.Properties.DistributionConfig.CacheBehaviors;
   assert.deepEqual(projection, templates.get("edge-static")["edge-delivery"]);
 });
 
 test("API origin and ordered behavior use exact HTTPS, TLS, path, managed policies and read-only methods", () => {
+  assert.equal(distribution(routingTemplate).WebACLId, bindings.webAclArn);
   assert.deepEqual(apiOrigin(routingTemplate), {
     Id: "api",
     DomainName: `${bindings.apiId}.execute-api.us-west-2.amazonaws.com`,
@@ -180,6 +183,8 @@ for (const [label, mutate] of [
   ["wrong routing phase marker", t => { t.Metadata.ShelfState.InitializationPhase = "wrong"; }],
   ["static phase marker", t => { t.Metadata.ShelfState.InitializationPhase = "edge-static"; }],
   ["missing routing phase marker", t => { delete t.Metadata.ShelfState.InitializationPhase; }],
+  ["missing Web ACL binding", t => { delete distribution(t).WebACLId; }],
+  ["substituted Web ACL binding", t => { distribution(t).WebACLId = bindings.webAclArn.replace("11111111", "aaaaaaaa"); }],
   ["wrong API binding", t => { apiOrigin(t).DomainName = "other.execute-api.us-west-2.amazonaws.com"; }],
   ["wrong API region", t => { apiOrigin(t).DomainName = `${bindings.apiId}.execute-api.us-east-1.amazonaws.com`; }],
   ["HTTP origin", t => { apiOrigin(t).CustomOriginConfig.OriginProtocolPolicy = "http-only"; }],
@@ -218,6 +223,11 @@ test("binding shape, account, regions, exact keys and phase selection fail close
     [{ ...config, edgeCertificateRegion: "us-west-2" }, good],
     [config, { initializationPhase: phase }],
     [config, { ...good, initializationBindings: { certificateArn: bindings.certificateArn } }],
+    [config, { ...good, initializationBindings: { ...bindings, webAclArn: bindings.webAclArn.replace("us-east-1", "us-west-2") } }],
+    [config, { ...good, initializationBindings: { ...bindings, webAclArn: bindings.webAclArn.replace(`:${ACCOUNT}:`, ":210987654321:") } }],
+    [config, { ...good, initializationBindings: { ...bindings, webAclArn: bindings.webAclArn.replace(":global/", ":regional/") } }],
+    [config, { ...good, initializationBindings: { ...bindings, webAclArn: bindings.webAclArn.replace("shelfstate-v4-dev-edge", "other") } }],
+    [config, { ...good, initializationBindings: { ...bindings, webAclArn: bindings.webAclArn.replace("11111111-2222", "111111112222-") } }],
     [config, { ...good, initializationBindings: { ...bindings, apiId: "API-UPPER" } }],
     [config, { ...good, initializationBindings: { ...bindings, apiId: "api.test" } }],
     [config, { ...good, initializationBindings: { ...bindings, extra: true } }],

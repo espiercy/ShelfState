@@ -2,7 +2,7 @@
 import { hash, hashObject } from "../../scripts/release/schema.mjs";
 import { target } from "../../infrastructure/bootstrap/initialization.mjs";
 export const ACCOUNT = "123456789012"; // AWS documentation account, not a live binding.
-export const IDS = { apiId: "apitest", integrationId: "integrationtest", routeId: "routetest", distributionId: "DISTTEST", oacId: "OACTEST", cachePolicyId: "cache-test", originRequestPolicyId: "origin-test", responseHeadersPolicyId: "headers-test", certificateId: "certificate-test" };
+export const IDS = { apiId: "apitest", integrationId: "integrationtest", routeId: "routetest", distributionId: "DISTTEST", oacId: "OACTEST", cachePolicyId: "cache-test", originRequestPolicyId: "origin-test", responseHeadersPolicyId: "headers-test", certificateId: "certificate-test", webAclId: "11111111-2222-3333-4444-555555555555" };
 const ref = Ref => ({ Ref });
 const resource = (Type, Properties = {}) => ({ Type, Properties });
 export function fixture(phase = "api-parent") {

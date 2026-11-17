@@ -7,6 +7,7 @@ import { addStaticEdge } from "./static-edge.mjs";
 import { assertStaticEdgeBindings } from "../bootstrap/static-edge-contract.mjs";
 import { addEdgeRouting } from "./edge-routing.mjs";
 import { assertEdgeRoutingBindings } from "../bootstrap/edge-routing-contract.mjs";
+import { addEdgeWaf } from "./edge-waf.mjs";
 
 import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 export { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
@@ -34,11 +35,12 @@ export function createEnvironmentTopology(app, config, options = {}) {
   else assert.ok(!Object.hasOwn(options, "initializationBindings"), "External bindings belong only to explicit edge phases");
   if (phase !== undefined) {
     assert.equal(config.environmentName, "dev", "Initialization resources are dev-only");
-    assert.ok(["api-parent", "api-children", "certificate", "edge-static", "edge-routing"].includes(phase), "Unsupported initialization phase");
+    assert.ok(["api-parent", "api-children", "certificate", "edge-static", "edge-routing", "edge-waf"].includes(phase), "Unsupported initialization phase");
     assert.match(config.accountId ?? "", /^\d{12}$/, "Explicit local account binding required; no AWS discovery");
     assert.equal(config.primaryRegion, "us-west-2");
     assert.equal(config.edgeCertificateRegion, "us-east-1");
   }
+
   const stacks = new Map();
   const tags = requiredTags(config);
 
@@ -95,6 +97,24 @@ export function createEnvironmentTopology(app, config, options = {}) {
       stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
       addEdgeRouting(stack, config, options.initializationBindings);
     }
+  }
+
+  // The WAF stack is an explicit WP-007-only deployment phase. It is not added
+  // to the accepted six-stack resource-empty foundation topology.
+  if (phase === "edge-waf") {
+    const stack = new Stack(app, constructId(config, "edge-waf"), {
+      description: "ShelfState V4 dev edge-waf (WP-007 local preparation)",
+      env: stackEnvironment(config, config.edgeCertificateRegion),
+      stackName: stackName(config, "edge-waf"),
+      terminationProtection: false,
+    });
+    stack.templateOptions.metadata = { ShelfState: {
+      Capability: "edge-waf", Environment: "dev", Region: config.edgeCertificateRegion,
+      WorkPackage: "WP-007", InitializationPhase: phase,
+    } };
+    for (const [key, value] of Object.entries(tags)) Tags.of(stack).add(key, value);
+    addEdgeWaf(stack, config);
+    stacks.set("edge-waf", stack);
   }
 
   for (const definition of CAPABILITY_DEFINITIONS) {

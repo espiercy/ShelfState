@@ -7,7 +7,7 @@ import { stackName } from "../lib/naming.mjs";
 
 export const UPSTREAM_SHA256 = "a484ad768d3446874161044d986bec096e201a54037c8ce93ed5a0d215e1dd25";
 export const VARIANT = "ShelfState: Dev isolated modern bootstrap";
-export const REVISION = 2;
+export const REVISION = 3;
 export const REGIONS = Object.freeze(["us-west-2", "us-east-1"]);
 export const QUALIFIER = "hnb659fds";
 export const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -21,7 +21,12 @@ const deny = (Sid, Action, Resource, Condition) => ({ ...allow(Sid, Action, Reso
 export function devStackNames(region) {
   assert.ok(REGIONS.includes(region), "Unsupported bootstrap region");
   const config = resolveEnvironmentConfig("dev");
-  return CAPABILITY_DEFINITIONS.filter(d => config[d.regionSource] === region).map(d => stackName(config, d.key));
+  const names = CAPABILITY_DEFINITIONS.filter(d => config[d.regionSource] === region).map(d => stackName(config, d.key));
+  // WAF is an explicit WP-007 initialization stack, not a seventh ordinary
+  // foundation capability. Keep the accepted six-stack release topology intact
+  // while allowing the east bootstrap role to operate this one reviewed stack.
+  if (region === "us-east-1") names.push(stackName(config, "edge-waf"));
+  return names;
 }
 
 export const CHANGE_SET_ACTIONS = Object.freeze([

@@ -806,7 +806,10 @@ the distribution relative to the static representation:
   removes the viewer `Host` and lets CloudFront send the API origin domain.
 - The API behavior deliberately has no response-headers policy, so it cannot
   overwrite the health handler's `Cache-Control: no-store`. It has no origin
-  path, custom headers, CORS, WAF, edge functions, DNS or publication helper.
+  path, custom headers, CORS, edge functions, DNS or publication helper.
+- The distribution requires the separately reviewed same-account CloudFront-
+  scope WAFv2 ARN through `WebACLId`. No association resource or cross-region
+  CloudFormation reference is introduced.
 
 AWS documents CachingDisabled as min/default/max TTL zero and describes
 AllViewerExceptHostHeader as intended for API Gateway, replacing the viewer Host
@@ -820,16 +823,18 @@ Primary references: [managed cache policies](https://docs.aws.amazon.com/AmazonC
 ### Binding, contract and authority boundaries
 
 `shelfstateInitializationPhase: edge-routing` requires exactly
-`shelfstateInitializationBindings: { certificateArn, apiId }`. The certificate
+`shelfstateInitializationBindings: { certificateArn, apiId, webAclArn }`. The certificate
 must have the same-account east ACM ARN shape; the API ID must be lower-case
-alphanumeric and at most 32 characters. These are representation checks only.
-They do not establish issuance, domain coverage, API ownership, physical ID,
-deployment history or readback freshness. Candidate self-repinning cannot change
-an independently trusted review pin.
+alphanumeric and at most 32 characters. The Web ACL must be an exact same-account
+`arn:aws:wafv2:us-east-1:<account>:global/webacl/shelfstate-v4-dev-edge/<uuid>`
+ARN. These are representation checks only. They do not establish issuance,
+domain coverage, API or WAF ownership, physical IDs, deployment history or
+readback freshness. Candidate self-repinning cannot change an independently
+trusted review pin.
 
 `edge-routing-contract.mjs` first requires the original exact `edge-routing`
 phase marker and exact API origin/behavior, then projects out only the routing
-additions, restores the `edge-static` phase marker, and
+additions (API origin, API behavior and `WebACLId`), restores the `edge-static` phase marker, and
 passes the remainder through the unchanged complete static contract. Unknown or
 missing keys, alternate intrinsics, wrong regions/TLS/path/policies/methods,
 Host forwarding, extra origins/behaviors, origin path/custom headers, response
@@ -858,7 +863,7 @@ narrower-principal containment, exact-ID narrowing and closure requirements rema
   certificate and `edge-static` selectors retain all **36** captured starting
   JSON-content SHA-256 identities. The routing contract proves the static
   projection byte-identical to `edge-static` apart from its phase marker and the
-  two explicit routing additions.
+  three explicit routing additions.
 - Root regression / CI / WP-001 / V3 isolation: **197 passed, 0 failed**. The
   initial sandboxed run's two temporary-Git permission failures passed when the
   same suite was rerun with local temp-directory access. Tracked-file credential
@@ -873,8 +878,8 @@ narrower-principal containment, exact-ID narrowing and closure requirements rema
   tests without changing the template, resource inventory, authority or trust
   boundaries. Focused independent closure returned **A — APPROVE**.
 
-Deferred live proof: authenticate both physical bindings; verify certificate
-issuance/domain coverage and the exact API; independently review stored template,
+Deferred live proof: authenticate all three physical bindings; verify certificate
+issuance/domain coverage, the exact API and the exact Web ACL; independently review stored template,
 immutable assets, handler/provider call trace and rollback options; prove origin
 TLS/Host/path forwarding, uncached health response, direct execute-api safety,
 OAC/private S3 behavior, propagation, CloudTrail, containment and exact-ID
@@ -884,6 +889,66 @@ and four-directory pinned-CLI compatibility evidence later passed in the accepte
 M2 proof exercises. Within this dated local routing slice, no AWS authentication/API call,
 workflow activation, bootstrap, deployment, publication, DNS mutation, stage,
 commit, push or other remote/live mutation occurred.
+
+## WP-007 CloudFront WAF protection local slice
+
+The explicit local `edge-waf` phase creates the separately deployable
+`shelfstate-v4-dev-edge-waf` stack in `us-east-1`. It is not a seventh ordinary
+foundation capability: default dev/prod and every previously accepted selector
+remain the six-stack topology. Only the WAF selector adds a seventh stack, and
+that stack contains exactly one native `AWS::WAFv2::WebACL` plus a non-exported
+ARN output.
+
+The Web ACL contract is deliberately small:
+
+- `Scope: CLOUDFRONT`, default `ALLOW`.
+- Exactly one priority-zero rate-based rule, aggregated by source IP across all
+  requests, with a 60-second evaluation window and a limit of 120 requests.
+  Matching requests are blocked.
+- Web ACL and rule CloudWatch metrics are enabled. Sampled requests are disabled,
+  and no WAF logging, request-body match, association resource, managed rule
+  group, CAPTCHA/challenge, custom response or other inspection feature exists.
+- The exact ownership tags remain `Project=ShelfState`, `Environment=dev`, and
+  `ManagedBy=AWS-CDK`.
+
+The phase has its own complete template/review schema and generated-resource
+authority. Initialization permits only creation and lifecycle read/rollback for
+the exact named CloudFront-scope Web ACL path in `us-east-1`; steady state binds
+that lifecycle to the authenticated Web ACL ID. It grants no
+`wafv2:AssociateWebACL`, CloudFront, ACM or Route 53 action. Bootstrap variant
+revision 3 adds only `shelfstate-v4-dev-edge-waf` to the east deployment role's
+exact CloudFormation stack allowlist; it does not change the six-stack release
+topology or the execution-role attachment set.
+
+### Required deployment order and live gates
+
+1. Separately authorize and install the reviewed east bootstrap allowlist and
+   WAF initialization policy state.
+2. Prepare, review and deploy the east WAF stack alone.
+3. Authenticate the resulting Web ACL through AWS readback, including its exact
+   same-account ARN, `CLOUDFRONT` scope, rules, tags and physical identity.
+4. Supply that independently trusted ARN with the accepted certificate ARN and
+   API ID when synthesizing/reviewing `edge-routing`.
+5. Create the west distribution only with `WebACLId` already present. There is no
+   supported unprotected-distribution deployment followed by later association.
+
+CloudFront uses the WAFv2 ARN directly in `DistributionConfig.WebACLId`; this
+design intentionally does not use `AWS::WAFv2::WebACLAssociation`. The west
+contract rejects a missing, regional, cross-account, renamed or malformed WAF
+ARN while preserving the same five resources, origins, cache behaviors, headers,
+certificate/API bindings and TLS restrictions.
+
+Pricing remains usage-dependent. The working planning estimate is about
+`$5/month` for one Web ACL plus about `$1/month` for one rule, with additional
+request charges. This is not a hard monthly cap and must be revalidated against
+current AWS WAF pricing and actual traffic before deployment.
+
+No AWS operation, WAF deployment or CloudFront deployment is performed by this
+slice. Handler/stabilization/rollback evidence, effective IAM containment,
+exact-ID closure, WAF propagation and behavior under real traffic remain live
+gates. The previously recorded DNS-management limitation and inability to rule
+out a conflicting alias in another AWS account are unchanged and are not solved
+by WAF.
 
 ### WP-006 hosted-proof local amendment — 2026-10-19
 

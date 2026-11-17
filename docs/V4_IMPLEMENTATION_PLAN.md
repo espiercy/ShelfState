@@ -1,6 +1,6 @@
 # ShelfState V4 Implementation Plan
 
-Snapshot note: §A and §§I–J retain the original planning/review checkpoint, not today's package status. The 2026-10-05 human-adjudicated process-continuity amendment is in §B.2. Use [V4_CURRENT_STATE.md](V4_CURRENT_STATE.md) for the current evidence index; neither that index nor this plan grants task authorization. Package scope, architecture and requirements are unchanged by this process amendment.
+Snapshot note: §A and §§I–J retain the original planning/review checkpoint, not today's package status. The 2026-10-05 human-adjudicated process-continuity amendment is in §B.2. The 2026-11-04 ADR-006/architecture/requirements amendment adds only the required minimal WP-007 development WAF Web ACL and binding. Use [V4_CURRENT_STATE.md](V4_CURRENT_STATE.md) for the current evidence index; neither that index nor this plan grants task authorization.
 
 ## A. Status
 
@@ -321,17 +321,17 @@ The packages below are authorization units. Authorizing one package does not aut
 - **Objective:** Prove the separate V4 HTTPS origin and ordinary static/API route before identity and feature work.
 - **Traceability:** ADR-005/006/007/013/014/021/024; architecture §§5, 16–17, 21; EDGE-001/002/004/008/012–014, API-001/002, COST-001; T-15/T-21/T-25, C-04/C-20/C-24.
 - **Dependencies:** WP-003, WP-006 and an approved dev hostname/certificate path. AWS dev deployment access is required.
-- **Scope:** Provision a private dev static bucket, CloudFront OAC/pay-as-you-go distribution, HTTPS certificate/DNS, API Gateway HTTP API, and a minimal bounded health Lambda/path; route `/api/*` to API and other paths to static origin; disable API caching; apply initial security headers; prove direct execute-api endpoint remains independently safe.
-- **Explicit non-scope:** PWA feature shell/service worker, Cognito, user data, WAF, Lambda@Edge, VPC/NAT, production distribution, or general S3 access.
+- **Scope:** Provision a private dev static bucket, CloudFront OAC/pay-as-you-go distribution, HTTPS certificate/DNS, API Gateway HTTP API, a minimal bounded health Lambda/path, and one separately deployed CloudFront-scope WAF Web ACL in `us-east-1`; route `/api/*` to API and other paths to static origin; disable API caching; apply initial security headers; require the authenticated Web ACL ARN when the distribution is created; prove direct execute-api endpoint remains independently safe.
+- **Explicit non-scope:** PWA feature shell/service worker, Cognito, user data, additional WAF rules/managed groups/logging or inspection features, Lambda@Edge, VPC/NAT, production distribution, V3 WAF, or general S3 access.
 - **Expected repository impact:** CDK edge/API foundation, tiny dev health handler, contract/test artifacts, deployment docs.
-- **Security:** Private S3 REST origin/OAC, HTTPS, no credentials in frontend, restricted bucket policy, safe health response, no reliance on CloudFront for authorization.
+- **Security:** Private S3 REST origin/OAC, HTTPS, no credentials in frontend, restricted bucket policy, safe health response, no reliance on CloudFront for authorization, and a mandatory WAF binding with default `ALLOW` plus one source-IP rate-based `BLOCK` rule at 120 requests per 60-second window. Existing API Gateway throttling, Lambda concurrency and CloudFront security headers remain required.
 - **Data/migration:** None.
-- **Cost:** Adds usage-driven dev CloudFront/S3/API/Lambda/DNS-certificate path; production equivalents are in the `$2.70` model, but persistent dev cost must be estimated and recorded before deploy.
-- **Required automated tests:** CDK assertions, bucket public-access denial, cache-policy tests, header tests, health contract, direct API negative/security behavior, V3 path-isolation checks.
-- **Manual/operational verification:** Fetch through V4 hostname and direct API; inspect certificate/DNS, CloudFront origin, and browser service-worker registrations.
-- **Acceptance criteria:** Dev V4 hostname is distinct and HTTPS; S3 is not public; `/api/v1/health` works through CloudFront; API responses are uncached; V3 worker cannot control V4; no V3 deployment is triggered/altered.
+- **Cost:** Adds usage-driven dev CloudFront/S3/API/Lambda/DNS-certificate path plus the recurring WAF Web ACL/rule base and request charges. The WAF planning estimate is about `$6/month` before request charges, does not guarantee a hard traffic/spending limit, and must be revalidated before deploy; the production equivalents otherwise remain in the pre-WAF `$2.70` model.
+- **Required automated tests:** CDK assertions, bucket public-access denial, cache-policy tests, header tests, complete WAF template/rule and binding rejection tests, least-privilege initialization-policy tests, health contract, direct API negative/security behavior, and V3 path-isolation checks.
+- **Manual/operational verification:** Fetch through V4 hostname and direct API; inspect certificate/DNS, CloudFront origin, authenticated WAF identity/rule/association, and browser service-worker registrations.
+- **Acceptance criteria:** Dev V4 hostname is distinct and HTTPS; S3 is not public; the distribution cannot be created without the authenticated WAF binding; the Web ACL has the approved CloudFront scope/default/rate/block semantics; `/api/v1/health` works through CloudFront; API responses are uncached; V3 worker cannot control V4; no V3 deployment is triggered/altered.
 - **Completion evidence:** URLs without bearer material, headers, AWS resource IDs, CDK diff, tests/results, dev monthly estimate, commit/deployed SHA.
-- **Stop/escalate:** Stop if the chosen hostname overlaps V3 scope, S3 must become public, CloudFront requires a deferred edge service, or combined dev/prod cost materially threatens posture.
+- **Stop/escalate:** Stop if the chosen hostname overlaps V3 scope, S3 must become public, CloudFront can deploy without the authenticated WAF binding, broader WAF authority/features are required, or combined dev/prod cost materially threatens posture.
 
 ## Milestone 2 packages — Identity and session boundary
 
@@ -651,7 +651,7 @@ The packages below are authorization units. Authorizing one package does not aut
 - **Traceability:** ADR-005/013/014/016/021/024; architecture §§16–17, 20.1, 21.6, 23.1–23.3; EDGE-001–014, API-002/008/016, TEST-002/003/006; T-01/T-03/T-12/T-15–T-17/T-21, C-01/C-02/C-04/C-07/C-12/C-13/C-16/C-20.
 - **Dependencies:** WP-007, WP-016, WP-023–WP-025. AWS dev and browser access required.
 - **Scope:** Finalize explicit CloudFront behaviors/cache policies; custom CSP and security headers; narrow API CORS; SPA fallback that cannot rewrite `/api/*`; prove direct API parity; allow only intentional Cognito navigation and presigned S3 origins; deploy current and immediately prior compatible client fixtures and exercise update-required semantics without forced reload.
-- **Explicit non-scope:** WAF, Lambda@Edge/CloudFront Functions, custom CloudWatch dashboard, API caching, Netlify headers/transforms, or support beyond approved compatibility window.
+- **Explicit non-scope:** Changes or expansion to the accepted WP-007 WAF contract, Lambda@Edge/CloudFront Functions, custom CloudWatch dashboard, API caching, Netlify headers/transforms, or support beyond approved compatibility window.
 - **Expected repository impact:** CDK edge policies/assertions, browser/security/contract tests, compatibility fixtures/docs; no V3 changes.
 - **Security:** Deny framing where approved, strict CSP, nosniff/referrer/permissions controls, credentialed CORS only exact origin/method/header set, no caching of dynamic/auth material.
 - **Data/migration:** None; compatibility concerns API/client contract versions only.
@@ -895,7 +895,7 @@ The packages below are authorization units. Authorizing one package does not aut
 - **Traceability:** ADR-007/008/010/011/012/014/021/022/025; architecture §§18.3, 19.4–19.5, 23–24, 27; API-011/012, OP-006/007/011, OPS-009–012, COST-001–005, TEST-005/008; T-03/T-05/T-10–T-13/T-18/T-22/T-25, C-02/C-07–C-09/C-16/C-19/C-21/C-23/C-24.
 - **Dependencies:** WP-027–WP-032, WP-037–WP-039. AWS dev access required; current official AWS pricing/quota verification required at implementation time.
 - **Scope:** Centralize request/body/collection/page/operation/concurrency/timeout limits and 429/503 behavior; reserve Lambda timeout safety margin; benchmark maximum supported library for coherent read/export/import/migration/oversized delete/deletion; inject retries/failures; measure duration, memory, request/capacity/storage/log/transfer; update Personal cost model using current pricing without free-tier assumptions; enumerate fixed versus usage costs per deployed resource and dev/prod posture.
-- **Explicit non-scope:** Raising limits to arbitrary enterprise scale, WAF, Step Functions/ECS, provisioned capacity, load testing production, promotional credits/free tier, or optimization that changes architecture silently.
+- **Explicit non-scope:** Raising limits to arbitrary enterprise scale, redesigning or expanding the accepted WP-007 WAF contract, Step Functions/ECS, provisioned capacity, load testing production, promotional credits/free tier, or optimization that changes architecture silently.
 - **Expected repository impact:** Limit configuration/contracts, benchmark harness/fixtures, CI/manual non-prod gate, cost model/report and tests; no V3 changes.
 - **Security:** Limits enforced server-side before expensive work where possible; per-owner concurrency; synthetic data only; benchmark credentials least-privilege; errors/logs bounded.
 - **Data/migration:** Maximum supported counts/bytes and fixture characteristics become explicit compatibility constraints; benchmark cleanup is owner-scoped.
@@ -984,7 +984,7 @@ The packages below are authorization units. Authorizing one package does not aut
 - **Traceability:** ADR-006/007/010/016/017/019/021/024; architecture §§21–23, 25–27; GOV-001/005/006, OPS-002–004/013/014, PUB-001–004, TEST-003/006–008, COST-001–005; T-12/T-13/T-16/T-17/T-20/T-21, C-07/C-12/C-13/C-16/C-20/C-22.
 - **Dependencies:** WP-044. GitHub/AWS dev and protected-production-environment review access required; no production deploy authorization implied.
 - **Scope:** Freeze exact commit/lockfile/OpenAPI/migration/asset digests; run clean CI and CDK synth/diff; verify stateful safeguards, backups, alarms, privacy notice, DNS/certificate and quotas; rehearse dev deploy of exact artifacts and rollback to recorded known-good revision; verify current/prior client; conduct the independent public-signup review across edge-abuse/WAF posture, Cognito protection, signup/recovery abuse, growth cost, email capacity, privacy/legal, monitoring, lifecycle, and incident readiness; treat any missing evidence as a decision to remain invite-only; test `registrationMode=CLOSED` without disrupting existing-user service and record launch mode `INVITE_ONLY`; prepare production checklist/change window without executing it.
-- **Explicit non-scope:** Production deploy, public signup enablement, WAF/federation/SES, data migration of real users, automatic release on merge, or unreviewed fixes after candidate freeze.
+- **Explicit non-scope:** Production deploy, public signup enablement, WAF redesign/expansion, federation/SES, data migration of real users, automatic release on merge, or unreviewed fixes after candidate freeze.
 - **Expected repository impact:** Release manifest/checklists/evidence and only release-blocking approved fixes; workflows/config/docs; no V3 changes.
 - **Security:** Protected prod approval remains required; artifacts are SHA-bound; secrets preexist in managed stores only; rollback cannot delete/replace state; public registration path remains denied.
 - **Data/migration:** Migration fixture/version matrix frozen; backup/recovery evidence current; synthetic data only in dev.
@@ -1045,7 +1045,7 @@ This table is the cross-package cost authority. “Fixed” means an expected in
 | WP-003 | CDK app; bootstrap artifacts only when authorized | `$0` before deploy | Small bootstrap S3/ECR storage if bootstrapped | Supporting-service reserve | Before first bootstrap/deploy |
 | WP-005 | Human/recovery IAM; existing CloudTrail management-event evidence | `$0` expected | Existing audit storage only | Yes | If a new trail/storage/account restructure is proposed |
 | WP-006 | GitHub OIDC and dev/prod deploy roles | `$0` | Bootstrap/artifact storage only | Yes | At first role/bootstrap deployment |
-| WP-007 | Private static S3, CloudFront pay-as-you-go, HTTP API, health Lambda, Route 53 Alias, ACM | `$0` incremental under sunk hosted-zone assumption | Requests, transfer, storage, Lambda/API | Yes: Lambda/API/edge rows | Before dev deploy and again for production/dual-environment run-rate |
+| WP-007 | Private static S3, CloudFront pay-as-you-go, one minimal development WAF Web ACL/rule, HTTP API, health Lambda, Route 53 Alias, ACM | Approximately `$6/month` WAF base before requests under current planning estimate; `$0` fixed for the other listed services under sunk hosted-zone assumption | WAF/CloudFront/API/Lambda requests, transfer and storage | WAF is an approved development exception to the pre-WAF Personal model; other items use Lambda/API/edge rows | Current WAF pricing and complete dev run rate before deploy; production/dual-environment posture remains separate |
 | WP-008 | Identity/Account and Session/Auth Transaction DynamoDB with PITR | `$0` | On-Demand requests/storage/PITR | Yes: DynamoDB + PITR | Before dev deploy and after measured item/retention sizes |
 | WP-009 | Cognito Plus/Managed Login/built-in email | `$0` | MAU and email volume | Yes: Cognito row | Current price/quota/capability check before each environment |
 | WP-014 | Library DynamoDB with PITR | `$0` | On-Demand requests/storage/PITR | Yes: DynamoDB + PITR | Measured item/transaction profile and production gate |
@@ -1095,7 +1095,7 @@ At the end of each package, update a machine-checkable requirement-to-test/evide
 
 ## H. Explicit deferred-feature and V3-isolation ledger
 
-The following are not V4.0 implementation scope: WAF; GSI; DynamoDB Streams/library tombstone or sync log; server search/analytics; customer-managed VPC/NAT/endpoints; Step Functions; ECS; SQS primary dispatch; federation; SES; Identity Pool; Cognito triggers; API Gateway JWT authorizer/separate Lambda authorizer; GraphQL/general RPC; Amplify Hosting/public S3 website; Lambda@Edge solely for headers; provisioned concurrency; X-Ray; custom CloudWatch dashboard before its post-billing review; multi-region/global tables; separate AWS accounts; automated Cognito profile replication; public signup; offline sync; rich text; third-party paging.
+The following are not V4.0 implementation scope: WAF expansion beyond the required WP-007 development Web ACL; GSI; DynamoDB Streams/library tombstone or sync log; server search/analytics; customer-managed VPC/NAT/endpoints; Step Functions; ECS; SQS primary dispatch; federation; SES; Identity Pool; Cognito triggers; API Gateway JWT authorizer/separate Lambda authorizer; GraphQL/general RPC; Amplify Hosting/public S3 website; Lambda@Edge solely for headers; provisioned concurrency; X-Ray; custom CloudWatch dashboard before its post-billing review; multi-region/global tables; separate AWS accounts; automated Cognito profile replication; public signup; offline sync; rich text; third-party paging.
 
 WP-003, WP-004, WP-026, WP-040, WP-044, and WP-045 inspect dependency and synthesized/deployed resource inventories for leakage. A reconsideration trigger creates an architecture-review proposal, not implementation authority.
 

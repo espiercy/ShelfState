@@ -4,6 +4,7 @@ import { assertLibraryApiTemplate } from "../bootstrap/library-api-contract.mjs"
 import { assertEdgeCertificateTemplate } from "../bootstrap/edge-certificate-contract.mjs";
 import { assertStaticEdgeTemplate } from "../bootstrap/static-edge-contract.mjs";
 import { assertEdgeRoutingTemplate } from "../bootstrap/edge-routing-contract.mjs";
+import { assertEdgeWafTemplate } from "../bootstrap/edge-waf-contract.mjs";
 
 export const STATEFUL_POLICY_METADATA = "ShelfStateStatefulPolicy";
 
@@ -329,4 +330,35 @@ export function validateLocalEdgeRoutingAssembly(assembly, config, phase, bindin
     if (capability === "edge-delivery") assertEdgeRoutingTemplate(artifact.template, config.accountId, phase, bindings);
     else assertFoundationTemplate(artifact.template, "dev");
   }
+}
+
+// WAF is a seventh, explicit local-only stack. Ordinary foundation and all
+// previously accepted phase assemblies remain the original six-stack topology.
+export function validateLocalEdgeWafAssembly(assembly, config, phase) {
+  assert.equal(config.environmentName, "dev");
+  assert.match(config.accountId ?? "", /^\d{12}$/);
+  assert.equal(config.primaryRegion, "us-west-2");
+  assert.equal(config.edgeCertificateRegion, "us-east-1");
+  assert.equal(phase, "edge-waf");
+  assert.equal(assembly.stacks.length, CAPABILITY_DEFINITIONS.length + 1);
+  const seen = new Set();
+  for (const artifact of assembly.stacks) {
+    const metadata = artifact.template.Metadata?.ShelfState;
+    const capability = metadata?.Capability;
+    assert.ok(!seen.has(capability), "Duplicate capability"); seen.add(capability);
+    if (capability === "edge-waf") {
+      assert.equal(artifact.stackName, "shelfstate-v4-dev-edge-waf");
+      assert.equal(artifact.environment.name, `aws://${config.accountId}/us-east-1`);
+      assert.equal(artifact.terminationProtection, false);
+      assertStatefulResourceSafeguards(artifact.template, "dev");
+      assertEdgeWafTemplate(artifact.template, config.accountId, phase);
+      continue;
+    }
+    const definition = CAPABILITY_DEFINITIONS.find(d => d.key === capability);
+    assert.ok(definition, "Unknown capability");
+    assert.equal(artifact.stackName, `shelfstate-v4-dev-${capability}`);
+    assert.equal(artifact.environment.name, `aws://${config.accountId}/${config[definition.regionSource]}`);
+    assertFoundationTemplate(artifact.template, "dev");
+  }
+  assert.equal(seen.size, CAPABILITY_DEFINITIONS.length + 1);
 }

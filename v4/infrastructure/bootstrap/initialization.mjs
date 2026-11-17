@@ -7,6 +7,7 @@ export const PHASES = Object.freeze({
   edge: { region: "us-west-2", capability: "edge-delivery" },
   "edge-static": { region: "us-west-2", capability: "edge-delivery" },
   "edge-routing": { region: "us-west-2", capability: "edge-delivery" },
+  "edge-waf": { region: "us-east-1", capability: "edge-waf" },
   "api-parent": { region: "us-west-2", capability: "library-api" },
   "api-children": { region: "us-west-2", capability: "library-api" },
   certificate: { region: "us-east-1", capability: "edge-certificate" },
@@ -44,6 +45,10 @@ export const ACTION_INVENTORY = Object.freeze([
     read: ["acm:DescribeCertificate", "acm:ListTagsForCertificate"], rollback: ["acm:DeleteCertificate"],
     update: ["acm:UpdateCertificateOptions", "acm:AddTagsToCertificate", "acm:RemoveTagsFromCertificate"],
     proof: "Pending physical ARN availability, CNAME readback, tag authorization, handler timeout and rollback. No Route53 publication by certificate stack." },
+  { kind: "web-acl", phase: "edge-waf", id: "webAclId", create: ["wafv2:CreateWebACL"],
+    read: ["wafv2:GetWebACL", "wafv2:ListTagsForResource"], rollback: ["wafv2:DeleteWebACL"],
+    update: ["wafv2:UpdateWebACL", "wafv2:TagResource", "wafv2:UntagResource"],
+    proof: "CloudFront-scope WAF calls use the us-east-1 endpoint. Handler stabilization, tag reconciliation and rollback remain live proof obligations." },
 ].map(row => Object.freeze({ ...row, replacement: "Separately authorized initialization; keep old exact IDs until terminal cleanup." })));
 
 export function target(account, phase) {
@@ -93,7 +98,7 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
       ]);
       add("DefaultStageTags", initial ? row.stageTagCreate : row.stageTagUpdate,
         [initial ? `${api}/stages` : `${api}/stages/$default`], initial ? { StringEquals: ownership } : undefined);
-    } else {
+    } else if (phase === "certificate") {
       const cert = `arn:aws:acm:us-east-1:${account}:certificate/${initial ? "*" : id(bindings.certificateId)}`;
       if (initial) {
         add("RequestExactCertificate", ["acm:RequestCertificate"], ["*"], {
@@ -115,6 +120,14 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
       // able to stabilize or roll back any certificate in this account/region
       // pattern. Steady mode replaces that residual with the exact certificate.
       add("CertificateLifecycle", [...row.read, ...row.rollback, ...(initial ? [] : row.update)], [cert]);
+    } else {
+      const webAcl = `arn:aws:wafv2:us-east-1:${account}:global/webacl/shelfstate-v4-dev-edge/${initial ? "*" : id(bindings.webAclId)}`;
+      if (initial) add("CreateExactEdgeWebAcl", row.create, [webAcl], {
+        StringEquals: { ...ownership, "aws:RequestedRegion": "us-east-1" },
+        "ForAllValues:StringEquals": { "aws:TagKeys": Object.keys(ownership).map(key => key.split("/")[1]) },
+        Null: { "aws:TagKeys": "false" },
+      });
+      add("EdgeWebAclLifecycle", [...row.read, ...row.rollback, ...(initial ? [] : row.update)], [webAcl], initial ? owned : undefined);
     }
   }
   return doc(statements);
@@ -129,7 +142,7 @@ export function assertGeneratedAuthority(candidate, account, phase, mode, bindin
 // never overlaid. Previously completed phases enter only as exact steady grants.
 export function executionPolicies(account, phase, mode, bindings, retainedPhases = []) {
   const t = target(account, phase);
-  const isolatedEdgePhase = ["edge-static", "edge-routing"].includes(phase);
+  const isolatedEdgePhase = ["edge-static", "edge-routing", "edge-waf"].includes(phase);
   if (isolatedEdgePhase) assert.equal(retainedPhases.length, 0, "Edge-only window cannot retain unrelated phase authority");
   assert.equal(new Set(retainedPhases).size, retainedPhases.length);
   assert.ok(!retainedPhases.includes(phase));

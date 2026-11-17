@@ -10,7 +10,7 @@ Status: LOCAL REVIEW ONLY — NOT AUTHORIZED FOR AWS USE
 
 The human selected CloudFormation-native, serialized single-stack bounded lifecycle initialization followed by exact-ID tightening, plus staged exact-record ACM DNS validation. See [the local authority package](BOUNDED_INITIALIZATION.md). Generated-ID strategy and DNS strategy are no longer generally undecided; effective containment, handler behavior, pending-ARN readback and live gates remain unproved.
 
-The dated proposal below is preserved as historical evidence. Its execution JSON snapshots are the **legacy statement catalog**, not complete initialization or steady-state policies to install. `initialization.mjs` replaces their generated-resource statements and removes all east Route 53 authority in its proposed phase compositions. Its role-side caller caps replace the ordinary six-stack path during a window. The customized bootstrap template/topology/provenance bytes are unchanged. No policy is installed and no proof workflow invokes the new guard.
+The dated proposal below is preserved as historical evidence. Its execution JSON snapshots are the **legacy statement catalog**, not complete initialization or steady-state policies to install. `initialization.mjs` replaces their generated-resource statements and removes all east Route 53 authority in its proposed phase compositions. Its role-side caller caps replace the ordinary application-stack path during a window. The later WAF slice increments only the customized bootstrap allowlist/provenance to include the exact east WAF stack; ordinary six-stack synthesis remains unchanged. No policy is installed by repository code and no proof workflow invokes the guard.
 
 The old bounded `_*.dev.shelfstate.codecorax.com` candidate is retained only to explain the rejected alternative and its negative tests. It is not selected or merged into the new authority model. The historical unresolved-decision wording below is superseded by this section and `pending-decisions.json`'s selected fields, not erased.
 
@@ -34,9 +34,9 @@ Upstream is the installed `aws-cdk@2.1141.0` file `node_modules/aws-cdk/lib/api/
 
 `a484ad768d3446874161044d986bec096e201a54037c8ce93ed5a0d215e1dd25`
 
-ShelfState variant: `ShelfState: Dev isolated modern bootstrap`, revision **2** (fixed two-policy west attachment). Custom JSON SHA-256:
+ShelfState variant: `ShelfState: Dev isolated modern bootstrap`, revision **3** (fixed attachments plus exact east WAF stack allowlist). Custom JSON SHA-256:
 
-`f7cb2367b0f9f61a16b3e8d20374560efc5030b0c9f07ed6756f1b20a391c273`
+`f670334a5c51267e243f0238771cd3c2c6132db31964feb60577e2aa6c66b0d2`
 
 This is a derivative, **not** the canonical upstream template. The upstream AWS CDK package/license remains its source. JSON serialization removes YAML comments but preserves the parsed contract except for the enumerated changes below. Tests first verify raw upstream bytes, then reconstruct and structurally compare both templates. An upstream update must fail review visibly; do not just replace the recorded digest.
 
@@ -95,9 +95,16 @@ Stack ARNs use `arn:aws:cloudformation:<region>:<account>:stack/<exact-name>/*`;
 | Region | Exact dev stack names |
 | --- | --- |
 | west | `shelfstate-v4-dev-edge-delivery`, `shelfstate-v4-dev-identity-session`, `shelfstate-v4-dev-library-api`, `shelfstate-v4-dev-operations-lifecycle`, `shelfstate-v4-dev-recovery-observability` |
-| east | `shelfstate-v4-dev-edge-certificate` |
+| east | `shelfstate-v4-dev-edge-certificate`, `shelfstate-v4-dev-edge-waf` |
 
-This permits future mutation within those six names, not implementation of their later capabilities now. The narrow execution policy separately limits current WP-007 capability. No production/unrelated/additional-dev stack or `CDKToolkit` mutation is granted. Existing stacks under an approved name must later be checked for expected ownership, service-role binding and pending change sets before use: exact names alone do not prove historical ownership.
+The first six names are the accepted ordinary capability topology. `edge-waf` is
+an explicit local-only WP-007 initialization stack and is never emitted by
+default dev/prod synthesis. This allowlist does not itself implement or authorize
+any capability. The narrow execution policy separately limits the selected
+WP-007 phase. No production/unrelated/additional-dev stack or `CDKToolkit`
+mutation is granted. Existing stacks under an approved name must later be
+checked for expected ownership, service-role binding and pending change sets
+before use: exact names alone do not prove historical ownership.
 
 ### CloudFormation action analysis
 

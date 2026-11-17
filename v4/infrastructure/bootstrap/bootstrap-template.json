@@ -1253,6 +1253,9 @@
                       "Resource": [
                         {
                           "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-certificate/*"
+                        },
+                        {
+                          "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-waf/*"
                         }
                       ],
                       "Condition": {
@@ -1277,6 +1280,9 @@
                       "Resource": [
                         {
                           "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-certificate/*"
+                        },
+                        {
+                          "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-waf/*"
                         }
                       ]
                     },
@@ -1292,6 +1298,9 @@
                       "Resource": [
                         {
                           "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-certificate/*"
+                        },
+                        {
+                          "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-waf/*"
                         }
                       ]
                     },
@@ -1305,6 +1314,9 @@
                       "Resource": [
                         {
                           "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-certificate/*"
+                        },
+                        {
+                          "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-waf/*"
                         }
                       ]
                     },
@@ -1317,6 +1329,9 @@
                       "Resource": [
                         {
                           "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-certificate/*"
+                        },
+                        {
+                          "Fn::Sub": "arn:aws:cloudformation:us-east-1:${AWS::AccountId}:stack/shelfstate-v4-dev-edge-waf/*"
                         }
                       ]
                     },
@@ -1587,7 +1602,7 @@
       "Value": "ShelfState: Dev isolated modern bootstrap"
     },
     "ShelfStateVariantRevision": {
-      "Value": "2"
+      "Value": "3"
     }
   },
   "Mappings": {
@@ -1605,7 +1620,7 @@
       "UpstreamVersion": 32,
       "UpstreamSha256": "a484ad768d3446874161044d986bec096e201a54037c8ce93ed5a0d215e1dd25",
       "Variant": "ShelfState: Dev isolated modern bootstrap",
-      "Revision": 2
+      "Revision": 3
     }
   }
 }

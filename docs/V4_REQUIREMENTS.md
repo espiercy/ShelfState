@@ -1,6 +1,6 @@
 # ShelfState V4 Requirements Registry
 
-**Status:** Canonical implementation requirements registry, independently reviewed 2026-09-14\
+**Status:** Canonical implementation requirements registry, independently reviewed 2026-09-14; development WAF amendment approved 2026-11-04\
 **Implementation phase:** Not started
 **Authority:** subordinate to [`V4_ARCHITECTURE.md`](V4_ARCHITECTURE.md) and the [ADR set](adr/)
 
@@ -185,7 +185,7 @@ Normative levels use RFC-style meanings: **MUST** is required for V4.0/productio
 | EDGE-011 | MUST | Support at least the immediately previous production client within API v1, use a non-sensitive build ID, and safely block incompatible mutations with `CLIENT_UPDATE_REQUIRED`. | Architecture §16.6 | ADR-024; C-24 | Rolling-client compatibility tests | PRE-CODE |
 | EDGE-012 | MUST | Use `us-west-2` for primary dev/prod state/runtime with distinct resources and only documented global/edge exceptions. | Architecture §§17.1, 21.2 | ADR-013 | IaC assertions | PRE-CODE |
 | EDGE-013 | MUST | Use no customer-managed VPC/NAT/endpoints initially; keep direct API endpoint secure independently of CloudFront. | Architecture §§17.2–17.3 | ADR-014; C-04/C-20/C-25 | IaC and direct-endpoint security tests | PRE-CODE |
-| EDGE-014 | MUST | Use CloudFront pay-as-you-go over the private S3 REST origin; do not use a public S3 website endpoint or Amplify Hosting for V4.0. | Architecture §16.1 | ADR-006/021; C-04/C-06 | IaC/origin/config assertions | PRE-CODE |
+| EDGE-014 | MUST | Use CloudFront pay-as-you-go over the private S3 REST origin; do not use a public S3 website endpoint or Amplify Hosting for V4.0. Before public deployment, require the development distribution to bind an authenticated `us-east-1` CloudFront-scope WAF Web ACL that defaults to allow and blocks a source IP above 120 requests per 60-second window. | Architecture §16.1 | ADR-006/021; C-04/C-06/C-19 | IaC/origin/WAF/config assertions | PRE-CODE |
 
 ### Delivery, administration, and operations (`OPS`)
 
@@ -268,7 +268,7 @@ Normative levels use RFC-style meanings: **MUST** is required for V4.0/productio
 
 ## 3. Deferred / reconsideration items (not V4.0 requirements)
 
-The following are intentionally non-mandatory until their ADR/architecture trigger is approved: WAF, custom CloudWatch dashboard, provisioned concurrency, multi-region application, cross-account/cross-region backup, separate AWS accounts, automated Cognito profile replication, X-Ray/distributed tracing, formal SBOM, rich text, GSI/dedicated search, analytics platform, offline writes/sync/change log/tombstones/Streams, federated login, SES, public signup, private admin access plane, edge-origin bypass enforcement, customer VPC/NAT/endpoints, field-level merge UI, and per-client API usage plans.
+The following are intentionally non-mandatory until their ADR/architecture trigger is approved: WAF expansion beyond the required WP-007 development Web ACL, custom CloudWatch dashboard, provisioned concurrency, multi-region application, cross-account/cross-region backup, separate AWS accounts, automated Cognito profile replication, X-Ray/distributed tracing, formal SBOM, rich text, GSI/dedicated search, analytics platform, offline writes/sync/change log/tombstones/Streams, federated login, SES, public signup, private admin access plane, edge-origin bypass enforcement, customer VPC/NAT/endpoints, field-level merge UI, and per-client API usage plans.
 
 ## 4. Completeness and maintenance rule
 

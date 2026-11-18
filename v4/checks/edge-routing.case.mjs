@@ -268,24 +268,42 @@ test("review evidence rejects wrong binding, target, schema, parameters, assets 
   }
 });
 
-test("routing phase adds no service action, execution attachment or authority breadth", () => {
-  const sized = Object.fromEntries(Object.keys(IDS).map(key => [key, "X".repeat(64)]));
+test("routing phase adds only exact WAF read authority and preserves attachments", () => {
+  const sized = { ...Object.fromEntries(Object.keys(IDS).map(key => [key, "X".repeat(64)])), webAclArn: bindings.webAclArn };
   for (const mode of ["initialization", "steady"]) {
     assert.deepEqual(generatedAuthority(ACCOUNT, phase, mode, sized), generatedAuthority(ACCOUNT, "edge-static", mode, sized));
     const routingPolicies = executionPolicies(ACCOUNT, phase, mode, sized);
-    assert.deepEqual(routingPolicies, executionPolicies(ACCOUNT, "edge-static", mode, sized));
+    const staticPolicies = executionPolicies(ACCOUNT, "edge-static", mode, sized);
     assert.equal(routingPolicies.length, 2);
+    assert.deepEqual(routingPolicies[0], staticPolicies[0], "West regional/API policy must remain byte-identical");
+    assert.deepEqual(routingPolicies[1].Statement.slice(0, -1), staticPolicies[1].Statement);
+    assert.deepEqual(routingPolicies[1].Statement.at(-1), {
+      Sid: "ReadBoundEdgeWebAcl", Effect: "Allow", Action: ["wafv2:GetWebACL"], Resource: [bindings.webAclArn],
+    });
     for (const policy of routingPolicies) assert.ok(JSON.stringify(policy).length <= 6144);
     const combined = { Version: "2012-10-17", Statement: routingPolicies.flatMap(policy => policy.Statement) };
-    assert.ok(combined.Statement.flatMap(statement => statement.Action).every(action => /^(s3|ssm|cloudfront):/.test(action)));
+    assert.ok(combined.Statement.flatMap(statement => statement.Action).every(action => /^(s3|ssm|cloudfront|wafv2):/.test(action)));
+    assert.equal(decision(combined, "wafv2:GetWebACL", bindings.webAclArn), "allow");
+    assert.equal(decision(combined, "wafv2:GetWebACL", bindings.webAclArn.replace(ACCOUNT, "999999999999")), "implicitDeny");
+    assert.equal(decision(combined, "wafv2:GetWebACL", bindings.webAclArn.replace("11111111", "aaaaaaaa")), "implicitDeny");
+    for (const action of ["wafv2:UpdateWebACL", "wafv2:DeleteWebACL", "wafv2:AssociateWebACL", "wafv2:ListWebACLs"])
+      assert.equal(decision(combined, action, bindings.webAclArn), "implicitDeny");
     for (const action of ["apigateway:GET", "apigateway:POST", "lambda:CreateFunction", "iam:PassRole", "route53:ChangeResourceRecordSets"])
       assert.equal(decision(combined, action, "*"), "implicitDeny");
   }
+  for (const webAclArn of [
+    undefined,
+    bindings.webAclArn.replace("us-east-1", "us-west-2"),
+    bindings.webAclArn.replace(ACCOUNT, "999999999999"),
+    bindings.webAclArn.replace(":global/", ":regional/"),
+    bindings.webAclArn.replace("shelfstate-v4-dev-edge", "other"),
+    bindings.webAclArn.replace("11111111-2222", "111111112222-"),
+  ]) assert.throws(() => executionPolicies(ACCOUNT, phase, "initialization", { ...sized, webAclArn }));
   assert.deepEqual(
     callerWindowCap(ACCOUNT, phase, "us-west-2", `wp007-${"a".repeat(64)}`, "prepare"),
     callerWindowCap(ACCOUNT, "edge-static", "us-west-2", `wp007-${"a".repeat(64)}`, "prepare"),
   );
-  assert.throws(() => executionPolicies(ACCOUNT, phase, "initialization", IDS, ["api-parent"]));
+  assert.throws(() => executionPolicies(ACCOUNT, phase, "initialization", { ...IDS, webAclArn: bindings.webAclArn }, ["api-parent"]));
 });
 
 test("ordinary foundation/release guards and other local selectors reject routing assembly", async () => {

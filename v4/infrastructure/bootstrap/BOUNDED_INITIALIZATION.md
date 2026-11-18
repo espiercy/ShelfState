@@ -140,10 +140,14 @@ semantics. No logical ID or resource is added.
 
 `edge-routing` selects exactly the same distribution, OAC and response-headers
 generated action classes and the same named S3/support authority as `edge-static`.
-It adds no API Gateway, Lambda, IAM, Route 53, custom-policy or publication
-action. The isolated-window, prepare/execute, exact-ID narrowing and closure
-requirements are unchanged. This local representation is not evidence that the
-current generic CDK flow can safely perform the future initial transaction.
+The WestEdge document additionally permits only `wafv2:GetWebACL` on the exact
+validated east/global Web ACL ARN required by the CloudFront provider. It adds no
+WAF wildcard or mutation, API Gateway, Lambda, IAM, Route 53, custom-policy or
+publication action, and it does not apply a west-region condition to the east WAF
+read. The West regional/API document, attachment topology, isolated-window,
+prepare/execute, exact-ID narrowing and closure requirements are unchanged. This
+local representation is not evidence that the current generic CDK flow can safely
+perform the future initial transaction.
 
 The separate local `edge-waf` phase targets only
 `shelfstate-v4-dev-edge-waf` in `us-east-1`. It emits one CloudFront-scope

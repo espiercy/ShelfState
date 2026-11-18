@@ -194,7 +194,7 @@ test("east initialization permits pre-tag stabilization and rollback then narrow
 });
 
 test("full steady compositions do not retain legacy creation statements or unresolved bindings", () => {
-  const b = { ...IDS, zoneId: "ZTESTONLY" };
+  const b = { ...IDS, zoneId: "ZTESTONLY", webAclArn: `arn:aws:wafv2:us-east-1:${ACCOUNT}:global/webacl/shelfstate-v4-dev-edge/${IDS.webAclId}` };
   for (const phase of Object.keys(PHASES)) {
     for (const p of executionPolicies(ACCOUNT, phase, "steady", b, phase === "api-children" ? ["api-parent"] : [])) {
       assert.equal(JSON.stringify(p).includes("${"), false);
@@ -361,7 +361,8 @@ test("closure cannot remove authority during stabilization/rollback or declare f
   for (const delta of [{ status: "ROLLBACK_IN_PROGRESS" }, { resources: {} }, { effectiveReadbackMatches: false }, { narrowedPolicyMatches: false }, { otherWindowOpen: true }]) assert.throws(() => assertClosure({ ...e, ...delta }, { Api: "apitest" }));
 });
 test("conservatively bound managed policy fragments/caps stay under 6144 characters", () => {
-  const sized = { ...Object.fromEntries(Object.keys(IDS).map(k => [k, "x".repeat(64)])), zoneId: "Z".repeat(32) };
+  const sized = { ...Object.fromEntries(Object.keys(IDS).map(k => [k, "x".repeat(64)])), zoneId: "Z".repeat(32),
+    webAclArn: `arn:aws:wafv2:us-east-1:${ACCOUNT}:global/webacl/shelfstate-v4-dev-edge/11111111-2222-3333-4444-555555555555` };
   for (const phase of Object.keys(PHASES)) {
     for (const mode of ["initialization", "steady"]) {
       const p = generatedAuthority(ACCOUNT, phase, mode, sized);

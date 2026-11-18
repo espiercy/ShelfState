@@ -844,10 +844,13 @@ still reject this resource-bearing assembly.
 
 The phase selects exactly the same three generated CloudFront action classes
 (distribution, OAC, response-headers policy) and same named S3/support statements
-as `edge-static`. Initialization/steady policy documents and caller caps are
-byte-equivalent; there is no API Gateway/Lambda/IAM/Route 53 authority and no new
-service action or attachment. Existing residual initial wildcard/tag reach,
-narrower-principal containment, exact-ID narrowing and closure requirements remain.
+as `edge-static`. Its WestEdge policy adds only `wafv2:GetWebACL` on the exact
+validated `us-east-1` CloudFront-scope Web ACL ARN; no WAF wildcard, mutation,
+association, or west-region condition is present. The West regional/API policy,
+caller caps and two-policy attachment topology remain unchanged. There is no new
+API Gateway/Lambda/IAM/Route 53 authority. Existing residual initial wildcard/tag
+reach, narrower-principal containment, exact-ID narrowing and closure requirements
+remain.
 
 ### Local verification and review — 2026-10-16
 

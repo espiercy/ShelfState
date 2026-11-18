@@ -59,6 +59,13 @@ export function target(account, phase) {
     executionRole: `arn:aws:iam::${account}:role/cdk-${QUALIFIER}-cfn-exec-role-${account}-${region}` };
 }
 function id(value) { assert.equal(typeof value, "string"); assert.match(value, /^[A-Za-z0-9-]{1,64}$/, "Exact physical ID required"); return value; }
+function edgeRoutingWebAclArn(account, bindings) {
+  assert.equal(typeof bindings?.webAclArn, "string", "Exact CloudFront-scope Web ACL ARN binding required");
+  assert.match(bindings.webAclArn,
+    new RegExp(`^arn:aws:wafv2:us-east-1:${account}:global/webacl/shelfstate-v4-dev-edge/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`),
+    "Exact same-account CloudFront-scope Web ACL ARN required");
+  return bindings.webAclArn;
+}
 
 // Generated-resource fragment only; never union with the legacy generated-ID
 // statements. Named S3/Lambda/IAM/log and support permissions remain separately
@@ -142,6 +149,7 @@ export function assertGeneratedAuthority(candidate, account, phase, mode, bindin
 // never overlaid. Previously completed phases enter only as exact steady grants.
 export function executionPolicies(account, phase, mode, bindings, retainedPhases = []) {
   const t = target(account, phase);
+  const routingWebAclArn = phase === "edge-routing" ? edgeRoutingWebAclArn(account, bindings) : null;
   const isolatedEdgePhase = ["edge-static", "edge-routing", "edge-waf"].includes(phase);
   if (isolatedEdgePhase) assert.equal(retainedPhases.length, 0, "Edge-only window cannot retain unrelated phase authority");
   assert.equal(new Set(retainedPhases).size, retainedPhases.length);
@@ -171,10 +179,11 @@ export function executionPolicies(account, phase, mode, bindings, retainedPhases
   const generated = [generatedAuthority(account, phase, mode, bindings), ...retainedPhases.map(p => generatedAuthority(account, p, "steady", bindings))];
   // Sids identify phase as well as operation; shared regional attachments must
   // remain unambiguous even when the parent and children coexist.
-  const all = [...bound, ...generated.flatMap((p, i) => p.Statement.map(s => ({ ...s, Sid: `Phase${i}${s.Sid}` })))];
+  const all = [...bound, ...generated.flatMap((p, i) => p.Statement.map(s => ({ ...s, Sid: `Phase${i}${s.Sid}` }))),
+    ...(routingWebAclArn ? [allow("ReadBoundEdgeWebAcl", ["wafv2:GetWebACL"], [routingWebAclArn])] : [])];
   if (t.region === "us-east-1") return [doc(all)];
   const edge = [], regional = [];
-  for (const s of all) (["cloudfront", "route53", "iam"].includes(s.Action[0].split(":")[0]) ? edge : regional).push(s);
+  for (const s of all) (["cloudfront", "route53", "iam", "wafv2"].includes(s.Action[0].split(":")[0]) ? edge : regional).push(s);
   return [doc(regional), doc(edge)];
 }
 

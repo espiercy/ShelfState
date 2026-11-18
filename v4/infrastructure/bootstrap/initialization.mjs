@@ -16,7 +16,7 @@ const doc = Statement => ({ Version: "2012-10-17", Statement });
 const allow = (Sid, Action, Resource, Condition) => ({ Sid, Effect: "Allow", Action, Resource, ...(Condition ? { Condition } : {}) });
 const ownership = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK" };
 const owned = { StringEquals: Object.fromEntries(Object.entries(ownership).map(([k, v]) => [k.replace("RequestTag", "ResourceTag"), v])) };
-const certificateTagKeys = ["Project", "Environment", "ManagedBy", "aws:cloudformation:logical-id", "aws:cloudformation:stack-id", "aws:cloudformation:stack-name"];
+const cloudFormationTagKeys = ["Project", "Environment", "ManagedBy", "aws:cloudformation:logical-id", "aws:cloudformation:stack-id", "aws:cloudformation:stack-name"];
 const apiParentTagResource = "arn:aws:apigateway:us-west-2::/tags/arn%3Aaws%3Aapigateway%3Aus-west-2%3A%3A%2Fv2%2Fapis%2F*";
 
 // Required service-level classes, NOT a claim of a fully observed handler trace.
@@ -45,10 +45,10 @@ export const ACTION_INVENTORY = Object.freeze([
     read: ["acm:DescribeCertificate", "acm:ListTagsForCertificate"], rollback: ["acm:DeleteCertificate"],
     update: ["acm:UpdateCertificateOptions", "acm:AddTagsToCertificate", "acm:RemoveTagsFromCertificate"],
     proof: "Pending physical ARN availability, CNAME readback, tag authorization, handler timeout and rollback. No Route53 publication by certificate stack." },
-  { kind: "web-acl", phase: "edge-waf", id: "webAclId", create: ["wafv2:CreateWebACL"],
+  { kind: "web-acl", phase: "edge-waf", id: "webAclId", create: ["wafv2:CreateWebACL", "wafv2:TagResource"],
     read: ["wafv2:GetWebACL", "wafv2:ListTagsForResource"], rollback: ["wafv2:DeleteWebACL"],
     update: ["wafv2:UpdateWebACL", "wafv2:TagResource", "wafv2:UntagResource"],
-    proof: "CloudFront-scope WAF calls use the us-east-1 endpoint. Handler stabilization, tag reconciliation and rollback remain live proof obligations." },
+    proof: "CloudFront-scope WAF calls use the us-east-1 endpoint. Tagged creation requires the provider-declared TagResource dependency and CloudFormation system tag keys; stabilization and rollback remain live proof obligations." },
 ].map(row => Object.freeze({ ...row, replacement: "Separately authorized initialization; keep old exact IDs until terminal cleanup." })));
 
 export function target(account, phase) {
@@ -112,7 +112,7 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
         });
         add("CertificateCreationTaggingResidual", ["acm:AddTagsToCertificate"], [cert], {
           StringEquals: ownership,
-          "ForAllValues:StringEquals": { "aws:TagKeys": certificateTagKeys },
+          "ForAllValues:StringEquals": { "aws:TagKeys": cloudFormationTagKeys },
           Null: { "aws:TagKeys": "false" },
         });
       }
@@ -124,7 +124,7 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
       const webAcl = `arn:aws:wafv2:us-east-1:${account}:global/webacl/shelfstate-v4-dev-edge/${initial ? "*" : id(bindings.webAclId)}`;
       if (initial) add("CreateExactEdgeWebAcl", row.create, [webAcl], {
         StringEquals: { ...ownership, "aws:RequestedRegion": "us-east-1" },
-        "ForAllValues:StringEquals": { "aws:TagKeys": Object.keys(ownership).map(key => key.split("/")[1]) },
+        "ForAllValues:StringEquals": { "aws:TagKeys": cloudFormationTagKeys },
         Null: { "aws:TagKeys": "false" },
       });
       add("EdgeWebAclLifecycle", [...row.read, ...row.rollback, ...(initial ? [] : row.update)], [webAcl], initial ? owned : undefined);

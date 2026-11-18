@@ -116,6 +116,40 @@ test("WAF initialization and steady authority are exact and exclude association 
   assert.throws(() => executionPolicies(ACCOUNT, phase, "initialization", {}, ["certificate"]));
 });
 
+test("tagged WAF creation grants the exact dependent tagging action and CloudFormation keys", () => {
+  const initial = executionPolicies(ACCOUNT, phase, "initialization", {})[0];
+  const webAcl = `arn:aws:wafv2:us-east-1:${ACCOUNT}:global/webacl/shelfstate-v4-dev-edge/pending-web-acl`;
+  const ownership = {
+    "aws:RequestTag/Project": "ShelfState",
+    "aws:RequestTag/Environment": "dev",
+    "aws:RequestTag/ManagedBy": "AWS-CDK",
+  };
+  const context = {
+    ...ownership,
+    "aws:RequestedRegion": "us-east-1",
+    "aws:TagKeys": ["Project", "Environment", "ManagedBy", "aws:cloudformation:logical-id", "aws:cloudformation:stack-id", "aws:cloudformation:stack-name"],
+  };
+
+  for (const action of ["wafv2:CreateWebACL", "wafv2:TagResource"])
+    assert.equal(decision(initial, action, webAcl, context), "allow", action);
+
+  for (const changed of [
+    { ...context, "aws:RequestTag/Environment": "production" },
+    { ...context, "aws:RequestedRegion": "us-west-2" },
+    { ...context, "aws:TagKeys": [...context["aws:TagKeys"], "Unreviewed"] },
+  ]) for (const action of ["wafv2:CreateWebACL", "wafv2:TagResource"])
+    assert.equal(decision(initial, action, webAcl, changed), "implicitDeny", action);
+
+  for (const resource of [
+    webAcl.replace(ACCOUNT, "999999999999"),
+    webAcl.replace("us-east-1", "us-west-2"),
+    webAcl.replace("shelfstate-v4-dev-edge", "other"),
+  ]) assert.equal(decision(initial, "wafv2:TagResource", resource, context), "implicitDeny");
+
+  for (const action of ["wafv2:UntagResource", "wafv2:AssociateWebACL", "payments:GetConnectedAccount"])
+    assert.equal(decision(initial, action, webAcl, context), "implicitDeny", action);
+});
+
 test("caller window targets only the explicit east WAF stack", () => {
   const t = target(ACCOUNT, phase);
   assert.equal(t.name, "shelfstate-v4-dev-edge-waf");

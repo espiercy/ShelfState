@@ -8,6 +8,7 @@ import { assertStaticEdgeBindings } from "../bootstrap/static-edge-contract.mjs"
 import { addEdgeRouting } from "./edge-routing.mjs";
 import { assertEdgeRoutingBindings } from "../bootstrap/edge-routing-contract.mjs";
 import { addEdgeWaf } from "./edge-waf.mjs";
+import { addIdentitySessionPersistence } from "./identity-session.mjs";
 
 import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 export { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
@@ -28,8 +29,14 @@ function stackEnvironment(config, region) {
 }
 
 export function createEnvironmentTopology(app, config, options = {}) {
-  assert.ok(Object.keys(options).every(key => ["initializationPhase", "initializationBindings"].includes(key)), "Unsupported topology option");
+  assert.ok(Object.keys(options).every(key => ["implementationPhase", "initializationPhase", "initializationBindings"].includes(key)), "Unsupported topology option");
   const phase = options.initializationPhase;
+  const implementationPhase = options.implementationPhase;
+  assert.ok(!(phase && implementationPhase), "Initialization and implementation phases cannot be combined");
+  if (implementationPhase !== undefined) {
+    assert.equal(implementationPhase, "identity-session", "Unsupported implementation phase");
+    assert.ok(!Object.hasOwn(options, "initializationBindings"), "Implementation phases do not accept external bindings");
+  }
   if (phase === "edge-static") assertStaticEdgeBindings(options.initializationBindings, config.accountId);
   else if (phase === "edge-routing") assertEdgeRoutingBindings(options.initializationBindings, config.accountId);
   else assert.ok(!Object.hasOwn(options, "initializationBindings"), "External bindings belong only to explicit edge phases");
@@ -96,6 +103,12 @@ export function createEnvironmentTopology(app, config, options = {}) {
       stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-007";
       stack.templateOptions.metadata.ShelfState.InitializationPhase = phase;
       addEdgeRouting(stack, config, options.initializationBindings);
+    }
+    if (definition.key === "identity-session" && implementationPhase === "identity-session") {
+      stack.templateOptions.description = `ShelfState V4 ${config.environmentName} identity/session persistence (WP-008 repository candidate; not deployed)`;
+      stack.templateOptions.metadata.ShelfState.WorkPackage = "WP-008";
+      stack.templateOptions.metadata.ShelfState.ImplementationPhase = implementationPhase;
+      addIdentitySessionPersistence(stack, config);
     }
   }
 

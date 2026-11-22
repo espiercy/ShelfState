@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const contractDirectory = path.resolve(testDirectory, "../contracts");
 
-test("OpenAPI and shared contracts remain reserved for later work packages", async () => {
+test("only the authorized WP-008 persistence contract occupies the reserved contract area", async () => {
   const entries = await readdir(contractDirectory);
-  assert.deepEqual(entries.sort(), [".gitkeep"]);
+  assert.deepEqual(entries.sort(), [".gitkeep", "identity-session.mjs"]);
 });

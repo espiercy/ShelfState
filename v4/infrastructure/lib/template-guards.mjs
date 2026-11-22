@@ -5,6 +5,7 @@ import { assertEdgeCertificateTemplate } from "../bootstrap/edge-certificate-con
 import { assertStaticEdgeTemplate } from "../bootstrap/static-edge-contract.mjs";
 import { assertEdgeRoutingTemplate } from "../bootstrap/edge-routing-contract.mjs";
 import { assertEdgeWafTemplate } from "../bootstrap/edge-waf-contract.mjs";
+import { assertIdentitySessionTemplate } from "../bootstrap/identity-session-contract.mjs";
 
 export const STATEFUL_POLICY_METADATA = "ShelfStateStatefulPolicy";
 
@@ -230,6 +231,39 @@ export function validateFoundationAssembly(assembly, config) {
       `Synthesized topology is missing capabilities: ${[...expectedCapabilities].join(", ")}.`,
     );
   }
+}
+
+// WP-008 repository-only inspection. This validates both environments without
+// granting deployment authority or changing the ordinary empty-foundation path.
+export function validateIdentitySessionAssembly(assembly, config, phase) {
+  assert.equal(phase, "identity-session");
+  assert.equal(assembly.stacks.length, CAPABILITY_DEFINITIONS.length);
+  const seen = new Set();
+  for (const artifact of assembly.stacks) {
+    const metadata = artifact.template.Metadata?.ShelfState;
+    const capability = metadata?.Capability;
+    const definition = CAPABILITY_DEFINITIONS.find((item) => item.key === capability);
+    assert.ok(definition && !seen.has(capability), "Unknown/duplicate capability");
+    seen.add(capability);
+    assert.equal(metadata.Environment, config.environmentName);
+    assert.equal(metadata.Region, config[definition.regionSource]);
+    assert.equal(artifact.stackName, `${config.namePrefix}-${capability}`);
+    assert.equal(
+      artifact.environment.name,
+      `aws://${config.accountId ?? "unknown-account"}/${config[definition.regionSource]}`,
+    );
+    assert.equal(artifact.terminationProtection, config.environmentName === "prod");
+    assertNoDeferredInfrastructure(artifact.template);
+    assertStatefulResourceSafeguards(artifact.template, config.environmentName);
+    if (capability === "identity-session") {
+      assert.equal(metadata.WorkPackage, "WP-008");
+      assert.equal(metadata.ImplementationPhase, phase);
+      assertIdentitySessionTemplate(artifact.template, config);
+    } else {
+      assertFoundationTemplate(artifact.template, config.environmentName);
+    }
+  }
+  assert.equal(seen.size, CAPABILITY_DEFINITIONS.length);
 }
 
 // Local inspection ONLY. The normal foundation/release validator remains empty-

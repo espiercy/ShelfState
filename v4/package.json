@@ -15,13 +15,17 @@
     "test:security": "npm run check:runtime && node --test checks/human-access-policies.case.mjs",
     "test:design": "npm run check:runtime && node --test checks/release-control-design.case.mjs",
     "test:release": "npm run check:runtime && node --test checks/release-control-implementation.case.mjs checks/workflow-activation.case.mjs checks/controller-provenance.case.mjs checks/runtime-target.case.mjs checks/offline-synthesis.case.mjs",
+    "test:persistence": "npm run check:runtime && node --test checks/persistence-contracts.case.mjs checks/persistence-infrastructure.case.mjs checks/persistence-iam.case.mjs",
     "infra:test": "npm run check:runtime && node --test checks/infrastructure.case.mjs checks/bootstrap-security.case.mjs checks/bootstrap-initialization.case.mjs checks/library-api.case.mjs checks/edge-certificate.case.mjs checks/certificate-assembly-adapter.case.mjs checks/certificate-change-set-review.case.mjs checks/certificate-change-set-preparation.case.mjs checks/static-edge.case.mjs checks/edge-routing.case.mjs checks/edge-waf.case.mjs",
     "infra:synth:dev": "npm run check:runtime && cdk synth --no-lookups --quiet --context shelfstateEnvironment=dev --output cdk.out/dev",
     "infra:synth:prod": "npm run check:runtime && cdk synth --no-lookups --quiet --context shelfstateEnvironment=prod --output cdk.out/prod",
     "infra:synth": "npm run infra:synth:dev && npm run infra:synth:prod",
+    "infra:synth:wp008:dev": "npm run check:runtime && cdk synth --no-lookups --quiet --context shelfstateEnvironment=dev --context shelfstateImplementationPhase=identity-session --output cdk.out/wp008/dev",
+    "infra:synth:wp008:prod": "npm run check:runtime && cdk synth --no-lookups --quiet --context shelfstateEnvironment=prod --context shelfstateImplementationPhase=identity-session --output cdk.out/wp008/prod",
+    "infra:synth:wp008": "npm run infra:synth:wp008:dev && npm run infra:synth:wp008:prod",
     "infra:preview": "npm run check:runtime && node infrastructure/scripts/preview.mjs",
     "build": "npm run check:runtime && node scripts/build.mjs",
-    "verify": "npm test && npm run test:contract && npm run test:security && npm run test:design && npm run test:release && npm run infra:test && npm run infra:synth && npm run infra:preview && npm run build"
+    "verify": "npm test && npm run test:contract && npm run test:security && npm run test:design && npm run test:release && npm run test:persistence && npm run infra:test && npm run infra:synth && npm run infra:synth:wp008 && npm run infra:preview && npm run build"
   },
   "dependencies": {
     "aws-cdk-lib": "2.273.0",

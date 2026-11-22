@@ -3,7 +3,8 @@
 WP-003 models the V4 infrastructure topology without creating AWS resources.
 Default dev/prod proof synthesis remains six stacks / zero resources. The
 explicitly selected local-only WP-007 API, certificate and static-edge phases
-below are resource-bearing synthesis exceptions. They do not enable deployment:
+and the repository-only WP-008 persistence inspection below are resource-bearing
+synthesis exceptions. They do not enable deployment:
 the ordinary proof/release path remains non-deploying and rejects unauthorized
 resource-bearing assemblies.
 
@@ -31,7 +32,8 @@ the minimal tags `Project=ShelfState`, `Environment=<environment>`, and
 - `edge-delivery` (`us-west-2`) — future private static delivery and edge path;
   it has the topology's only dependency, on `edge-certificate`.
 - `identity-session` — future identity, account, session, and auth-transaction
-  persistence and authentication infrastructure.
+  persistence; WP-008 defines its two protected tables and unattached
+  family-scoped policies without adding authentication infrastructure.
 - `library-api` — future library persistence, HTTP API, and synchronous library
   capability.
 - `operations-lifecycle` — future asynchronous library operations and account
@@ -48,6 +50,8 @@ No stack contains a resource in WP-003.
 - `npm run infra:synth:dev` writes `cdk.out/dev/`.
 - `npm run infra:synth:prod` writes `cdk.out/prod/`.
 - `npm run infra:synth` performs both syntheses.
+- `npm run infra:synth:wp008` writes separate dev/prod WP-008 inspection
+  assemblies under `cdk.out/wp008/`.
 - `npm run infra:preview` prints an offline inventory and SHA-256 for every
   synthesized template.
 
@@ -56,6 +60,23 @@ No stack contains a resource in WP-003.
 deployed state and may require account/bootstrap access, so an operational diff
 wrapper is intentionally reserved for the later authorized deployment package.
 The offline preview is the review surface for WP-003.
+
+## WP-008 identity/session persistence inspection
+
+`shelfstateImplementationPhase=identity-session` is a separate dev/prod local
+inspection path. It cannot be combined with WP-007 initialization phases or
+external initialization bindings. The `identity-session` stack contains exactly
+two retained, deletion-protected DynamoDB Standard On-Demand tables and four
+unattached, item-family-scoped managed-policy definitions. Both tables use
+AWS-owned encryption and 35-day PITR. Only the Session/Auth Transaction table
+has TTL cleanup. Neither table has a GSI or Stream.
+
+The policies grant no principal by themselves. Their DynamoDB `LeadingKeys`
+conditions isolate `IDENTITY#`, `ACCOUNT#`, `SESSION#`, and
+`AUTH_TRANSACTION#`; each policy also names only its exact table and required
+item actions. See [the WP-008 persistence record](../../docs/V4_WP008_PERSISTENCE.md)
+for contracts, data classification, IAM composition, verification limits, and
+cost.
 
 ## Stateful-resource guardrail
 

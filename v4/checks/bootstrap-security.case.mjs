@@ -403,10 +403,10 @@ test("R1: each bound managed policy fits 6144 characters with conservative ID al
 test("R1: partitioned west statements exactly preserve the provider-compatible authority", () => {
   const combined = westParts.flatMap(p => p.Statement).sort((a, b) => a.Sid.localeCompare(b.Sid, "en"));
   // Fixed review identity for the complete partitioned catalog, not a runtime-derived expectation.
-  assert.equal(sha256(JSON.stringify(combined)), "82501f9a5290f8005da075f32723e2de42bb82b81f4e19062351390e2f9d72e0");
+  assert.equal(sha256(JSON.stringify(combined)), "c45e57fb61d0914fca8e7a5d5901abee202e77e0add0d1d3e684651e94d95e64");
   assert.equal(new Set(combined.map(s => s.Sid)).size, combined.length);
-  assert.ok(westParts[0].Statement.every(s => s.Action.every(a => /^(s3|apigateway|lambda|logs|ssm):/.test(a))));
-  assert.ok(westParts[1].Statement.every(s => s.Action.every(a => /^(cloudfront|route53|iam):/.test(a))));
+  assert.ok(westParts[0].Statement.every(s => s.Action.every(a => /^(s3|apigateway|lambda|logs|ssm|dynamodb):/.test(a))));
+  assert.ok(westParts[1].Statement.every(s => s.Action.every(a => /^(cloudfront|route53|iam|dynamodb):/.test(a))));
 });
 
 test("R1: fixed regional attachments and intent enforce the whole policy set", () => {

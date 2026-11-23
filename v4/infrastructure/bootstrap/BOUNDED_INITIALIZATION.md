@@ -34,6 +34,31 @@ certificate/static contracts; all preparation remains **NOT DEPLOYMENT READY**.
 
 Status: **LOCAL PREPARATION / REVIEWS CLOSED FOR COMMITTED SLICES AND ROUTING CANDIDATE / NOT DEPLOYMENT READY**.
 
+## WP-008 persistent identity-session phase — 2026-11-22
+
+The existing mechanism now models one additional repository-only phase,
+`identity-session`, without changing the deployment-role topology or creating
+an AWS executor. Its exact stack is
+`shelfstate-v4-dev-identity-session` in `us-west-2`; caller windows use only
+`wp008-<sha256>` names.
+
+The initialization execution fragment can create and stabilize exactly
+`shelfstate-v4-dev-identity-account` and
+`shelfstate-v4-dev-session-auth`, configure PITR and the latter table's TTL, and
+manage their reviewed tags. It can create/version/read/delete exactly the four
+unattached WP-008 customer-managed policy definitions. Steady authority removes
+table and policy creation. Neither mode has DynamoDB item access,
+`dynamodb:DeleteTable`, IAM policy attachment, role creation, or production
+scope.
+
+Review requires the exact actual WP-008 synthesized envelope, exactly six `Add`
+changes with replacement `False`, `CREATE`, `CAPABILITY_NAMED_IAM`, no import or
+nested stack, and no pre-existing physical resource. Failure handling is bound
+to rollback while retaining tables: `RetainExceptOnCreate=false`, no table
+delete permission, and a stop for separately reviewed recovery on any partial,
+retained, failed, or indeterminate result. Local validation grants no live
+prepare or execute authority.
+
 Authority: human request “Implement the local-only WP-007 bounded-initialization authority package,” following the CloudFormation-native design adjudication. Starting branch `codex/wp-006b-workflow-activation`, HEAD `2f81271a4e968638bfa43da2cd4c4849dd3bf768`, clean. No commit/live use is authorized. These functions are pure models and evidence validators, not an AWS executor or proof of authentic AWS responses.
 
 ## Selected design and artifact boundaries

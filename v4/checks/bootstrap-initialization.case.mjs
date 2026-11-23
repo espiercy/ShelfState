@@ -11,9 +11,13 @@ const check = f => validateInitializationBundle(f.approval, f.pin, f.bundle);
 const join = (...policies) => ({ Version: "2012-10-17", Statement: policies.flatMap(p => p.Statement) });
 const name = `wp007-${"a".repeat(64)}`;
 
-test("nine action classes distinguish rollback/update and preserve handler proof obligations", () => {
-  assert.equal(ACTION_INVENTORY.length, 9);
-  for (const r of ACTION_INVENTORY) { assert.ok(r.create.length && r.read.length && r.rollback.length && r.update.length && r.proof && r.replacement); }
+test("eleven action classes distinguish rollback/update and preserve handler proof obligations", () => {
+  assert.equal(ACTION_INVENTORY.length, 11);
+  for (const r of ACTION_INVENTORY) {
+    assert.ok(r.create.length && r.read.length && r.update.length && r.proof && r.replacement);
+    if (r.kind === "identity-tables") assert.deepEqual(r.rollback, [], "Retained tables have no automatic deletion authority");
+    else assert.ok(r.rollback.length);
+  }
   const initial = generatedAuthority(ACCOUNT, "edge", "initialization");
   assert.equal(allows(initial, "cloudfront:UpdateOriginAccessControl", `arn:aws:cloudfront::${ACCOUNT}:origin-access-control/ANY`), false);
   assert.equal(allows(initial, "cloudfront:UpdateDistribution", `arn:aws:cloudfront::${ACCOUNT}:distribution/NEW`, {
@@ -25,26 +29,31 @@ for (const phase of Object.keys(PHASES)) {
   test(`${phase}: reviewed synthetic assembly passes without enabling deployment`, () => {
     // Actual edge phases have no historical synthetic representation. Their
     // positive emitted-template fixtures live in their dedicated suites.
-    if (["edge-static", "edge-routing", "edge-waf"].includes(phase)) return assert.throws(() => check(fixture(phase)), /Unsupported phase for review schema/);
+    if (["edge-static", "edge-routing", "edge-waf", "identity-session"].includes(phase)) return assert.throws(() => check(fixture(phase)), /Unsupported phase for review schema/);
     assert.equal(check(fixture(phase)).status, "LOCAL_REVIEW_VALIDATED_NOT_DEPLOYMENT_AUTHORIZATION");
   });
   test(`${phase}: exact single-stack cap defeats old six-stack allow and opposite-region role`, () => {
-    const t = target(ACCOUNT, phase), cap = callerWindowCap(ACCOUNT, phase, t.region, name, "execute");
+    const changeSetName = `${phase === "identity-session" ? "wp008" : "wp007"}-${"a".repeat(64)}`;
+    const t = target(ACCOUNT, phase), cap = callerWindowCap(ACCOUNT, phase, t.region, changeSetName, "execute");
     const p = join(deploymentPolicy(t.region, ACCOUNT), cap);
-    const ctx = { "cloudformation:ChangeSetName": name };
+    const ctx = { "cloudformation:ChangeSetName": changeSetName };
     assert.equal(allows(p, "cloudformation:ExecuteChangeSet", t.stackArn.replace("*", "x"), ctx), true);
-    const other = `arn:aws:cloudformation:${t.region}:${ACCOUNT}:stack/shelfstate-v4-dev-identity-session/x`;
+    const other = `arn:aws:cloudformation:${t.region}:${ACCOUNT}:stack/shelfstate-v4-dev-${phase === "identity-session" ? "operations-lifecycle" : "identity-session"}/x`;
     assert.equal(decision(p, "cloudformation:ExecuteChangeSet", other, ctx), "explicitDeny");
     assert.equal(decision(p, "cloudformation:CreateChangeSet", t.stackArn.replace("*", "x"), ctx), "explicitDeny");
-    for (const bad of [{}, { "cloudformation:ChangeSetName": name + "-other" }]) assert.equal(decision(p, "cloudformation:ExecuteChangeSet", t.stackArn.replace("*", "x"), bad), "explicitDeny");
+    for (const bad of [{}, { "cloudformation:ChangeSetName": changeSetName + "-other" }]) assert.equal(decision(p, "cloudformation:ExecuteChangeSet", t.stackArn.replace("*", "x"), bad), "explicitDeny");
     const opposite = t.region === "us-west-2" ? "us-east-1" : "us-west-2";
-    assert.equal(decision(join(deploymentPolicy(opposite, ACCOUNT), callerWindowCap(ACCOUNT, phase, opposite, name, "execute")), "cloudformation:ExecuteChangeSet", other, ctx), "explicitDeny");
+    assert.equal(decision(join(deploymentPolicy(opposite, ACCOUNT), callerWindowCap(ACCOUNT, phase, opposite, changeSetName, "execute")), "cloudformation:ExecuteChangeSet", other, ctx), "explicitDeny");
   });
   test(`${phase}: exact steady fragment rejects stale init grants and unrelated resources`, () => {
     const steady = generatedAuthority(ACCOUNT, phase, "steady", IDS);
     assertGeneratedAuthority(steady, ACCOUNT, phase, "steady", IDS);
     assert.throws(() => assertGeneratedAuthority(join(steady, generatedAuthority(ACCOUNT, phase, "initialization", IDS)), ACCOUNT, phase, "steady", IDS));
     for (const s of steady.Statement) for (const action of s.Action) for (const resource of s.Resource) {
+      if (s.Condition) {
+        assert.equal(phase, "identity-session", "Only the exact identity tag lifecycle is condition-bound here");
+        continue;
+      }
       assert.equal(allows(steady, action, resource), true);
       assert.equal(allows(steady, action, resource + "-unrelated"), false);
       assert.equal(resource.includes("*"), false);
@@ -198,7 +207,8 @@ test("full steady compositions do not retain legacy creation statements or unres
   for (const phase of Object.keys(PHASES)) {
     for (const p of executionPolicies(ACCOUNT, phase, "steady", b, phase === "api-children" ? ["api-parent"] : [])) {
       assert.equal(JSON.stringify(p).includes("${"), false);
-      for (const s of p.Statement.filter(s => s.Effect === "Allow")) assert.equal(s.Action.some(a => /:(Create|RequestCertificate)/.test(a) || a === "apigateway:POST"), false);
+      for (const s of p.Statement.filter(s => s.Effect === "Allow")) assert.equal(s.Action.some(a =>
+        (a !== "iam:CreatePolicyVersion" && /:(Create|RequestCertificate)/.test(a)) || a === "apigateway:POST"), false);
     }
   }
   assert.throws(() => executionPolicies(ACCOUNT, "api-children", "initialization", b), /parent/);
@@ -260,7 +270,7 @@ test("R1 rejects integration CredentialsArn under a new valid pin", () => {
 });
 
 // Novel fields and deletions exercise EVERY resource, including empty placeholders.
-for (const phase of Object.keys(PHASES).filter(p => !["edge-static", "edge-routing", "edge-waf"].includes(p))) {
+for (const phase of Object.keys(PHASES).filter(p => !["edge-static", "edge-routing", "edge-waf", "identity-session"].includes(p))) {
   const resources = JSON.parse(fixture(phase).bundle.templateBytes).Resources;
   for (const [logicalId, resource] of Object.entries(resources)) {
     test(`${phase}/${logicalId}: closed property set and required values`, () => {
@@ -370,7 +380,8 @@ test("conservatively bound managed policy fragments/caps stay under 6144 charact
       const retained = phase === "api-children" ? ["api-parent"] : phase === "edge" ? ["api-parent", "api-children"] : [];
       for (const full of executionPolicies(ACCOUNT, phase, mode, sized, retained)) assert.ok(JSON.stringify(full).length <= 6144, `Full composition ${phase}/${mode}: ${JSON.stringify(full).length}`);
     }
-    for (const region of ["us-west-2", "us-east-1"]) for (const state of ["prepare", "execute", "closed"]) assert.ok(JSON.stringify(callerWindowCap(ACCOUNT, phase, region, name, state)).length <= 6144);
+    const changeSetName = `${phase === "identity-session" ? "wp008" : "wp007"}-${"a".repeat(64)}`;
+    for (const region of ["us-west-2", "us-east-1"]) for (const state of ["prepare", "execute", "closed"]) assert.ok(JSON.stringify(callerWindowCap(ACCOUNT, phase, region, changeSetName, state)).length <= 6144);
   }
 });
 test("existing release guard still rejects resource-bearing assemblies; no workflow imports this guard", async () => {

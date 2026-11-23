@@ -149,6 +149,42 @@ const boundaryArn = `arn:aws:iam::${account}:policy/ShelfStateV4DevHealthBoundar
 const logGroup = `arn:aws:logs:us-west-2:${account}:log-group:/aws/lambda/shelfstate-v4-dev-health`;
 const tags = { "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK" };
 
+export function identitySessionResources(accountId = account) {
+  assert.match(accountId, /^(?:\$\{ACCOUNT_ID\}|\d{12})$/);
+  return {
+    tables: ["identity-account", "session-auth"].map(name =>
+      `arn:aws:dynamodb:us-west-2:${accountId}:table/shelfstate-v4-dev-${name}`),
+    sessionAuthTable: `arn:aws:dynamodb:us-west-2:${accountId}:table/shelfstate-v4-dev-session-auth`,
+    policies: ["identity-map", "account", "session", "auth-transaction"].map(name =>
+      `arn:aws:iam::${accountId}:policy/shelfstate-v4-dev-${name}-persistence`),
+  };
+}
+
+// Exact-name WP-008 resource management. Request tags constrain CreateTable;
+// existing-resource operations deliberately do not confuse ResourceTag with
+// RequestTag while their Resource elements remain exact. DeleteTable is absent:
+// retained, deletion-protected tables require separately reviewed recovery.
+export function identitySessionExecutionStatements(accountId = account) {
+  const resources = identitySessionResources(accountId);
+  return [
+    allow("CreateIdentitySessionTables", ["dynamodb:CreateTable"], resources.tables, {
+      StringEquals: tags,
+    }),
+    allow("ReadConfigureIdentitySessionTables", [
+      "dynamodb:DescribeTable", "dynamodb:UpdateTable",
+      "dynamodb:DescribeContinuousBackups", "dynamodb:UpdateContinuousBackups",
+      "dynamodb:DescribeTimeToLive", "dynamodb:ListTagsOfResource",
+    ], resources.tables),
+    allow("ConfigureSessionAuthTtl", ["dynamodb:UpdateTimeToLive"], [resources.sessionAuthTable]),
+    allow("TagIdentitySessionTables", ["dynamodb:TagResource", "dynamodb:UntagResource"], resources.tables),
+    allow("CreateIdentitySessionPolicies", ["iam:CreatePolicy"], resources.policies),
+    allow("ManageIdentitySessionPolicies", [
+      "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicyVersions", "iam:ListEntitiesForPolicy",
+      "iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion", "iam:DeletePolicyVersion", "iam:DeletePolicy",
+    ], resources.policies),
+  ];
+}
+
 export function route53Changes(east = false, boundedPattern = false) {
   const names = east ? (boundedPattern ? "_*.dev.shelfstate.codecorax.com" : "${VALIDATION_RECORD_NAME}") : "dev.shelfstate.codecorax.com";
   const nameKey = "route53:ChangeResourceRecordSetsNormalizedRecordNames";
@@ -208,6 +244,7 @@ export function westExecutionPolicy() {
     allow("HealthLogGroup", ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy", "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource", "logs:GetDataProtectionPolicy"], [logGroup, `${logGroup}:*`]),
     allow("FindLogGroupMetadata", ["logs:DescribeLogGroups"], ["*"], { StringEquals: { "aws:RequestedRegion": "us-west-2" } }),
     allow("ReadLogServiceConfiguration", ["logs:DescribeIndexPolicies", "logs:DescribeResourcePolicies"], ["*"], { StringEquals: { "aws:RequestedRegion": "us-west-2" } }),
+    ...identitySessionExecutionStatements(),
     allow("CreateBoundedHealthRole", ["iam:CreateRole"], [healthRole], { StringEquals: { "iam:PermissionsBoundary": boundaryArn, ...tags } }),
     allow("ManageHealthRole", ["iam:GetRole", "iam:DeleteRole", "iam:GetRolePolicy", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:PutRolePolicy", "iam:DeleteRolePolicy", "iam:UpdateAssumeRolePolicy", "iam:TagRole", "iam:UntagRole"], [healthRole]),
     deny("NeverChangeApplicationBoundary", ["iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary"], [healthRole]),
@@ -260,12 +297,16 @@ export function pendingDecisions() {
 // Partition whole, unchanged statements; no action/resource/condition widening.
 export function westExecutionPolicies() {
   const regional = [], edge = [];
+  // Keep both pre-existing attachments under the IAM size limit without
+  // splitting or widening any statement. TTL remains west-region DynamoDB
+  // authority even though this whole statement is carried by WestEdge.
+  const westEdgeSids = new Set(["ConfigureSessionAuthTtl"]);
   for (const statement of westExecutionPolicy().Statement) {
     const services = new Set(statement.Action.map(action => action.split(":")[0]));
     assert.equal(services.size, 1, "Review mixed-service statement before partitioning");
     const [service] = services;
-    assert.ok(["s3", "apigateway", "lambda", "logs", "ssm", "cloudfront", "route53", "iam"].includes(service));
-    (["cloudfront", "route53", "iam"].includes(service) ? edge : regional).push(statement);
+    assert.ok(["s3", "apigateway", "lambda", "logs", "ssm", "cloudfront", "route53", "iam", "dynamodb"].includes(service));
+    (["cloudfront", "route53", "iam"].includes(service) || westEdgeSids.has(statement.Sid) ? edge : regional).push(statement);
   }
   return [policy(regional), policy(edge)];
 }

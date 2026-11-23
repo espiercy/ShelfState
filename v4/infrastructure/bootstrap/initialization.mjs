@@ -1,6 +1,6 @@
 // Local proposal only: no SDK, credential discovery, network, or deployment path.
 import assert from "node:assert/strict";
-import { deploymentPolicy, REGIONS, QUALIFIER, westExecutionPolicy, eastExecutionPolicy } from "./model.mjs";
+import { deploymentPolicy, REGIONS, QUALIFIER, westExecutionPolicy, eastExecutionPolicy, identitySessionExecutionStatements } from "./model.mjs";
 import { equal, object } from "../../scripts/release/schema.mjs";
 
 export const PHASES = Object.freeze({
@@ -11,6 +11,7 @@ export const PHASES = Object.freeze({
   "api-parent": { region: "us-west-2", capability: "library-api" },
   "api-children": { region: "us-west-2", capability: "library-api" },
   certificate: { region: "us-east-1", capability: "edge-certificate" },
+  "identity-session": { region: "us-west-2", capability: "identity-session" },
 });
 const doc = Statement => ({ Version: "2012-10-17", Statement });
 const allow = (Sid, Action, Resource, Condition) => ({ Sid, Effect: "Allow", Action, Resource, ...(Condition ? { Condition } : {}) });
@@ -49,6 +50,14 @@ export const ACTION_INVENTORY = Object.freeze([
     read: ["wafv2:GetWebACL", "wafv2:ListTagsForResource"], rollback: ["wafv2:DeleteWebACL"],
     update: ["wafv2:UpdateWebACL", "wafv2:TagResource", "wafv2:UntagResource"],
     proof: "CloudFront-scope WAF calls use the us-east-1 endpoint. Tagged creation requires the provider-declared TagResource dependency and CloudFormation system tag keys; stabilization and rollback remain live proof obligations." },
+  { kind: "identity-tables", phase: "identity-session", create: ["dynamodb:CreateTable"],
+    read: ["dynamodb:DescribeTable", "dynamodb:DescribeContinuousBackups", "dynamodb:DescribeTimeToLive", "dynamodb:ListTagsOfResource"],
+    rollback: [], update: ["dynamodb:UpdateTable", "dynamodb:UpdateContinuousBackups", "dynamodb:UpdateTimeToLive", "dynamodb:TagResource", "dynamodb:UntagResource"],
+    proof: "Both exact named tables are retained and deletion-protected. Create uses request-tag conditions; existing-resource calls use exact ARNs. DeleteTable is intentionally absent from rollback and recovery authority." },
+  { kind: "identity-managed-policies", phase: "identity-session", create: ["iam:CreatePolicy"],
+    read: ["iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicyVersions", "iam:ListEntitiesForPolicy"],
+    rollback: ["iam:DeletePolicy"], update: ["iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion", "iam:DeletePolicyVersion"],
+    proof: "Four exact unattached policy ARNs only. No role, user or group attachment action is authorized; rollback may remove only these unattached policy definitions." },
 ].map(row => Object.freeze({ ...row, replacement: "Separately authorized initialization; keep old exact IDs until terminal cleanup." })));
 
 export function target(account, phase) {
@@ -73,6 +82,10 @@ function edgeRoutingWebAclArn(account, bindings) {
 export function generatedAuthority(account, phase, mode, bindings = {}) {
   const t = target(account, phase); assert.ok(["initialization", "steady"].includes(mode));
   const initial = mode === "initialization", statements = [];
+  if (phase === "identity-session") {
+    const creation = new Set(["CreateIdentitySessionTables", "CreateIdentitySessionPolicies"]);
+    return doc(identitySessionExecutionStatements(account).filter(statement => initial || !creation.has(statement.Sid)));
+  }
   const add = (sid, actions, resources, conditions) => statements.push(allow(sid, [...new Set(actions)], resources, conditions));
   const inventory = ACTION_INVENTORY.filter(r => ["edge-static", "edge-routing"].includes(phase)
     ? r.phase === "edge" && ["distribution", "origin-access-control", "response-headers-policy"].includes(r.kind)
@@ -151,7 +164,9 @@ export function executionPolicies(account, phase, mode, bindings, retainedPhases
   const t = target(account, phase);
   const routingWebAclArn = phase === "edge-routing" ? edgeRoutingWebAclArn(account, bindings) : null;
   const isolatedEdgePhase = ["edge-static", "edge-routing", "edge-waf"].includes(phase);
+  const identityPhase = phase === "identity-session";
   if (isolatedEdgePhase) assert.equal(retainedPhases.length, 0, "Edge-only window cannot retain unrelated phase authority");
+  if (identityPhase) assert.equal(retainedPhases.length, 0, "Identity-session window cannot retain unrelated phase authority");
   assert.equal(new Set(retainedPhases).size, retainedPhases.length);
   assert.ok(!retainedPhases.includes(phase));
   for (const retained of retainedPhases) assert.equal(target(account, retained).region, t.region);
@@ -162,9 +177,13 @@ export function executionPolicies(account, phase, mode, bindings, retainedPhases
   const apiShared = new Set(["ReadRegionalTemplateAssets", "ResolveBootstrapVersion", "NeverEditBoundaryPolicy"]);
   const apiChildren = new Set(["CreateHealthFunction", "ManageHealthFunction", "ApiMayInvokeHealth", "HealthLogGroup", "FindLogGroupMetadata", "ReadLogServiceConfiguration",
     "CreateBoundedHealthRole", "ManageHealthRole", "NeverChangeApplicationBoundary", "PassHealthToLambdaOnly"]);
-  const original = apiPhase
+  const identitySids = new Set(identitySessionExecutionStatements().map(statement => statement.Sid));
+  const original = identityPhase
+    ? base.Statement.filter(s => s.Sid === "ResolveBootstrapVersion")
+    : apiPhase
     ? base.Statement.filter(s => apiShared.has(s.Sid) || (phase === "api-children" && apiChildren.has(s.Sid)))
     : base.Statement.filter(s => (!isolatedEdgePhase || ["CreateStaticBucket", "ConfigureStaticBucket", "ReadRegionalTemplateAssets", "ResolveBootstrapVersion"].includes(s.Sid)) &&
+      !identitySids.has(s.Sid) &&
       !s.Action.some(a => /^(cloudfront|apigateway|acm):/.test(a)) &&
       !(t.region === "us-east-1" && s.Action.some(a => a.startsWith("route53:"))));
   // Named resource creation also ceases after initialization. Independently
@@ -193,7 +212,7 @@ export function executionPolicies(account, phase, mode, bindings, retainedPhases
 // the role's broad allow alone is insufficient. This does not install a boundary.
 export function callerWindowCap(account, phase, regionalRole, changeSetName, state) {
   const t = target(account, phase); assert.ok(REGIONS.includes(regionalRole));
-  assert.match(changeSetName, /^wp007-[a-f0-9]{64}$/);
+  assert.match(changeSetName, new RegExp(`^${phase === "identity-session" ? "wp008" : "wp007"}-[a-f0-9]{64}$`));
   assert.ok(["prepare", "execute", "closed"].includes(state));
   if (regionalRole !== t.region || state === "closed") return doc([
     { Sid: "NoInitializationFromThisRole", Effect: "Deny", Action: ["cloudformation:*", "iam:PassRole"], Resource: "*" },

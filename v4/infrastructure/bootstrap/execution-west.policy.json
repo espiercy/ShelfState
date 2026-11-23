@@ -230,6 +230,52 @@
       }
     },
     {
+      "Sid": "CreateIdentitySessionTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-west-2:${ACCOUNT_ID}:table/shelfstate-v4-dev-identity-account",
+        "arn:aws:dynamodb:us-west-2:${ACCOUNT_ID}:table/shelfstate-v4-dev-session-auth"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Project": "ShelfState",
+          "aws:RequestTag/Environment": "dev",
+          "aws:RequestTag/ManagedBy": "AWS-CDK"
+        }
+      }
+    },
+    {
+      "Sid": "ReadConfigureIdentitySessionTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTagsOfResource"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-west-2:${ACCOUNT_ID}:table/shelfstate-v4-dev-identity-account",
+        "arn:aws:dynamodb:us-west-2:${ACCOUNT_ID}:table/shelfstate-v4-dev-session-auth"
+      ]
+    },
+    {
+      "Sid": "TagIdentitySessionTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-west-2:${ACCOUNT_ID}:table/shelfstate-v4-dev-identity-account",
+        "arn:aws:dynamodb:us-west-2:${ACCOUNT_ID}:table/shelfstate-v4-dev-session-auth"
+      ]
+    },
+    {
       "Sid": "ReadRegionalTemplateAssets",
       "Effect": "Allow",
       "Action": [

@@ -131,6 +131,49 @@
       }
     },
     {
+      "Sid": "ConfigureSessionAuthTtl",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:UpdateTimeToLive"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-west-2:${ACCOUNT_ID}:table/shelfstate-v4-dev-session-auth"
+      ]
+    },
+    {
+      "Sid": "CreateIdentitySessionPolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::${ACCOUNT_ID}:policy/shelfstate-v4-dev-identity-map-persistence",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/shelfstate-v4-dev-account-persistence",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/shelfstate-v4-dev-session-persistence",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/shelfstate-v4-dev-auth-transaction-persistence"
+      ]
+    },
+    {
+      "Sid": "ManageIdentitySessionPolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:ListEntitiesForPolicy",
+        "iam:CreatePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:DeletePolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::${ACCOUNT_ID}:policy/shelfstate-v4-dev-identity-map-persistence",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/shelfstate-v4-dev-account-persistence",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/shelfstate-v4-dev-session-persistence",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/shelfstate-v4-dev-auth-transaction-persistence"
+      ]
+    },
+    {
       "Sid": "CreateBoundedHealthRole",
       "Effect": "Allow",
       "Action": [

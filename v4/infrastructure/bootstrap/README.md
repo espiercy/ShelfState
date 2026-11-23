@@ -6,6 +6,29 @@ Status: LOCAL REVIEW ONLY — NOT AUTHORIZED FOR AWS USE
 
 **NOT DEPLOYMENT READY.** R1–R3 remediation does not resolve any live authorization or pending architecture/security gate.
 
+## WP-008 identity-session extension — 2026-11-22
+
+The repository-only WP-008 extension reuses this exact bootstrap topology and
+adds no executor. The west stack allowlist already contained the exact
+`shelfstate-v4-dev-identity-session` stack. The existing West and WestEdge
+managed-policy attachments now carry exact-name DynamoDB table-management and
+unattached IAM managed-policy-management statements; no attachment, role, item
+data-plane, production, or `DeleteTable` authority is added. Whole statements
+are balanced across the same two attachments to preserve the 6,144-character
+policy limit and the role/attachment identities.
+
+`identity-session` is a distinct `wp008-<sha256>` prepare/execute phase. Its
+strict review schema accepts only the actual dev synthesis: two deletion-
+protected, retained tables and four unattached managed policies. It requires a
+`CREATE` change set, `CAPABILITY_NAMED_IAM`, six non-replacing additions, empty
+pre-existing physical inventory, no nested/import behavior, and the reviewed
+stateful failure settings. `RetainExceptOnCreate` must remain false and the
+execution role cannot delete either table. A partial or failed rollback stops
+for separately authorized recovery.
+
+These files remain non-executable review material. No AWS policy update,
+change-set preparation, execution, or effective-policy readback occurred.
+
 ## Subsequent bounded-initialization adjudication — 2026-10-05
 
 The human selected CloudFormation-native, serialized single-stack bounded lifecycle initialization followed by exact-ID tightening, plus staged exact-record ACM DNS validation. See [the local authority package](BOUNDED_INITIALIZATION.md). Generated-ID strategy and DNS strategy are no longer generally undecided; effective containment, handler behavior, pending-ARN readback and live gates remain unproved.
@@ -22,7 +45,7 @@ This directory is security preparation, not an application stack or an executabl
 `model.mjs` is a pure local constructor/validator. JSON artifacts are deterministic review snapshots, not runtime policy bindings. `${ACCOUNT_ID}`, `${SELECTED_ZONE_ID}` and generated-ID/name placeholders are deliberately unresolved. Do not upload these policies or substitute broad wildcards to make them deployable.
 
 - `bootstrap-template.json`: customized modern bootstrap, JSON serialization of the pinned upstream YAML structure.
-- `execution-west.policy.json`, `execution-west-edge.policy.json`: proposed separately managed `ShelfStateV4DevCfnExecutionWest` (regional application/runtime) and `ShelfStateV4DevCfnExecutionWestEdge` (CloudFront/IAM/DNS) policies. Both are required on the west execution role.
+- `execution-west.policy.json`, `execution-west-edge.policy.json`: proposed separately managed `ShelfStateV4DevCfnExecutionWest` (regional application/runtime) and `ShelfStateV4DevCfnExecutionWestEdge` (CloudFront/IAM/DNS plus the exact session/auth table TTL statement) policies. Both are required on the west execution role.
 - `execution-east.policy.json`: independently narrow `ShelfStateV4DevCfnExecutionEast`, only on the east execution role.
 - `health-runtime-boundary.policy.json`: proposed independently managed `ShelfStateV4DevHealthBoundary`.
 - `github-dev-assumptions.policy.json`: future exact-role assumption proposal only; does not modify the current GitHub role.
@@ -143,17 +166,17 @@ These artifacts are **not immediately installable**. Generated identifiers inten
 
 ### R1 — managed-policy size and authority-preserving partition
 
-The original west document was 8,078 minified characters. Removing Sids reduced it to 7,454; additionally merging only identical Effect/Action/Condition statements by unioning their resources left 7,145, still over the non-adjustable 6,144 limit. These straightforward safe optimizations did not suffice; no resources, actions or conditions were broadened to compress it. Two coherent policies instead retain whole statements, including Sids. The current provider-compatible sorted-statement SHA-256 is `82210b2b1799158e77e1fb052373cd3ae3be515423b660e56763f4bc33696528`; the prior historical catalog identity was `64efd611ef5b7e8ab8f0092a72a90f0b883c73fccc0e41dbc7d3768343db3f41`. All west negative cases evaluate the current combined set.
+The original west document was 8,078 minified characters. Removing Sids reduced it to 7,454; additionally merging only identical Effect/Action/Condition statements by unioning their resources left 7,145, still over the non-adjustable 6,144 limit. These straightforward safe optimizations did not suffice; no resources, actions or conditions were broadened to compress it. Two coherent policies instead retain whole statements, including Sids. The current provider-compatible sorted-statement SHA-256 is `c45e57fb61d0914fca8e7a5d5901abee202e77e0add0d1d3e684651e94d95e64`; the immediately prior catalog identity was `82210b2b1799158e77e1fb052373cd3ae3be515423b660e56763f4bc33696528`, and the earlier historical identity was `64efd611ef5b7e8ab8f0092a72a90f0b883c73fccc0e41dbc7d3768343db3f41`. All west negative cases evaluate the current combined set.
 
 | Review artifact | Symbolic minified characters | Conservatively bound characters |
 | --- | ---: | ---: |
-| `execution-west.policy.json` | 4,589 | 4,823 |
-| `execution-west-edge.policy.json` | 4,397 | 4,483 |
+| `execution-west.policy.json` | 5,781 | 6,009 |
+| `execution-west-edge.policy.json` | 5,574 | 5,651 |
 | `execution-east.policy.json` | 2,067 | 2,178 |
 | `health-runtime-boundary.policy.json` | 591 | 589 |
 | `github-dev-assumptions.policy.json` (also checked conservatively) | 491 | 483 |
 
-Sizes use serialized JSON without formatting whitespace, a synthetic 12-digit account, 32-character zone/distribution/OAC/API/integration/route allowances, 36-character UUID policy/certificate IDs, and a 64-hex-character validation-token allowance. These are conservative production-like fixtures, not asserted service maxima. Concrete future bindings must be size-checked again; no binding is authorized by this fixture. Each proposed managed policy is below 6,144, with the largest retaining 1,321 characters of headroom. West has exactly two execution-role managed attachments; east has one, below even the test's conservative ten-attachment ceiling. See [IAM size and attachment quotas](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html).
+Sizes use serialized JSON without formatting whitespace, a synthetic 12-digit account, 32-character zone/distribution/OAC/API/integration/route allowances, 36-character UUID policy/certificate IDs, and a 64-hex-character validation-token allowance. These are conservative production-like fixtures, not asserted service maxima. Concrete future bindings must be size-checked again; no binding is authorized by this fixture. Each proposed managed policy is below 6,144, with the largest retaining 135 characters of headroom. West has exactly two execution-role managed attachments; east has one, below even the test's conservative ten-attachment ceiling. See [IAM size and attachment quotas](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html).
 
 The additional `execution-west-edge.policy.json` is the sole 15th pending file and directly necessary for R1. It is not a new capability or an additional live resource in this local slice.
 

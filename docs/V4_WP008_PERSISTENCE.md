@@ -1,6 +1,6 @@
 # ShelfState V4 WP-008 persistence foundation
 
-Updated: 2026-11-21. This is a repository design and local-verification record,
+Updated: 2026-11-22. This is a repository design and local-verification record,
 not deployment authority or real-DynamoDB acceptance evidence.
 
 ## Storage boundaries and contract
@@ -79,6 +79,39 @@ WP-008 inspection command does not deploy, bootstrap, look up, or read AWS:
 npm run test:persistence
 npm run infra:synth:wp008
 ```
+
+## Deployment-authority readiness
+
+The repository now models the bounded `identity-session` CloudFormation phase
+through the existing bootstrap and prepare/execute controls. This is local
+review material only and performs no AWS operation.
+
+- The west deployment-role allowlist already contained only the exact
+  `shelfstate-v4-dev-identity-session` stack ARN.
+- Execution authority covers the two exact dev table ARNs and four exact
+  customer-managed policy ARNs. It contains DynamoDB create, stabilization,
+  PITR, TTL and tag operations plus IAM managed-policy create/version/read and
+  rollback operations. It contains no DynamoDB item action, `DeleteTable`, IAM
+  attachment action, role creation, or production resource.
+- `CreateTable` uses request-tag conditions. Existing-table lifecycle calls are
+  scoped by exact ARN instead of incorrectly treating request tags as existing
+  resource tags.
+- The strict review schema requires one `CREATE` change set containing exactly
+  two protected `AWS::DynamoDB::Table` additions and four unattached
+  `AWS::IAM::ManagedPolicy` additions, all non-replacing, with exactly
+  `CAPABILITY_NAMED_IAM`.
+- The reviewed failure projection is `OnStackFailure=ROLLBACK`, with
+  `DisableRollback` omitted and `RetainExceptOnCreate=false`. IAM policy
+  definitions may be removed during rollback, but retained tables cannot be
+  deleted by the execution policy. Failed or partial rollback stops for a new
+  human recovery review; it never weakens deletion protection or adds
+  `DeleteTable`.
+- Change-set preparation and execution remain distinct `wp008-<sha256>` caller
+  windows, and the closed state denies CloudFormation and PassRole operations.
+
+The next AWS step still requires fresh authorization to install/read back the
+reviewed policy update, then separate preparation and execution authority. This
+record does not grant either.
 
 ## Cost checkpoint
 

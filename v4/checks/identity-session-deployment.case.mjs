@@ -27,6 +27,20 @@ const config = resolveEnvironmentConfig("dev", {
   SHELFSTATE_DEV_AWS_ACCOUNT_ID: ACCOUNT,
 });
 const changeSetName = `wp008-${"a".repeat(64)}`;
+const wp007Bindings = {
+  apiId: "apitest",
+  integrationId: "integrationtest",
+  routeId: "routetest",
+  distributionId: "DISTTEST",
+  oacId: "OACTEST",
+  responseHeadersPolicyId: "headers-test",
+  cachePolicyId: "cache-test",
+  originRequestPolicyId: "origin-test",
+  certificateId: "certificate-test",
+  webAclId: "11111111-2222-3333-4444-555555555555",
+  webAclArn: `arn:aws:wafv2:us-east-1:${ACCOUNT}:global/webacl/shelfstate-v4-dev-edge/11111111-2222-3333-4444-555555555555`,
+  zoneId: "ZTESTONLY",
+};
 let synthesizedTemplate;
 
 before(() => {
@@ -198,10 +212,13 @@ test("identity-session authority is exact, data-plane-free, and has no table del
   for (const policy of resources.policies) {
     assert.equal(allows(initial, "iam:CreatePolicy", policy), true);
     assert.equal(allows(steady, "iam:CreatePolicy", policy), false);
+    assert.equal(allows(initial, "iam:DeletePolicy", policy), true);
+    assert.equal(allows(steady, "iam:DeletePolicy", policy), false);
     for (const action of ["iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicyVersions",
       "iam:ListEntitiesForPolicy", "iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion",
-      "iam:DeletePolicyVersion", "iam:DeletePolicy"]) {
+      "iam:DeletePolicyVersion"]) {
       assert.equal(allows(initial, action, policy), true, action);
+      assert.equal(allows(steady, action, policy), true, action);
     }
     for (const action of ["iam:AttachRolePolicy", "iam:AttachUserPolicy", "iam:AttachGroupPolicy",
       "iam:DetachRolePolicy", "iam:TagPolicy", "iam:CreateRole", "iam:PassRole"]) {
@@ -238,19 +255,102 @@ test("identity-session execution composition excludes every WP-007 application s
   ), /cannot retain unrelated/);
 });
 
+test("identity-session steady preserves the exact WP-007 baseline and west partition", () => {
+  const policies = executionPolicies(ACCOUNT, "identity-session", "steady", wp007Bindings);
+  assert.equal(policies.length, 2);
+  assert.deepEqual(policies, executionPolicies(ACCOUNT, "identity-session", "steady", wp007Bindings,
+    ["api-parent", "api-children", "edge-routing"]));
+  const identitySids = [
+    ["ReadConfigureIdentitySessionTables", "TagIdentitySessionTables"],
+    ["ConfigureSessionAuthTtl", "ManageIdentitySessionPolicies"],
+  ];
+  const allIdentitySids = identitySids.flat();
+  const expectedWp007 = [
+    "77ccfb3278b0780b4ef24904bb6199f3d3a6700702f9a2c87c2e55849ddfb3c2",
+    "eb5a49c4f42ed953ec915fdf08344ea9278a26145ce381f1b30f551012d1d97b",
+  ];
+  for (const [index, policy] of policies.entries()) {
+    const names = policy.Statement.map(s => s.Sid);
+    assert.equal(new Set(names).size, names.length);
+    assert.ok(names.every(sid => /^[A-Za-z0-9]+$/.test(sid)));
+    assert.deepEqual(names.filter(sid => allIdentitySids.includes(sid)), identitySids[index]);
+    const wp007 = { ...policy, Statement: policy.Statement.filter(s => !allIdentitySids.includes(s.Sid)) };
+    // Canonical WP-007 steady-policy pair for the synthetic bindings above.
+    assert.equal(hashObject(wp007), expectedWp007[index]);
+    assert.ok(JSON.stringify(policy).length <= 6144);
+  }
+  const widestBindings = Object.fromEntries(Object.entries(wp007Bindings)
+    .map(([key, value]) => [key, key === "webAclArn" ? value : "x".repeat(64)]));
+  for (const policy of executionPolicies(ACCOUNT, "identity-session", "steady", widestBindings)) {
+    assert.ok(JSON.stringify(policy).length <= 6144);
+  }
+  assert.throws(() => executionPolicies(ACCOUNT, "identity-session", "steady", {}));
+  assert.throws(() => executionPolicies(ACCOUNT, "identity-session", "steady", wp007Bindings, ["api-parent"]));
+  assert.throws(() => executionPolicies(ACCOUNT, "identity-session", "steady", wp007Bindings, ["certificate"]));
+  assert.throws(() => executionPolicies(ACCOUNT, "identity-session", "steady", {
+    ...wp007Bindings, webAclArn: wp007Bindings.webAclArn.replace(ACCOUNT, "999999999999"),
+  }));
+});
+
+test("combined steady state grants only approved management in representative policy evaluations", () => {
+  const policy = joined(executionPolicies(ACCOUNT, "identity-session", "steady", wp007Bindings));
+  const { tables, sessionAuthTable, policies } = identitySessionResources(ACCOUNT);
+  const healthRole = `arn:aws:iam::${ACCOUNT}:role/shelfstate-v4-dev-health`;
+  const api = `arn:aws:apigateway:us-west-2::/apis/${wp007Bindings.apiId}`;
+  const distribution = `arn:aws:cloudfront::${ACCOUNT}:distribution/${wp007Bindings.distributionId}`;
+  const lambda = { "iam:PassedToService": "lambda.amazonaws.com" };
+  const allowed = [
+    ...tables.flatMap(table => [["dynamodb:DescribeTable", table], ["dynamodb:UpdateContinuousBackups", table]]),
+    ...policies.flatMap(arn => [["iam:GetPolicy", arn], ["iam:CreatePolicyVersion", arn],
+      ["iam:SetDefaultPolicyVersion", arn], ["iam:DeletePolicyVersion", arn]]),
+    ["dynamodb:UpdateTimeToLive", sessionAuthTable],
+    ["cloudfront:UpdateDistribution", distribution],
+    ["cloudfront:UpdateOriginAccessControl", `arn:aws:cloudfront::${ACCOUNT}:origin-access-control/${wp007Bindings.oacId}`],
+    ["cloudfront:UpdateResponseHeadersPolicy", `arn:aws:cloudfront::${ACCOUNT}:response-headers-policy/${wp007Bindings.responseHeadersPolicyId}`],
+    ["s3:GetBucketPolicy", `arn:aws:s3:::shelfstate-v4-dev-static-${ACCOUNT}-us-west-2`],
+    ["apigateway:PATCH", `${api}/routes/${wp007Bindings.routeId}`],
+    ["lambda:GetFunction", `arn:aws:lambda:us-west-2:${ACCOUNT}:function:shelfstate-v4-dev-health`],
+    ["logs:PutRetentionPolicy", `arn:aws:logs:us-west-2:${ACCOUNT}:log-group:/aws/lambda/shelfstate-v4-dev-health`],
+    ["iam:GetRole", healthRole],
+    ["iam:PassRole", healthRole, lambda],
+    ["wafv2:GetWebACL", wp007Bindings.webAclArn],
+  ];
+  for (const [action, resource, context] of allowed) assert.ok(allows(policy, action, resource, context), action);
+  const denied = [
+    ...tables.flatMap(table => ["CreateTable", "DeleteTable", "GetItem", "PutItem", "UpdateItem", "DeleteItem", "Query", "Scan"]
+      .map(action => [`dynamodb:${action}`, table, {
+        "aws:RequestTag/Project": "ShelfState", "aws:RequestTag/Environment": "dev", "aws:RequestTag/ManagedBy": "AWS-CDK",
+      }])),
+    ...policies.flatMap(arn => [["iam:CreatePolicy", arn], ["iam:DeletePolicy", arn]]),
+    ["iam:AttachRolePolicy", healthRole], ["iam:DetachRolePolicy", healthRole], ["iam:CreateRole", healthRole],
+    ["iam:PassRole", healthRole, { "iam:PassedToService": "ecs-tasks.amazonaws.com" }],
+    ["iam:PassRole", `${healthRole}-unrelated`, lambda],
+    ["iam:CreatePolicyVersion", policies[0].replace("dev", "prod")],
+    ["dynamodb:DescribeTable", tables[0].replace("dev", "prod")],
+    ["dynamodb:UpdateTable", tables[0].replace(ACCOUNT, "999999999999")],
+    ["dynamodb:UpdateTimeToLive", tables[0]],
+    ["cloudfront:UpdateDistribution", `${distribution}-unrelated`], ["cloudfront:CreateDistribution", "*"],
+    ["apigateway:PATCH", `${api}-unrelated`], ["apigateway:POST", "arn:aws:apigateway:us-west-2::/apis"],
+    ["wafv2:GetWebACL", wp007Bindings.webAclArn.replace(ACCOUNT, "999999999999")],
+    ["wafv2:UpdateWebACL", wp007Bindings.webAclArn],
+  ];
+  for (const [action, resource, context] of denied) assert.equal(allows(policy, action, resource, context), false, action);
+  assert.equal(decision(policy, "iam:DeleteRolePermissionsBoundary", healthRole), "explicitDeny");
+  assert.equal(decision(policy, "iam:DeletePolicy", `arn:aws:iam::${ACCOUNT}:policy/ShelfStateV4DevHealthBoundary`), "explicitDeny");
+});
+
+test("existing deployment phase policy outputs and caller transitions retain their baseline digests", () => {
+  const phaseDigests = ["api-parent", "api-children", "edge", "edge-static", "edge-routing", "edge-waf", "certificate"].flatMap(phase =>
+    ["initialization", "steady"].map(mode => hashObject(executionPolicies(ACCOUNT, phase, mode, wp007Bindings,
+      phase === "api-children" ? ["api-parent"] : []))));
+  const initDigest = hashObject(executionPolicies(ACCOUNT, "identity-session", "initialization", {}));
+  const callerDigest = hashObject(["us-west-2", "us-east-1"].flatMap(region =>
+    ["prepare", "execute", "closed"].map(state => callerWindowCap(ACCOUNT, "identity-session", region, changeSetName, state))));
+  assert.equal(hashObject([...phaseDigests, initDigest, callerDigest]),
+    "4028d12b98b089bc0bd81b8aa6af4adb17b223091bf1ef7df66af8861dcf1eac");
+});
+
 test("WP-007 phase compositions do not inherit WP-008 table or policy authority", () => {
-  const bindings = {
-    apiId: "apitest",
-    integrationId: "integrationtest",
-    routeId: "routetest",
-    distributionId: "DISTTEST",
-    oacId: "OACTEST",
-    responseHeadersPolicyId: "headers-test",
-    certificateId: "certificate-test",
-    webAclId: "11111111-2222-3333-4444-555555555555",
-    webAclArn: `arn:aws:wafv2:us-east-1:${ACCOUNT}:global/webacl/shelfstate-v4-dev-edge/11111111-2222-3333-4444-555555555555`,
-    zoneId: "ZTESTONLY",
-  };
   for (const phase of ["edge", "edge-static", "edge-routing", "edge-waf",
     "api-parent", "api-children", "certificate"]) {
     const retained = phase === "api-children" ? ["api-parent"] : [];
@@ -258,7 +358,7 @@ test("WP-007 phase compositions do not inherit WP-008 table or policy authority"
       ACCOUNT,
       phase,
       "initialization",
-      bindings,
+      wp007Bindings,
       retained,
     ));
     assert.equal(serialized.includes("shelfstate-v4-dev-identity-account"), false, phase);

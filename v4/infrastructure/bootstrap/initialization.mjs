@@ -83,8 +83,14 @@ export function generatedAuthority(account, phase, mode, bindings = {}) {
   const t = target(account, phase); assert.ok(["initialization", "steady"].includes(mode));
   const initial = mode === "initialization", statements = [];
   if (phase === "identity-session") {
-    const creation = new Set(["CreateIdentitySessionTables", "CreateIdentitySessionPolicies"]);
-    return doc(identitySessionExecutionStatements(account).filter(statement => initial || !creation.has(statement.Sid)));
+    const identityStatements = identitySessionExecutionStatements(account);
+    if (initial) return doc(identityStatements);
+    const temporaryActions = new Set(ACTION_INVENTORY.filter(row => row.phase === phase)
+      .flatMap(row => [...row.create, ...row.rollback]));
+    return doc(identityStatements.map(statement => ({
+      ...statement,
+      Action: statement.Action.filter(action => !temporaryActions.has(action)),
+    })).filter(statement => statement.Action.length > 0));
   }
   const add = (sid, actions, resources, conditions) => statements.push(allow(sid, [...new Set(actions)], resources, conditions));
   const inventory = ACTION_INVENTORY.filter(r => ["edge-static", "edge-routing"].includes(phase)
@@ -157,14 +163,43 @@ export function assertGeneratedAuthority(candidate, account, phase, mode, bindin
   equal(candidate, generatedAuthority(account, phase, mode, bindings), "Generated authority differs: no stale creation grant or unrelated binding permitted");
 }
 
+const IDENTITY_STEADY_RETAINED_PHASES = Object.freeze(["api-children", "api-parent", "edge-routing"]);
+
+function identitySessionSteadyExecutionPolicies(account, bindings) {
+  const [apiWest, apiWestEdge] = executionPolicies(account, "api-children", "steady", bindings, ["api-parent"]);
+  const [routingWest, routingWestEdge] = executionPolicies(account, "edge-routing", "steady", bindings);
+  const routingOnlyWest = routingWest.Statement.filter(statement => {
+    const shared = apiWest.Statement.find(candidate => candidate.Sid === statement.Sid);
+    if (!shared) return true;
+    equal(statement, shared, `Conflicting shared WP-007 execution statement: ${statement.Sid}`);
+    return false;
+  });
+  const west = [...apiWest.Statement, ...routingOnlyWest];
+  const westEdge = [...apiWestEdge.Statement, ...routingWestEdge.Statement];
+  for (const statement of generatedAuthority(account, "identity-session", "steady").Statement) {
+    // Preserve the installed partition, including the WestEdge TTL statement.
+    const edge = statement.Sid === "ConfigureSessionAuthTtl" || statement.Action[0].startsWith("iam:");
+    (edge ? westEdge : west).push(statement);
+  }
+  return [doc(west), doc(westEdge)];
+}
+
 // Full proposed execution-policy composition preserves the existing two-west /
 // one-east attachment topology. Legacy generated-ID statements are REPLACED,
 // never overlaid. Previously completed phases enter only as exact steady grants.
 export function executionPolicies(account, phase, mode, bindings, retainedPhases = []) {
   const t = target(account, phase);
+  const identityPhase = phase === "identity-session";
+  if (identityPhase && mode === "steady") {
+    // This closeout always retains the complete deployed WP-007 west surface.
+    if (retainedPhases.length) {
+      assert.deepEqual([...retainedPhases].sort(), IDENTITY_STEADY_RETAINED_PHASES,
+        "Identity-session steady state requires the exact deployed WP-007 west phases");
+    }
+    return identitySessionSteadyExecutionPolicies(account, bindings);
+  }
   const routingWebAclArn = phase === "edge-routing" ? edgeRoutingWebAclArn(account, bindings) : null;
   const isolatedEdgePhase = ["edge-static", "edge-routing", "edge-waf"].includes(phase);
-  const identityPhase = phase === "identity-session";
   if (isolatedEdgePhase) assert.equal(retainedPhases.length, 0, "Edge-only window cannot retain unrelated phase authority");
   if (identityPhase) assert.equal(retainedPhases.length, 0, "Identity-session window cannot retain unrelated phase authority");
   assert.equal(new Set(retainedPhases).size, retainedPhases.length);

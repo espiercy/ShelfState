@@ -10,9 +10,10 @@ import { hashObject } from "../scripts/release/schema.mjs";
 const check = f => validateInitializationBundle(f.approval, f.pin, f.bundle);
 const join = (...policies) => ({ Version: "2012-10-17", Statement: policies.flatMap(p => p.Statement) });
 const name = `wp007-${"a".repeat(64)}`;
+const earlierPhases = Object.keys(PHASES).filter(phase => phase !== "cognito-login");
 
-test("eleven action classes distinguish rollback/update and preserve handler proof obligations", () => {
-  assert.equal(ACTION_INVENTORY.length, 11);
+test("action classes distinguish rollback/update and preserve handler proof obligations", () => {
+  assert.equal(ACTION_INVENTORY.length, 12);
   for (const r of ACTION_INVENTORY) {
     assert.ok(r.create.length && r.read.length && r.update.length && r.proof && r.replacement);
     if (r.kind === "identity-tables") assert.deepEqual(r.rollback, [], "Retained tables have no automatic deletion authority");
@@ -25,7 +26,7 @@ test("eleven action classes distinguish rollback/update and preserve handler pro
   }), true);
 });
 
-for (const phase of Object.keys(PHASES)) {
+for (const phase of earlierPhases) {
   test(`${phase}: reviewed synthetic assembly passes without enabling deployment`, () => {
     // Actual edge phases have no historical synthetic representation. Their
     // positive emitted-template fixtures live in their dedicated suites.
@@ -204,7 +205,7 @@ test("east initialization permits pre-tag stabilization and rollback then narrow
 
 test("full steady compositions do not retain legacy creation statements or unresolved bindings", () => {
   const b = { ...IDS, zoneId: "ZTESTONLY", webAclArn: `arn:aws:wafv2:us-east-1:${ACCOUNT}:global/webacl/shelfstate-v4-dev-edge/${IDS.webAclId}` };
-  for (const phase of Object.keys(PHASES)) {
+  for (const phase of earlierPhases) {
     for (const p of executionPolicies(ACCOUNT, phase, "steady", b, phase === "api-children" ? ["api-parent"] : [])) {
       assert.equal(JSON.stringify(p).includes("${"), false);
       for (const s of p.Statement.filter(s => s.Effect === "Allow")) assert.equal(s.Action.some(a =>
@@ -270,7 +271,7 @@ test("R1 rejects integration CredentialsArn under a new valid pin", () => {
 });
 
 // Novel fields and deletions exercise EVERY resource, including empty placeholders.
-for (const phase of Object.keys(PHASES).filter(p => !["edge-static", "edge-routing", "edge-waf", "identity-session"].includes(p))) {
+for (const phase of earlierPhases.filter(p => !["edge-static", "edge-routing", "edge-waf", "identity-session"].includes(p))) {
   const resources = JSON.parse(fixture(phase).bundle.templateBytes).Resources;
   for (const [logicalId, resource] of Object.entries(resources)) {
     test(`${phase}/${logicalId}: closed property set and required values`, () => {
@@ -373,7 +374,7 @@ test("closure cannot remove authority during stabilization/rollback or declare f
 test("conservatively bound managed policy fragments/caps stay under 6144 characters", () => {
   const sized = { ...Object.fromEntries(Object.keys(IDS).map(k => [k, "x".repeat(64)])), zoneId: "Z".repeat(32),
     webAclArn: `arn:aws:wafv2:us-east-1:${ACCOUNT}:global/webacl/shelfstate-v4-dev-edge/11111111-2222-3333-4444-555555555555` };
-  for (const phase of Object.keys(PHASES)) {
+  for (const phase of earlierPhases) {
     for (const mode of ["initialization", "steady"]) {
       const p = generatedAuthority(ACCOUNT, phase, mode, sized);
       assert.ok(JSON.stringify(p).length <= 6144, `${phase}/${mode}`);

@@ -10,6 +10,11 @@ import { STATIC_EDGE_REVIEW_SCHEMA, staticEdgeTypes, assertStaticEdgeBindings, a
 import { EDGE_ROUTING_REVIEW_SCHEMA, edgeRoutingTypes, assertEdgeRoutingBindings, assertEdgeRoutingTemplate } from "./edge-routing-contract.mjs";
 import { EDGE_WAF_REVIEW_SCHEMA, edgeWafTypes, assertEdgeWafTemplate } from "./edge-waf-contract.mjs";
 import { IDENTITY_SESSION_REVIEW_SCHEMA, identitySessionTypes, assertIdentitySessionReviewTemplate } from "./identity-session-contract.mjs";
+import {
+  COGNITO_LOGIN_PREPARATION_SCHEMA, COGNITO_LOGIN_REVIEW_SCHEMA, COGNITO_LOGIN_TYPES,
+  assertCognitoLoginPhysicalArn, assertDevCognitoLoginTemplate, cognitoLoginChangeSetName,
+  cognitoLoginConfig, cognitoLoginDomainPrefix,
+} from "./cognito-login-contract.mjs";
 
 const TYPES = Object.freeze({
   edge: { Distribution: "AWS::CloudFront::Distribution", OriginAccessControl: "AWS::CloudFront::OriginAccessControl",
@@ -81,6 +86,48 @@ function checkTemplate(template, approval) {
   }
 }
 
+function assertCognitoLoginPreflight(bindings, account) {
+  object(bindings, ["domainPrefix", "domainAvailable", "stackAbsent", "matchingPoolArns"], "WP-009 initialization preflight");
+  assert.equal(bindings.domainPrefix, cognitoLoginDomainPrefix(account), "Exact WP-009 domain prefix required");
+  assert.equal(bindings.domainAvailable, true, "Confirm Cognito domain availability");
+  assert.equal(bindings.stackAbsent, true, "Confirm the Cognito stack is absent");
+  equal(bindings.matchingPoolArns, [], "A matching or retained pool requires human review before another creation attempt");
+}
+
+function cognitoLoginCreateRequest(approval, templateBytes) {
+  return {
+    StackName: approval.stack,
+    ChangeSetName: cognitoLoginChangeSetName(approval.templateSha256),
+    ChangeSetType: "CREATE",
+    RoleARN: approval.executionRole,
+    TemplateBody: Buffer.from(templateBytes).toString("utf8"),
+    Parameters: [],
+    ResourceTypes: Object.values(COGNITO_LOGIN_TYPES),
+    IncludeNestedStacks: false,
+    ImportExistingResources: false,
+    OnStackFailure: "ROLLBACK",
+    RollbackConfiguration: { MonitoringTimeInMinutes: 0, RollbackTriggers: [] },
+  };
+}
+
+// Pure request projection. A separately authorized operator must authenticate
+// the preflight evidence and use the projected request without alteration.
+export function validateCognitoLoginPreparation(approval, trustedApprovalDigest, templateBytes) {
+  digest(trustedApprovalDigest);
+  assert.equal(hashObject(approval), trustedApprovalDigest, "Preparation pin mismatch");
+  object(approval, ["schema", "account", "phase", "region", "stack", "executionRole", "bindings", "templateSha256"]);
+  assert.equal(approval.schema, COGNITO_LOGIN_PREPARATION_SCHEMA);
+  assert.equal(approval.phase, "cognito-login");
+  const t = target(approval.account, approval.phase);
+  assert.equal(approval.region, t.region);
+  assert.equal(approval.stack, t.name);
+  assert.equal(approval.executionRole, t.executionRole);
+  assertCognitoLoginPreflight(approval.bindings, t.account);
+  assert.equal(hash(templateBytes), approval.templateSha256, "Template byte substitution");
+  assertDevCognitoLoginTemplate(parseEvidenceJson(templateBytes), cognitoLoginConfig(t.account));
+  return cognitoLoginCreateRequest(approval, templateBytes);
+}
+
 // Validate reviewed material without accepting or emitting execution authority.
 // The legacy bundle wrapper below adds the separately supplied execution ID for
 // older local design checks; new preparation adapters must use this boundary.
@@ -93,8 +140,10 @@ export function validateInitializationReviewMaterial(approval, trustedApprovalDi
   const actualRouting = approval.schema === EDGE_ROUTING_REVIEW_SCHEMA;
   const actualWaf = approval.schema === EDGE_WAF_REVIEW_SCHEMA;
   const actualIdentity = approval.schema === IDENTITY_SESSION_REVIEW_SCHEMA;
-  assert.ok(actualApi || actualCertificate || actualStatic || actualRouting || actualWaf || actualIdentity || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
-  const expectedTypes = actualApi ? libraryApiTypes(approval.phase) : actualCertificate ? edgeCertificateTypes(approval.phase) : actualStatic ? staticEdgeTypes(approval.phase) : actualRouting ? edgeRoutingTypes(approval.phase) : actualWaf ? edgeWafTypes(approval.phase) : actualIdentity ? identitySessionTypes(approval.phase) : TYPES[approval.phase];
+  const actualCognito = approval.schema === COGNITO_LOGIN_REVIEW_SCHEMA;
+  assert.ok(actualApi || actualCertificate || actualStatic || actualRouting || actualWaf || actualIdentity || actualCognito || approval.schema === "shelfstate.wp007-initialization-review/v1", "Unsupported review schema");
+  if (actualCognito) assert.equal(approval.phase, "cognito-login");
+  const expectedTypes = actualCognito ? COGNITO_LOGIN_TYPES : actualApi ? libraryApiTypes(approval.phase) : actualCertificate ? edgeCertificateTypes(approval.phase) : actualStatic ? staticEdgeTypes(approval.phase) : actualRouting ? edgeRoutingTypes(approval.phase) : actualWaf ? edgeWafTypes(approval.phase) : actualIdentity ? identitySessionTypes(approval.phase) : TYPES[approval.phase];
   assert.ok(expectedTypes, "Unsupported phase for review schema");
   const t = target(approval.account, approval.phase);
   assert.equal(approval.region, t.region); assert.equal(approval.stack, t.name); assert.equal(approval.executionRole, t.executionRole);
@@ -119,6 +168,9 @@ export function validateInitializationReviewMaterial(approval, trustedApprovalDi
   } else if (actualIdentity) {
     object(b, [], "Identity-session initialization has no candidate-supplied resource binding");
     equal(approval.assets, {}, "Identity-session initialization has no external assets");
+  } else if (actualCognito) {
+    assertCognitoLoginPreflight(b, t.account);
+    equal(approval.assets, {}, "Cognito login initialization has no external assets");
   } else {
     object(b, ["apiId", "healthFunctionArn", "zoneId", "certificateArn", "staticBucketDomain"]);
     assert.match(b.apiId, /^[a-z0-9]{1,32}$/);
@@ -139,6 +191,7 @@ export function validateInitializationReviewMaterial(approval, trustedApprovalDi
   else if (actualRouting) assertEdgeRoutingTemplate(template, approval.account, approval.phase, b);
   else if (actualWaf) assertEdgeWafTemplate(template, approval.account, approval.phase);
   else if (actualIdentity) assertIdentitySessionReviewTemplate(template, approval.account, approval.phase);
+  else if (actualCognito) assertDevCognitoLoginTemplate(template, cognitoLoginConfig(t.account));
   else checkTemplate(template, approval);
   if (actualCertificate) {
     parseCertificateAssemblyReviewPackage(bundle.assemblyBytes, {
@@ -164,28 +217,54 @@ export function validateInitializationReviewMaterial(approval, trustedApprovalDi
   }
   const cs = bundle.changeSet;
   object(cs, ["id", "name", "stackArn", "executionRole", "templateSha256", "parametersSha256", "status", "executionStatus", "changes", "physicalResources",
-    ...(actualIdentity ? ["changeSetType", "capabilities", "includeNestedStacks", "importExistingResources", "onStackFailure"] : [])]);
+    ...(actualIdentity || actualCognito ? ["changeSetType", "capabilities", "includeNestedStacks", "importExistingResources", "onStackFailure"] : []),
+    ...(actualCognito ? ["createRequest", "paginationComplete", "stackStatus", "storedTemplate", "rollbackConfiguration", "bootstrapParameter"] : [])]);
   assert.equal(hashObject(cs), approval.changeSetSha256, "Inspected change-set substitution");
-  assert.match(cs.name, new RegExp(`^${actualIdentity ? "wp008" : "wp007"}-[a-f0-9]{64}$`));
-  assert.match(cs.id, new RegExp(`^arn:aws:cloudformation:${t.region}:${t.account}:changeSet/${cs.name}/[a-zA-Z0-9-]+$`));
-  assert.match(cs.stackArn, new RegExp(`^arn:aws:cloudformation:${t.region}:${t.account}:stack/${t.name}/[a-zA-Z0-9-]+$`));
+  const changeSetArnPrefix = `arn:aws:cloudformation:${t.region}:${t.account}:changeSet/`;
+  if (actualCognito) {
+    assert.equal(cs.name, cognitoLoginChangeSetName(approval.templateSha256), "WP-009 change-set name must bind the reviewed template digest");
+    assertCognitoLoginPhysicalArn(cs.id, `${changeSetArnPrefix}${cs.name}/`);
+    assertCognitoLoginPhysicalArn(cs.stackArn, t.stackArn.slice(0, -1));
+  } else {
+    assert.match(cs.name, new RegExp(`^${actualIdentity ? "wp008" : "wp007"}-[a-f0-9]{64}$`));
+    assert.match(cs.id, new RegExp(`^${changeSetArnPrefix}${cs.name}/[a-zA-Z0-9-]+$`));
+    assert.match(cs.stackArn, new RegExp(`^arn:aws:cloudformation:${t.region}:${t.account}:stack/${t.name}/[a-zA-Z0-9-]+$`));
+  }
   assert.equal(cs.executionRole, t.executionRole); assert.equal(cs.templateSha256, approval.templateSha256);
   assert.equal(cs.parametersSha256, approval.parametersSha256);
   assert.equal(cs.status, "CREATE_COMPLETE"); assert.equal(cs.executionStatus, "AVAILABLE");
-  if (actualIdentity) {
-    assert.equal(cs.changeSetType, "CREATE", "Identity-session requires a CREATE change set");
-    equal(cs.capabilities, ["CAPABILITY_NAMED_IAM"], "Exact named-IAM acknowledgement required");
+  if (actualIdentity || actualCognito) {
+    assert.equal(cs.changeSetType, "CREATE", "Stateful initialization requires a CREATE change set");
+    equal(cs.capabilities, actualIdentity ? ["CAPABILITY_NAMED_IAM"] : [], "Exact change-set capabilities required");
     assert.equal(cs.includeNestedStacks, false, "Nested stacks are not supported");
     assert.equal(cs.importExistingResources, false, "Automatic import is not supported");
     assert.equal(cs.onStackFailure, "ROLLBACK", "Stateful initialization requires reviewed rollback behavior");
   }
+  if (actualCognito) {
+    const createRequest = cognitoLoginCreateRequest(approval, bundle.templateBytes);
+    equal(cs.createRequest, createRequest, "WP-009 CreateChangeSet request differs from the reviewed projection");
+    assert.equal(cs.paginationComplete, true, "Complete DescribeChangeSet readback required");
+    assert.equal(cs.stackStatus, "REVIEW_IN_PROGRESS", "Expected a new unexecuted stack");
+    equal(cs.storedTemplate, template, "Stored change-set template differs from the reviewed template");
+    equal(cs.rollbackConfiguration, createRequest.RollbackConfiguration, "Unexpected rollback triggers or monitoring");
+    const parameter = cs.bootstrapParameter;
+    object(parameter, ["ParameterKey", "ParameterValue", "ResolvedValue"], "Expected the CDK bootstrap parameter readback");
+    assert.equal(parameter.ParameterKey, "BootstrapVersion");
+    assert.equal(parameter.ParameterValue, template.Parameters.BootstrapVersion.Default);
+    assert.match(parameter.ResolvedValue ?? "", /^[1-9]\d*$/);
+    assert.ok(Number.isSafeInteger(Number(parameter.ResolvedValue)) && Number(parameter.ResolvedValue) >= 6,
+      "Resolved CDK bootstrap version must be at least 6");
+  }
   const seen = new Set();
   for (const change of cs.changes) {
-    object(change, ["logicalId", "type", "action", "replacement"]);
+    // DescribeChangeSet documents Replacement for Modify only. For a WP-009
+    // Add, allow omission or the explicit non-replacing projection.
+    const mayOmitReplacement = actualCognito && change?.action === "Add" && !Object.hasOwn(change, "replacement");
+    object(change, ["logicalId", "type", "action", ...(!mayOmitReplacement ? ["replacement"] : [])]);
     assert.ok(!seen.has(change.logicalId), "Duplicate change"); seen.add(change.logicalId);
     assert.equal(change.type, expectedTypes[change.logicalId], "Unexpected changed resource");
     assert.ok(["Add", "Modify"].includes(change.action), "Removal needs separate review");
-    assert.equal(change.replacement, "False", "Replacement requires separate re-initialization review");
+    if (!mayOmitReplacement) assert.equal(change.replacement, "False", "Replacement requires separate re-initialization review");
     if (approval.mode === "steady") assert.equal(change.action, "Modify", "Creation is not steady state");
   }
   if (approval.phase === "api-children") {
@@ -201,9 +280,10 @@ export function validateInitializationReviewMaterial(approval, trustedApprovalDi
 }
 
 export function validateInitializationBundle(approval, trustedApprovalDigest, bundle) {
-  const actualIdentity = approval.schema === IDENTITY_SESSION_REVIEW_SCHEMA;
+  const actualCognito = approval.schema === COGNITO_LOGIN_REVIEW_SCHEMA;
+  const statefulCreation = actualCognito || approval.schema === IDENTITY_SESSION_REVIEW_SCHEMA;
   object(bundle, ["templateBytes", "assemblyBytes", "parameters", "assets", "changeSet", "executeChangeSetId",
-    ...(actualIdentity ? ["executionOptions"] : [])]);
+    ...(statefulCreation ? ["executionOptions"] : [])]);
   const result = validateInitializationReviewMaterial(approval, trustedApprovalDigest, {
     templateBytes: bundle.templateBytes,
     assemblyBytes: bundle.assemblyBytes,
@@ -212,12 +292,18 @@ export function validateInitializationBundle(approval, trustedApprovalDigest, bu
     changeSet: bundle.changeSet,
   });
   assert.equal(bundle.executeChangeSetId, result.changeSetId, "Execute must use inspected immutable change-set ID");
-  if (actualIdentity) {
+  if (statefulCreation) {
     object(bundle.executionOptions, ["disableRollbackSpecified", "retainExceptOnCreate"]);
     assert.equal(bundle.executionOptions.disableRollbackSpecified, false,
       "DisableRollback must be omitted when OnStackFailure is bound on the change set");
     assert.equal(bundle.executionOptions.retainExceptOnCreate, false,
-      "RetainExceptOnCreate must not override retained-table rollback protection");
+      "RetainExceptOnCreate must not override stateful rollback protection");
   }
-  return { status: "LOCAL_REVIEW_VALIDATED_NOT_DEPLOYMENT_AUTHORIZATION", changeSetId: result.changeSetId };
+  return {
+    status: "LOCAL_REVIEW_VALIDATED_NOT_DEPLOYMENT_AUTHORIZATION",
+    changeSetId: result.changeSetId,
+    ...(actualCognito ? { executionRequest: {
+      ChangeSetName: result.changeSetId, StackName: bundle.changeSet.stackArn, RetainExceptOnCreate: false,
+    } } : {}),
+  };
 }

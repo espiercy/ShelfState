@@ -68,8 +68,8 @@ inspection path. It cannot be combined with WP-007 initialization phases or
 external initialization bindings. The `identity-session` stack contains exactly
 two retained, deletion-protected DynamoDB Standard On-Demand tables and four
 unattached, item-family-scoped managed-policy definitions. Both tables use
-AWS-owned encryption and 35-day PITR. Only the Session/Auth Transaction table
-has TTL cleanup. Neither table has a GSI or Stream.
+AWS-managed KMS encryption (`alias/aws/dynamodb`) and 35-day PITR. Only the
+Session/Auth Transaction table has TTL cleanup. Neither table has a GSI or Stream.
 
 The policies grant no principal by themselves. Their DynamoDB `LeadingKeys`
 conditions isolate `IDENTITY#`, `ACCOUNT#`, `SESSION#`, and

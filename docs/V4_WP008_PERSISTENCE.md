@@ -1,7 +1,8 @@
 # ShelfState V4 WP-008 persistence foundation
 
-Updated: 2026-11-22. This is a repository design and local-verification record,
-not deployment authority or real-DynamoDB acceptance evidence.
+Updated: 2026-11-25. This record covers the WP-008 design, development
+deployment, and accepted real-DynamoDB verification. It grants no deployment
+authority.
 
 ## Storage boundaries and contract
 
@@ -55,22 +56,32 @@ or full bodies.
 The explicit `identity-session` WP-008 synth path defines:
 
 - DynamoDB Standard tables in `us-west-2` with On-Demand billing;
-- AWS-owned KMS encryption (`SSEEnabled=true`, `SSEType=KMS`, no customer key);
+- AWS-managed KMS encryption (`alias/aws/dynamodb`);
 - continuous PITR with the full 35-day recovery period;
 - deletion protection plus Retain deletion/update-replacement policies in both
   environments;
 - TTL only on the Session/Auth Transaction table;
 - no GSI, local secondary index, DynamoDB Stream, query, or scan access.
 
-Four unattached managed-policy definitions isolate the `IdentityMap`, `Account`,
-`Session`, and `AuthTransaction` key prefixes. Each has only its required item
-actions and exact table ARN. Later application roles must compose only the
-family policies their component owns. WP-008 deliberately creates no Lambda or
-role and grants no principal access. None of the policies permits table
-administration, backup administration, restore, scan, query, or cross-family
-access. AWS Backup/Vault Lock remains the separately gated WP-039 recovery
-package; adding it here would exceed this package and the no-additional-
-infrastructure authorization.
+WP-008 retains the deployed AWS-managed KMS configuration on both tables. The
+approved CDK sets `SSEEnabled=true` and `SSEType=KMS` and omits `KMSMasterKeyId`.
+CloudFormation resolves that configuration to `alias/aws/dynamodb`, which
+matches the development readback. The earlier “AWS-owned” wording mislabeled
+that configuration. [CloudFormation SSE settings](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-dynamodb-table-ssespecification.html)
+
+| Encryption option | Key ownership and control |
+|---|---|
+| AWS-owned | DynamoDB's default uses a service-owned key outside the customer account, with no additional encryption charge. |
+| AWS-managed KMS | AWS manages the DynamoDB service key `alias/aws/dynamodb` in the customer account. WP-008 uses this option. |
+| Customer-managed KMS | The customer selects a key in their account and controls its policy and lifecycle. |
+
+[DynamoDB encryption at rest](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/EncryptionAtRest.html)
+
+Four deployed managed policies scope their grants to the `IdentityMap`,
+`Account`, `Session`, and `AuthTransaction` key prefixes. Each grants only its
+required item actions on its exact table ARN. All four remain unattached. Later
+application roles must compose only the policies for the families they own.
+AWS Backup/Vault Lock remains the separately gated WP-039 recovery package.
 
 Default foundation synth and every accepted WP-007 phase remain unchanged. The
 WP-008 inspection command does not deploy, bootstrap, look up, or read AWS:
@@ -80,13 +91,13 @@ npm run test:persistence
 npm run infra:synth:wp008
 ```
 
-## Deployment-authority readiness
+## Deployment authority and steady-state closeout
 
-The repository now models the bounded `identity-session` CloudFormation phase
-through the existing bootstrap and prepare/execute controls. This is local
-review material only and performs no AWS operation.
+The development deployment used the bounded `identity-session` CloudFormation
+phase and the separate bootstrap prepare/execute controls. The repository
+models these controls for offline review.
 
-- The west deployment-role allowlist already contained only the exact
+- The west deployment-role allowlist already included the exact
   `shelfstate-v4-dev-identity-session` stack ARN.
 - Execution authority covers the two exact dev table ARNs and four exact
   customer-managed policy ARNs. It contains DynamoDB create, stabilization,
@@ -109,40 +120,66 @@ review material only and performs no AWS operation.
 - Change-set preparation and execution remain distinct `wp008-<sha256>` caller
   windows, and the closed state denies CloudFormation and PassRole operations.
 
-The next AWS step still requires fresh authorization to install/read back the
-reviewed policy update, then separate preparation and execution authority. This
-record does not grant either.
+The development stack reached `CREATE_COMPLETE` with six resources. Temporary
+deployment caller authority is closed, with explicit denies for change-set
+creation and execution. The West v8 and WestEdge v7 execution policies remain
+on the existing CloudFormation execution role. Their steady-state closeout
+requires separate authorization. Review the exact-resource policy pair, remove
+WP-008 table and managed-policy creation permissions while preserving approved
+lifecycle and WP-007 permissions, then verify the installed default versions,
+documents, attachments, and effective restrictions. Keep the caller closed.
 
 ## Cost checkpoint
 
-Repository work and local synthesis create no AWS resources, so the actual
-WP-008 AWS delta at this checkpoint is **$0/month**.
+Standard On-Demand bills for requests and table storage. PITR bills based on
+each protected table's size across the supported recovery window. The
+AWS-managed DynamoDB key has no separate monthly storage fee. KMS API requests
+can incur usage charges. [DynamoDB pricing](https://aws.amazon.com/dynamodb/pricing/),
+[PITR billing](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/PointInTimeRecovery_Howitworks.html),
+[KMS pricing](https://aws.amazon.com/kms/pricing/)
 
-A future approved deployment has no provisioned-capacity or per-table fixed
-charge: Standard On-Demand bills requests and storage, and PITR bills the size
-of each protected table. The 35-day period does not cost more than a shorter
-PITR period because PITR price is table-size based. Under the conservative dev
-screening case of 0.1 GB combined table data, 30,000 writes, and 250,000 strongly
-consistent reads per month, current published example rates imply approximately
-**$0.10/month** before tax/data transfer: about $0.025 table storage, $0.020
-PITR, $0.019 writes, and $0.031 reads, rounded upward. This estimate assumes no
-promotional/free-tier allowance.
+The existing development screening case assumes 0.1 GB of combined table data,
+30,000 writes, and 250,000 strongly consistent reads per month. The DynamoDB and
+PITR subtotal is approximately **$0.10/month** using the existing example rates
+($0.025 table storage, $0.020 PITR, $0.019 writes, and $0.031 reads, rounded
+upward). It excludes tax, data transfer, and KMS requests and assumes no
+promotional or free-tier allowance. KMS request volume depends on traffic and
+DynamoDB's per-caller key caching. The workload assumptions do not establish a
+KMS request count, so the total monthly cost remains uncertain until usage or
+billing data is available. [DynamoDB key caching](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/encryption.howitworks.html)
 
-The production identity/session table purposes were already included in the
-approved approximately `$2.70/month` Personal model, so this repository package
-does not change that modeled production total. Persistent dev resources would
-be an additional usage-driven amount and must be revalidated against measured
-item sizes and request counts before any deployment. Current pricing sources:
-[DynamoDB pricing](https://aws.amazon.com/dynamodb/pricing/) and
-[DynamoDB PITR billing](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/PointInTimeRecovery_Howitworks.html).
+The production Personal baseline (approximately `$2.70/month`) already includes
+the DynamoDB and PITR purposes of these tables. Revalidate this package's usage
+against measured item sizes, DynamoDB activity, and billable KMS requests before
+production deployment or material expansion.
 
-## Verification boundary
+## Accepted development verification
 
-Local tests cover strict validation/round trips, opaque identifiers, exact
-expiry boundaries, strong reads, create/consume conditional writes, simulated
-cross-family IAM denials, table settings, PITR, encryption, TTL, deletion
-protection, retention, and default V3/V4/foundation isolation. These tests use
-an in-memory DynamoDB operation port and CDK assertions. They are not evidence
-of effective AWS IAM, a deployed table, real DynamoDB conditional behavior,
-PITR status, TTL cleanup, or recovery. Those remain explicit future deployment
-and real-AWS gates.
+Development readback confirmed both tables `ACTIVE` with 35-day PITR enabled,
+deletion protection enabled, and `Retain` on deletion and replacement. TTL was
+disabled on Identity/Account and enabled on `cleanupAfterEpochSeconds` on
+Session/Auth Transaction. TTL deletion and recovery restores were outside this
+acceptance run.
+
+- The committed adapters round-tripped `IdentityMap`, `Account`, `Session`, and
+  `AuthTransaction` through their intended DynamoDB tables. Four duplicate
+  creates were conditionally rejected. Malformed and unsupported test inputs
+  were rejected before reaching AWS.
+- All 15 security reads before cleanup were strongly consistent. With the
+  application clock advanced to the idle and absolute boundaries, the session
+  was rejected while its item remained present.
+- Auth-transaction expiry and incorrect browser binding were rejected. Two
+  concurrent consumption attempts produced one success and one conditional
+  conflict. Replay was rejected and the stored status was `USED`.
+- Four exact synthetic keys were deleted, and four strongly consistent reads
+  confirmed their absence. Cleanup used neither Scan nor Query.
+- All four deployed policy documents matched the committed action, table, and
+  key-family contracts. All 39 targeted IAM simulations returned the expected
+  decisions (11 allows and 28 implicit denies). The policies had zero
+  attachments or permissions-boundary usage. Live authorization and denial
+  through family-scoped principals remain a downstream acceptance requirement
+  when application roles are introduced.
+
+Evidence reference: WP-008 private real-DynamoDB acceptance record
+(`identity-session-real-dynamodb-acceptance-record.private.json`), SHA-256
+`40c5db7aad4775d244c3e5a4c906dba064445c28507c258d870f7a5da48b989e`.

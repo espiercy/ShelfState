@@ -6,6 +6,7 @@ import { assertStaticEdgeTemplate } from "../bootstrap/static-edge-contract.mjs"
 import { assertEdgeRoutingTemplate } from "../bootstrap/edge-routing-contract.mjs";
 import { assertEdgeWafTemplate } from "../bootstrap/edge-waf-contract.mjs";
 import { assertIdentitySessionTemplate } from "../bootstrap/identity-session-contract.mjs";
+import { assertDevCognitoLoginTemplate } from "../bootstrap/cognito-login-contract.mjs";
 
 export const STATEFUL_POLICY_METADATA = "ShelfStateStatefulPolicy";
 
@@ -264,6 +265,22 @@ export function validateIdentitySessionAssembly(assembly, config, phase) {
     }
   }
   assert.equal(seen.size, CAPABILITY_DEFINITIONS.length);
+}
+
+// A separate local inspection stack. Ordinary foundation and release guards
+// still accept only the original empty capability topology.
+export function validateDevCognitoLoginAssembly(assembly, config) {
+  const wp009 = assembly.stacks.filter(artifact => artifact.template.Metadata?.ShelfState?.Capability === "cognito-login");
+  assert.equal(wp009.length, 1, "Expected exactly one WP-009 Cognito login stack");
+  const [artifact] = wp009;
+  validateFoundationAssembly({ stacks: assembly.stacks.filter(stack => stack !== artifact) }, config);
+  assert.equal(artifact.stackName, "shelfstate-v4-dev-cognito-login");
+  assert.equal(artifact.environment.name, `aws://${config.accountId}/us-west-2`);
+  assert.equal(artifact.terminationProtection, true);
+  assert.equal(artifact.dependencies.some(dependency => assembly.stacks.some(stack => stack.id === dependency.id)), false,
+    "Cognito login must not depend on other application stacks");
+  assertStatefulResourceSafeguards(artifact.template, "dev");
+  assertDevCognitoLoginTemplate(artifact.template, config);
 }
 
 // Local inspection ONLY. The normal foundation/release validator remains empty-

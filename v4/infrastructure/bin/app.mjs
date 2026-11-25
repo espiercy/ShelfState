@@ -1,7 +1,7 @@
 import { App } from "aws-cdk-lib";
 import { resolveEnvironmentConfig } from "../lib/environment.mjs";
 import { createEnvironmentTopology } from "../lib/topology.mjs";
-import { validateFoundationAssembly, validateIdentitySessionAssembly, validateLocalApiAssembly, validateLocalCertificateAssembly, validateLocalStaticEdgeAssembly, validateLocalEdgeRoutingAssembly, validateLocalEdgeWafAssembly } from "../lib/template-guards.mjs";
+import { validateFoundationAssembly, validateIdentitySessionAssembly, validateDevCognitoLoginAssembly, validateLocalApiAssembly, validateLocalCertificateAssembly, validateLocalStaticEdgeAssembly, validateLocalEdgeRoutingAssembly, validateLocalEdgeWafAssembly } from "../lib/template-guards.mjs";
 
 const app = new App();
 const environmentName = app.node.tryGetContext("shelfstateEnvironment");
@@ -14,7 +14,8 @@ createEnvironmentTopology(app, config, { ...(phase === undefined ? {} : { initia
   ...(implementationPhase === undefined ? {} : { implementationPhase }),
   ...(bindings === undefined ? {} : { initializationBindings: bindings }) });
 const assembly = app.synth();
-if (implementationPhase !== undefined) validateIdentitySessionAssembly(assembly, config, implementationPhase);
+if (implementationPhase === "cognito-login") validateDevCognitoLoginAssembly(assembly, config);
+else if (implementationPhase !== undefined) validateIdentitySessionAssembly(assembly, config, implementationPhase);
 else if (phase === undefined) validateFoundationAssembly(assembly, config);
 else if (phase === "certificate") validateLocalCertificateAssembly(assembly, config, phase);
 else if (phase === "edge-static") validateLocalStaticEdgeAssembly(assembly, config, phase, bindings);

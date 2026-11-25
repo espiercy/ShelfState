@@ -9,6 +9,7 @@ import { addEdgeRouting } from "./edge-routing.mjs";
 import { assertEdgeRoutingBindings } from "../bootstrap/edge-routing-contract.mjs";
 import { addEdgeWaf } from "./edge-waf.mjs";
 import { addIdentitySessionPersistence } from "./identity-session.mjs";
+import { addDevCognitoLogin } from "./cognito-login.mjs";
 
 import { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
 export { CAPABILITY_DEFINITIONS } from "./capabilities.mjs";
@@ -34,8 +35,13 @@ export function createEnvironmentTopology(app, config, options = {}) {
   const implementationPhase = options.implementationPhase;
   assert.ok(!(phase && implementationPhase), "Initialization and implementation phases cannot be combined");
   if (implementationPhase !== undefined) {
-    assert.equal(implementationPhase, "identity-session", "Unsupported implementation phase");
+    assert.ok(["identity-session", "cognito-login"].includes(implementationPhase), "Unsupported implementation phase");
     assert.ok(!Object.hasOwn(options, "initializationBindings"), "Implementation phases do not accept external bindings");
+  }
+  if (implementationPhase === "cognito-login") {
+    assert.equal(config.environmentName, "dev", "Cognito login resources are dev-only");
+    assert.match(config.accountId ?? "", /^\d{12}$/, "Explicit local account binding required; no AWS discovery");
+    assert.equal(config.primaryRegion, "us-west-2");
   }
   if (phase === "edge-static") assertStaticEdgeBindings(options.initializationBindings, config.accountId);
   else if (phase === "edge-routing") assertEdgeRoutingBindings(options.initializationBindings, config.accountId);
@@ -128,6 +134,22 @@ export function createEnvironmentTopology(app, config, options = {}) {
     for (const [key, value] of Object.entries(tags)) Tags.of(stack).add(key, value);
     addEdgeWaf(stack, config);
     stacks.set("edge-waf", stack);
+  }
+
+  if (implementationPhase === "cognito-login") {
+    const stack = new Stack(app, constructId(config, "cognito-login"), {
+      description: "ShelfState V4 dev Cognito login (WP-009 local inspection)",
+      env: stackEnvironment(config, config.primaryRegion),
+      stackName: stackName(config, "cognito-login"),
+      terminationProtection: true,
+    });
+    stack.templateOptions.metadata = { ShelfState: {
+      Capability: "cognito-login", Environment: "dev", Region: config.primaryRegion,
+      WorkPackage: "WP-009", ImplementationPhase: implementationPhase,
+    } };
+    for (const [key, value] of Object.entries(tags)) Tags.of(stack).add(key, value);
+    addDevCognitoLogin(stack, config);
+    stacks.set("cognito-login", stack);
   }
 
   for (const definition of CAPABILITY_DEFINITIONS) {

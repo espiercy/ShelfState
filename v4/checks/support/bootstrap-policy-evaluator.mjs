@@ -9,7 +9,7 @@ const matches = (pattern, value) => new RegExp("^" + pattern.replace(/[.+^${}()|
 
 function conditionsMatch(conditions, context) {
   for (const [operator, entries] of Object.entries(conditions ?? {})) {
-    assert.ok(["StringEquals", "StringEqualsIfExists", "StringNotEquals", "StringLike", "ForAllValues:StringEquals", "ForAllValues:StringLike", "Null"].includes(operator), `Unsupported condition ${operator}`);
+    assert.ok(["StringEquals", "StringEqualsIfExists", "StringNotEquals", "StringLike", "ForAllValues:StringEquals", "ForAllValues:StringLike", "Null", "BoolIfExists"].includes(operator), `Unsupported condition ${operator}`);
     for (const [key, expected] of Object.entries(entries)) {
       const present = Object.hasOwn(context, key) && context[key] !== null;
       if (operator === "Null") {

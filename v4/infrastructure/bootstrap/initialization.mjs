@@ -2,6 +2,10 @@
 import assert from "node:assert/strict";
 import { deploymentPolicy, REGIONS, QUALIFIER, westExecutionPolicy, eastExecutionPolicy, identitySessionExecutionStatements } from "./model.mjs";
 import { equal, object } from "../../scripts/release/schema.mjs";
+import { COGNITO_LOGIN_ACTION_INVENTORY, cognitoLoginExecutionStatements } from "./cognito-login-authority.mjs";
+import {
+  COGNITO_LOGIN_TYPES, assertCognitoLoginPhysicalArn, assertCognitoLoginPoolArn, cognitoLoginDomainPrefix,
+} from "./cognito-login-contract.mjs";
 
 export const PHASES = Object.freeze({
   edge: { region: "us-west-2", capability: "edge-delivery" },
@@ -12,6 +16,7 @@ export const PHASES = Object.freeze({
   "api-children": { region: "us-west-2", capability: "library-api" },
   certificate: { region: "us-east-1", capability: "edge-certificate" },
   "identity-session": { region: "us-west-2", capability: "identity-session" },
+  "cognito-login": { region: "us-west-2", capability: "cognito-login" },
 });
 const doc = Statement => ({ Version: "2012-10-17", Statement });
 const allow = (Sid, Action, Resource, Condition) => ({ Sid, Effect: "Allow", Action, Resource, ...(Condition ? { Condition } : {}) });
@@ -58,7 +63,7 @@ export const ACTION_INVENTORY = Object.freeze([
     read: ["iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicyVersions", "iam:ListEntitiesForPolicy"],
     rollback: ["iam:DeletePolicy"], update: ["iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion", "iam:DeletePolicyVersion"],
     proof: "Four exact unattached policy ARNs only. No role, user or group attachment action is authorized; rollback may remove only these unattached policy definitions." },
-].map(row => Object.freeze({ ...row, replacement: "Separately authorized initialization; keep old exact IDs until terminal cleanup." })));
+].map(row => Object.freeze({ ...row, replacement: "Separately authorized initialization; keep old exact IDs until terminal cleanup." })).concat(COGNITO_LOGIN_ACTION_INVENTORY));
 
 export function target(account, phase) {
   assert.match(account, /^\d{12}$/); assert.ok(Object.hasOwn(PHASES, phase), "Unknown initialization phase");
@@ -81,6 +86,7 @@ function edgeRoutingWebAclArn(account, bindings) {
 // reviewed. No artifact here is an installable complete-role authorization.
 export function generatedAuthority(account, phase, mode, bindings = {}) {
   const t = target(account, phase); assert.ok(["initialization", "steady"].includes(mode));
+  if (phase === "cognito-login") return doc(cognitoLoginExecutionStatements(account, mode, bindings).flat());
   const initial = mode === "initialization", statements = [];
   if (phase === "identity-session") {
     const identityStatements = identitySessionExecutionStatements(account);
@@ -189,6 +195,17 @@ function identitySessionSteadyExecutionPolicies(account, bindings) {
 // never overlaid. Previously completed phases enter only as exact steady grants.
 export function executionPolicies(account, phase, mode, bindings, retainedPhases = []) {
   const t = target(account, phase);
+  if (phase === "cognito-login") {
+    assert.ok(["initialization", "steady"].includes(mode), "Unsupported Cognito authority mode");
+    assert.equal(retainedPhases.length, 0, "WP-009 always retains the complete deployed west baseline");
+    const baseline = identitySessionSteadyExecutionPolicies(account, bindings);
+    const additions = cognitoLoginExecutionStatements(account, mode, bindings);
+    return baseline.map((policy, index) => {
+      const composed = doc([...policy.Statement, ...additions[index]]);
+      assert.ok(JSON.stringify(composed).length <= 6144, "WP-009 composition exceeds the IAM managed-policy size limit");
+      return composed;
+    });
+  }
   const identityPhase = phase === "identity-session";
   if (identityPhase && mode === "steady") {
     // This closeout always retains the complete deployed WP-007 west surface.
@@ -245,51 +262,94 @@ export function executionPolicies(account, phase, mode, bindings, retainedPhases
 // not a voluntarily supplied STS session policy. All narrower stack operators
 // must have the same cap or be denied stack mutation before expansion. Replacing
 // the role's broad allow alone is insufficient. This does not install a boundary.
-export function callerWindowCap(account, phase, regionalRole, changeSetName, state) {
+export function callerWindowCap(account, phase, regionalRole, changeSetName, state, executionBinding) {
   const t = target(account, phase); assert.ok(REGIONS.includes(regionalRole));
-  assert.match(changeSetName, new RegExp(`^${phase === "identity-session" ? "wp008" : "wp007"}-[a-f0-9]{64}$`));
+  const cognitoPhase = phase === "cognito-login";
+  const prefix = cognitoPhase ? "wp009" : phase === "identity-session" ? "wp008" : "wp007";
+  assert.match(changeSetName, new RegExp(`^${prefix}-[a-f0-9]{64}$`));
   assert.ok(["prepare", "execute", "closed"].includes(state));
   if (regionalRole !== t.region || state === "closed") return doc([
     { Sid: "NoInitializationFromThisRole", Effect: "Deny", Action: ["cloudformation:*", "iam:PassRole"], Resource: "*" },
   ]);
+  let stackResource = t.stackArn;
+  if (cognitoPhase && state === "execute") {
+    object(executionBinding, ["stackArn", "changeSetId"], "Reviewed immutable WP-009 execution binding");
+    assertCognitoLoginPhysicalArn(executionBinding.stackArn, t.stackArn.slice(0, -1));
+    assertCognitoLoginPhysicalArn(executionBinding.changeSetId,
+      `arn:aws:cloudformation:${t.region}:${account}:changeSet/${changeSetName}/`);
+    // CloudFormation authorizes ExecuteChangeSet using the stack ARN and name.
+    // The review validator separately binds the actual request to the full ID.
+    stackResource = executionBinding.stackArn;
+  }
   const base = deploymentPolicy(t.region, account);
-  const support = base.Statement.filter(s => ["ReadToolkitOutputs", "ReadBootstrapVersion", "ReadAssetBucketMetadata", "ReadRegionalAssets"].includes(s.Sid));
-  const actions = ["cloudformation:DescribeChangeSet", "cloudformation:DescribeStacks", "cloudformation:DescribeStackEvents", "cloudformation:DescribeStackResources", "cloudformation:GetTemplate", "cloudformation:TagResource", "cloudformation:UntagResource", "cloudformation:UpdateTerminationProtection", ...support.flatMap(s => s.Action)];
-  actions.push(state === "prepare" ? "cloudformation:CreateChangeSet" : "cloudformation:ExecuteChangeSet");
+  const supportSids = ["ReadToolkitOutputs", "ReadBootstrapVersion", ...(!cognitoPhase ? ["ReadAssetBucketMetadata", "ReadRegionalAssets"] : [])];
+  const support = base.Statement.filter(s => supportSids.includes(s.Sid));
+  const tagActions = ["cloudformation:TagResource", "cloudformation:UntagResource"];
+  const termination = !cognitoPhase || state === "execute";
+  const actions = ["cloudformation:DescribeChangeSet", "cloudformation:DescribeStacks", "cloudformation:DescribeStackEvents", "cloudformation:DescribeStackResources", "cloudformation:GetTemplate", ...tagActions,
+    ...(termination ? ["cloudformation:UpdateTerminationProtection"] : []), ...support.flatMap(s => s.Action)];
+  const windowAction = state === "prepare" ? "cloudformation:CreateChangeSet" : "cloudformation:ExecuteChangeSet";
+  const tagOperation = windowAction.split(":")[1];
+  const passRole = !cognitoPhase || state === "prepare";
+  actions.push(windowAction);
   const cap = doc([
-    { Sid: "OnlyWindowOperations", Effect: "Deny", NotAction: [...actions, "iam:PassRole"], Resource: "*" },
-    { Sid: "OnlyOneStack", Effect: "Deny", Action: ["cloudformation:*"], NotResource: [t.stackArn, `arn:aws:cloudformation:${t.region}:${account}:stack/CDKToolkit/*`] },
+    { Sid: "OnlyWindowOperations", Effect: "Deny", NotAction: [...actions, ...(passRole ? ["iam:PassRole"] : [])], Resource: "*" },
+    { Sid: "OnlyOneStack", Effect: "Deny", Action: ["cloudformation:*"], NotResource: [stackResource, `arn:aws:cloudformation:${t.region}:${account}:stack/CDKToolkit/*`] },
     { Sid: "ToolkitReadOnly", Effect: "Deny", Action: ["cloudformation:CreateChangeSet", "cloudformation:ExecuteChangeSet", "cloudformation:TagResource", "cloudformation:UntagResource", "cloudformation:UpdateTerminationProtection"], Resource: [`arn:aws:cloudformation:${t.region}:${account}:stack/CDKToolkit/*`] },
     { Sid: "OnlyExecutionRole", Effect: "Deny", Action: ["iam:PassRole"], NotResource: [t.executionRole] },
     { Sid: "NoOtherChangeSetName", Effect: "Deny", Action: ["cloudformation:CreateChangeSet", "cloudformation:ExecuteChangeSet"], Resource: "*",
       Condition: { StringNotEquals: { "cloudformation:ChangeSetName": changeSetName } } },
+    ...(cognitoPhase ? [{ Sid: "NoStandaloneStackTagging", Effect: "Deny", Action: tagActions, Resource: "*",
+      Condition: { StringNotEquals: { "cloudformation:CreateAction": tagOperation } } }] : []),
   ]);
   // Existing allow is replaced as well, to enforce exact request conditions.
   // Prepare has no execute; execute has no create/delete (prevents name reuse).
-  const reads = base.Statement.filter(s => s.Sid === "ReadDevStacks").map(s => ({ ...s, Resource: [t.stackArn] }));
+  const reads = base.Statement.filter(s => s.Sid === "ReadDevStacks").map(s => ({ ...s, Resource: [stackResource] }));
   const conditions = { StringEquals: { "cloudformation:ChangeSetName": changeSetName, ...(state === "prepare" ? { "cloudformation:RoleArn": t.executionRole } : {}) },
     Null: { "cloudformation:ChangeSetName": "false", ...(state === "prepare" ? { "cloudformation:RoleArn": "false" } : {}) } };
+  if (cognitoPhase && state === "prepare") {
+    conditions["ForAllValues:StringEquals"] = { "cloudformation:ResourceTypes": Object.values(COGNITO_LOGIN_TYPES) };
+    conditions.BoolIfExists = { "cloudformation:DisableValidation": "false" };
+    Object.assign(conditions.Null, { "cloudformation:ResourceTypes": "false", "cloudformation:ImportResourceTypes": "true", "cloudformation:TemplateUrl": "true", "aws:TagKeys": "true" });
+  }
   return doc([...cap.Statement, ...reads, ...support,
-    allow("OneReviewedChangeSet", [state === "prepare" ? "cloudformation:CreateChangeSet" : "cloudformation:ExecuteChangeSet"], [t.stackArn], conditions),
-    allow("InspectChangeSet", ["cloudformation:DescribeChangeSet"], [t.stackArn]),
-    allow("ExactStackTags", ["cloudformation:TagResource", "cloudformation:UntagResource"], [t.stackArn]),
-    allow("ExactTerminationProtection", ["cloudformation:UpdateTerminationProtection"], [t.stackArn]),
-    ...base.Statement.filter(s => s.Sid === "PassRegionalExecutionRole"),
+    allow("OneReviewedChangeSet", [windowAction], [stackResource], conditions),
+    allow("InspectChangeSet", ["cloudformation:DescribeChangeSet"], [stackResource], cognitoPhase ? { StringEquals: { "cloudformation:ChangeSetName": changeSetName } } : undefined),
+    allow("ExactStackTags", tagActions, [stackResource], cognitoPhase ? { StringEquals: { "cloudformation:CreateAction": tagOperation } } : undefined),
+    ...(termination ? [allow("ExactTerminationProtection", ["cloudformation:UpdateTerminationProtection"], [stackResource])] : []),
+    ...base.Statement.filter(s => passRole && s.Sid === "PassRegionalExecutionRole"),
   ]);
 }
 
 // Pure state projection, not an AWS status observer and never a cleanup command.
-export function closureDecision(status) {
+export function closureDecision(status, phase) {
+  if (phase === "cognito-login" && !["CREATE_COMPLETE", "CREATE_IN_PROGRESS", "ROLLBACK_IN_PROGRESS"].includes(status)) return "STOP_HUMAN_RECOVERY_REQUIRED";
   if (["CREATE_COMPLETE", "UPDATE_COMPLETE"].includes(status)) return "VERIFY_COMPLETE_ID_MAP_THEN_NARROW_AND_READ_BACK";
   if (["ROLLBACK_COMPLETE", "UPDATE_ROLLBACK_COMPLETE"].includes(status)) return "VERIFY_ABSENCE_OR_REVIEWED_REMNANTS_THEN_CLOSE";
   if (["CREATE_IN_PROGRESS", "UPDATE_IN_PROGRESS", "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS", "ROLLBACK_IN_PROGRESS", "UPDATE_ROLLBACK_IN_PROGRESS", "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS"].includes(status)) return "KEEP_AUTHORITY_NO_NEXT_OPERATION";
   return "STOP_HUMAN_RECOVERY_REQUIRED";
 }
 
-export function assertClosure(evidence, expectedResources) {
+export function assertClosure(evidence, expectedResources, phase, account) {
   object(evidence, ["status", "resources", "narrowedPolicyMatches", "effectiveReadbackMatches", "otherWindowOpen"]);
-  assert.equal(closureDecision(evidence.status), "VERIFY_COMPLETE_ID_MAP_THEN_NARROW_AND_READ_BACK", "Not terminal successful initialization");
+  assert.equal(closureDecision(evidence.status, phase), "VERIFY_COMPLETE_ID_MAP_THEN_NARROW_AND_READ_BACK", "Not terminal successful initialization");
   equal(evidence.resources, expectedResources, "Complete independently verified physical map required");
+  if (phase === "cognito-login") {
+    target(account, phase);
+    const resources = evidence.resources;
+    object(resources, Object.keys(COGNITO_LOGIN_TYPES), "Complete WP-009 physical map required");
+    object(resources.UserPool, ["arn"]);
+    object(resources.AppClient, ["userPoolId", "clientId"]);
+    object(resources.LoginDomain, ["userPoolId", "prefix"]);
+    object(resources.LoginBranding, ["userPoolId", "clientId", "brandingId"]);
+    assertCognitoLoginPoolArn(account, resources.UserPool.arn);
+    const poolId = resources.UserPool.arn.split("/").at(-1);
+    for (const resource of [resources.AppClient, resources.LoginDomain, resources.LoginBranding]) assert.equal(resource.userPoolId, poolId);
+    assert.match(resources.AppClient.clientId ?? "", /^[\w+]{1,128}$/);
+    assert.equal(resources.LoginDomain.prefix, cognitoLoginDomainPrefix(account));
+    assert.equal(resources.LoginBranding.clientId, resources.AppClient.clientId);
+    assert.match(resources.LoginBranding.brandingId ?? "", /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i);
+  }
   assert.equal(evidence.narrowedPolicyMatches, true); assert.equal(evidence.effectiveReadbackMatches, true);
   assert.equal(evidence.otherWindowOpen, false);
   return "LOCAL_EVIDENCE_CONSISTENT_NOT_LIVE_ATTESTATION";

@@ -1,6 +1,38 @@
 import assert from "node:assert/strict";
 import { DEV_COGNITO_LOGIN } from "../../contracts/cognito-login.mjs";
+import { digest } from "../../scripts/release/schema.mjs";
+import { resolveEnvironmentConfig } from "../lib/environment.mjs";
 import { requiredTags, resourceName } from "../lib/naming.mjs";
+
+export const COGNITO_LOGIN_REVIEW_SCHEMA = "shelfstate.wp009-cognito-login-review/v1";
+export const COGNITO_LOGIN_PREPARATION_SCHEMA = "shelfstate.wp009-cognito-login-prepare/v1";
+
+export const COGNITO_LOGIN_TYPES = Object.freeze({
+  UserPool: "AWS::Cognito::UserPool",
+  AppClient: "AWS::Cognito::UserPoolClient",
+  LoginDomain: "AWS::Cognito::UserPoolDomain",
+  LoginBranding: "AWS::Cognito::ManagedLoginBranding",
+});
+
+export const cognitoLoginConfig = account => resolveEnvironmentConfig("dev", { SHELFSTATE_DEV_AWS_ACCOUNT_ID: account });
+export const cognitoLoginDomainPrefix = account => resourceName(cognitoLoginConfig(account), `auth-${account}`);
+
+export function cognitoLoginChangeSetName(templateSha256) {
+  digest(templateSha256);
+  return `wp009-${templateSha256}`;
+}
+
+export function assertCognitoLoginPhysicalArn(value, prefix) {
+  assert.ok(typeof value === "string" && value.startsWith(prefix), "Unexpected WP-009 physical ARN scope");
+  assert.match(value.slice(prefix.length), /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/, "Exact WP-009 physical ARN required");
+}
+
+export const cognitoLoginPoolArnPrefix = account => `arn:aws:cognito-idp:us-west-2:${account}:userpool/us-west-2_`;
+
+export function assertCognitoLoginPoolArn(account, poolArn) {
+  const prefix = cognitoLoginPoolArnPrefix(account);
+  assert.match(poolArn ?? "", new RegExp(`^${prefix}[A-Za-z0-9]{1,45}$`), "Exact west Cognito user-pool ARN required");
+}
 
 export function assertDevCognitoLoginTemplate(template, config) {
   assert.equal(config.environmentName, "dev");
@@ -25,7 +57,7 @@ export function assertDevCognitoLoginTemplate(template, config) {
   const pool = { Ref: "UserPool" };
   const expected = {
     UserPool: {
-      Type: "AWS::Cognito::UserPool",
+      Type: COGNITO_LOGIN_TYPES.UserPool,
       DeletionPolicy: "Retain",
       UpdateReplacePolicy: "Retain",
       Metadata: { ShelfStateStatefulPolicy: "retained" },
@@ -45,7 +77,7 @@ export function assertDevCognitoLoginTemplate(template, config) {
       },
     },
     AppClient: {
-      Type: "AWS::Cognito::UserPoolClient",
+      Type: COGNITO_LOGIN_TYPES.AppClient,
       Properties: {
         UserPoolId: pool,
         ClientName: resourceName(config, "cognito-bff"),
@@ -64,11 +96,11 @@ export function assertDevCognitoLoginTemplate(template, config) {
       },
     },
     LoginDomain: {
-      Type: "AWS::Cognito::UserPoolDomain",
+      Type: COGNITO_LOGIN_TYPES.LoginDomain,
       Properties: { UserPoolId: pool, Domain: resourceName(config, `auth-${config.accountId}`), ManagedLoginVersion: 2 },
     },
     LoginBranding: {
-      Type: "AWS::Cognito::ManagedLoginBranding",
+      Type: COGNITO_LOGIN_TYPES.LoginBranding,
       Properties: { UserPoolId: pool, ClientId: { Ref: "AppClient" }, UseCognitoProvidedValues: true },
       DependsOn: ["LoginDomain"],
     },

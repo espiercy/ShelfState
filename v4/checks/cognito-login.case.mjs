@@ -8,7 +8,6 @@ import { fileURLToPath } from "node:url";
 import { App } from "aws-cdk-lib";
 import { DEV_COGNITO_LOGIN } from "../contracts/cognito-login.mjs";
 import { assertDevCognitoLoginTemplate } from "../infrastructure/bootstrap/cognito-login-contract.mjs";
-import { target } from "../infrastructure/bootstrap/initialization.mjs";
 import { devStackNames } from "../infrastructure/bootstrap/model.mjs";
 import { resolveEnvironmentConfig } from "../infrastructure/lib/environment.mjs";
 import { validateDevCognitoLoginAssembly, validateFoundationAssembly } from "../infrastructure/lib/template-guards.mjs";
@@ -98,14 +97,13 @@ test("the CloudFormation contract rejects redirect, authentication, and lifecycl
   });
 });
 
-test("Cognito requires dev, an explicit account, and an isolated selector without deployment authority", () => {
+test("Cognito requires dev, an explicit account, and a selector outside the ordinary deployment allowlist", () => {
   const app = new App();
   assert.throws(() => createEnvironmentTopology(app, resolveEnvironmentConfig("dev"), phase), /Explicit local account binding/);
   assert.throws(() => createEnvironmentTopology(app, resolveEnvironmentConfig("prod"), phase), /dev-only/);
   assert.throws(() => createEnvironmentTopology(app, config, { ...phase, initializationPhase: "api-children" }), /cannot be combined/);
   assert.throws(() => createEnvironmentTopology(app, config, { ...phase, initializationBindings: {} }), /external bindings/);
   assert.ok(!devStackNames("us-west-2").includes(name));
-  assert.throws(() => target(account, phase.implementationPhase), /Unknown initialization phase/);
 });
 
 test("the credential-free CDK app entry selects the guarded local WP-009 output", async () => {

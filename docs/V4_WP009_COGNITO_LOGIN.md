@@ -103,50 +103,109 @@ An SES transition, increased quotas, enforcement, or added WAF protection
 warrants separate review. [Email delivery](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-email.html),
 [Cognito quotas](https://docs.aws.amazon.com/cognito/latest/developerguide/quotas.html)
 
-## Future deployment-authority review
+## Bounded deployment contract
 
-The existing west caller is closed and the bootstrap allowlist and local
-initialization phase table omit this stack. A separate authorization must bind
-the exact west `shelfstate-v4-dev-cognito-login` stack ARN and accepted template
-to a prepare-only change-set window, then the immutable change-set ARN to one
-execute-only window. The caller needs existing scoped CloudFormation preview
-and read actions, `iam:PassRole` only for the west CloudFormation execution
-role to CloudFormation, and the termination-protection action for this stack.
-Preserve the two west execution policy attachments and all accepted WP-007 and
-WP-008 grants. Close the caller and narrow initialization permissions after
-readback.
+The existing west bootstrap mechanism now models a `cognito-login` phase with
+closed, prepare-only, and execute-only caller policies for
+`shelfstate-v4-dev-cognito-login`. The ordinary rollout allowlist stays as
+approved. The policy constructor preserves every installed WP-007/WP-008
+statement in its existing attachment. Cognito create, read, update and
+dependent-resource rollback grants are composed into West. Cognito tagging
+grants are composed into WestEdge to fit the existing managed-policy limits.
 
-The Oregon provider schemas and Cognito authorization reference identify the
-following `cognito-idp:` permission candidates for this template. Handler
-declarations cover more configuration options than this candidate uses.
-The single template creates the pool and its dependent resources before an
-exact pool ARN can be known. A later deployment review must approve an initial
-same-account `userpool/us-west-2_*` ARN pattern for pool-scoped actions. Bind
-supported operations to the existing project/environment/management tags and
-`WorkPackage=WP-009`, verify no pre-existing pool matches that tag set, and
-replace the pattern with the authenticated pool ARN after creation. Initial
-tagging may need request-tag conditions before resource tags can be observed.
-Review this residual before any live grant. The provider call path and
-effective context remain subject to actual AWS verification.
+The local preparation contract pins the exact reviewed inline template and
+confirmed preflight. It projects one `CREATE` request named
+`wp009-<template SHA-256>` with the existing west execution role, the four
+approved resource types, zero parameter overrides, no assets, no nested
+stacks or imports, and `OnStackFailure=ROLLBACK`. The separate review requires
+complete, authenticated preparation readback for exactly four additions, an
+empty pre-existing resource map, the reviewed original template and role, and
+the immutable change-set and stack ARNs. Execution uses both readback ARNs,
+omits `DisableRollback`, and sets `RetainExceptOnCreate=false` to preserve
+the protected retained pool if creation fails.
 
-| Purpose | Actions and scope |
+Record the authenticated CreateChangeSet request for the CREATE type and
+empty overrides and use DescribeStacks to verify the role. Cross-check the
+resolved CDK `BootstrapVersion` default from DescribeChangeSet against the
+bootstrap parameter, with a version of at least 6. CloudFormation documents
+`Replacement` for Modify. An Add may omit it, and any supplied value must be
+`False`. Review `GetTemplate` with `TemplateStage=Original` against the
+accepted template before execution. [CloudFormation resource changes](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_ResourceChange.html)
+
+The prepare caller may pass only the existing west execution role to
+CloudFormation. The execute caller uses the stored role and has no PassRole
+allowance. The caller permits CloudFormation stack tag checks only with
+`cloudformation:CreateAction` for the window's change-set operation. The
+request supplies no stack tags and standalone tags are denied. If AWS
+requires a separate change-set-resource tagging or pre-deployment validation
+permission for this template, preserve the exact denial for review. Validation
+stays enabled. Only the exact execute window permits termination protection.
+AWS IAM scopes `ExecuteChangeSet` to the exact prepared stack ARN
+and change-set **name**. The separately approved local review pins the full
+change-set ARN and request flags. IAM also cannot enforce inline template
+content or the CREATE type. Use the pinned request projections and prevent
+other principals from creating, deleting, or substituting a change set or
+operating stacks with the shared west role while the temporary grant is live.
+[CloudFormation IAM scope](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudformation.html),
+[CloudFormation pre-deployment validation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/validate-stack-deployments.html),
+[CreateChangeSet API](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateChangeSet.html),
+[ExecuteChangeSet API](https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_ExecuteChangeSet.html)
+
+All Cognito grants use `aws:RequestedRegion=us-west-2`. The pool ownership
+tags are `Project=ShelfState`, `Environment=dev`, `ManagedBy=AWS-CDK`, and
+`WorkPackage=WP-009`.
+
+| Mode | Cognito execution grants |
 |---|---|
-| Pool initialization | `CreateUserPool` on `*`, bounded by `aws:RequestedRegion` in `us-west-2` and exact request tags. Use the reviewed pool scope above for `TagResource`, `DescribeUserPool`, `ListTagsForResource`, `GetUserPoolMfaConfig`, and any provider-required `SetUserPoolMfaConfig` call. |
-| Client create/read/rollback | `CreateUserPoolClient`, `DescribeUserPoolClient`, `ListUserPoolClientSecrets` if used by the read handler, and rollback `DeleteUserPoolClient`, scoped to the reviewed pool as described above. |
-| Prefix domain create/read/rollback | `CreateUserPoolDomain` and rollback `DeleteUserPoolDomain` in the reviewed pool scope. `DescribeUserPoolDomain` has no resource-level scope in the service reference and requires a separately reviewed regional read allowance on `*`. |
-| Branding create/read/rollback | `CreateManagedLoginBranding`, `DescribeManagedLoginBrandingByClient`, `DescribeManagedLoginBranding`, and rollback `DeleteManagedLoginBranding` in the reviewed pool scope. |
-| Exact steady-state management | Approved Cognito reads plus `UpdateUserPool`, `UpdateUserPoolClient`, `UpdateUserPoolDomain`, `UpdateManagedLoginBranding`, `TagResource`, and `UntagResource` as needed on the exact pool. Review provider behavior for any ancillary calls. |
+| Initialization | `CreateUserPool` on `*` with all four request tags and only approved tag keys. Within the same-account `userpool/us-west-2_*` pattern with all four existing ownership tags, allow pool/client/branding reads, `GetUserPoolMfaConfig`, `ListTagsForResource`, and creation and rollback deletion of the client, prefix domain and branding. |
+| Tagging | Initial `TagResource` requires all four request tags and admits their keys plus the three reserved CloudFormation keys. Existing ownership tags, when present, must agree. `UntagResource` requires ownership and can target only the three reserved stack keys. Steady tagging requires the exact owned pool and preserves ownership tag values. |
+| Steady | On the authenticated exact pool ARN with all ownership tags, retain approved reads and tagging, and allow `UpdateUserPool`, `UpdateUserPoolClient`, `UpdateUserPoolDomain`, and `UpdateManagedLoginBranding`. Creation and rollback deletes are removed. |
+| Domain read in both modes | `DescribeUserPoolDomain` uses `*` in `us-west-2` because AWS exposes no resource-level scope or prefix condition for this action. |
 
-The pool is retained and deletion-protected. `DeleteUserPool` is outside the
-proposed authority. Rollback can leave a retained pool and must stop for
-review before any subsequent create attempt. Generic handler schemas also
-list permissions for optional paths such as SMS/role integration, analytics,
-customer KMS, schema additions, and custom-domain CloudFront management. Do
-not copy those lists into execution IAM. If AWS requires an extra dependency
-for the approved configuration, capture the exact request and stop for review.
-User provisioning, user administration, and enabling other security modes
-require their own authorization. [Cognito IAM actions and scoping](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cognito-idp.html),
+The service generates user-pool IDs without an environment name. The
+temporary lifecycle scope uses ownership tags to identify development pools.
+Initial `TagResource` can reach a same-account west pool that lacks the
+ownership tags. Before enabling these policies, explicitly accept that
+remaining reach, confirm no pre-existing pool has the approved name or
+ownership tag set, and isolate every principal that can use the shared
+execution role. Verify Cognito's effective authorization for both tagged
+creation and dependent tag authorization. The service reference documents
+request tags on `CreateUserPool` and `TagResource`, and resource tags and
+tag-key constraints on `UntagResource`. The regional provider schemas also
+declare `SetUserPoolMfaConfig` and `ListUserPoolClientSecrets` for general
+handlers. The accepted template sets no separate MFA configuration and uses
+a public client without a secret. If a handler calls either action, or
+requires a different tag context, capture the exact call and stop for
+review. `DeleteUserPool`, user administration and other integrations are
+outside the proposed grant. [Cognito IAM actions and scoping](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cognito-idp.html),
 [CloudFormation tagging](https://docs.aws.amazon.com/cognito/latest/developerguide/tagging.html)
+
+### Subsequent AWS sequence
+
+1. Obtain separate preflight and preparation authority. Authenticate the
+   existing west roles and accepted policy digests. Verify the stack and
+   matching pools are absent and the exact prefix
+   `shelfstate-v4-dev-auth-710058944513` is available. Recheck the cost and
+   invitation-only posture before exposing the Cognito endpoint.
+2. Open only the west prepare window, submit the pinned CREATE request once,
+   collect the original template, complete change list, stack role and empty
+   physical readbacks, then return the caller to closed. Review the exact
+   prepared stack and change-set ARNs and the execution-policy pair.
+3. After distinct execute approval, verify containment of other callers,
+   install and read back the approved temporary West/WestEdge versions, open
+   only the exact execute window and execute the immutable change set once.
+   Verify stack termination protection and all four physical resources.
+4. After `CREATE_COMPLETE`, bind the authenticated pool ARN, narrow the two
+   execution policies, verify effective readback and close the callers. The
+   four-resource readback must correlate the exact domain, app client and
+   branding IDs to that pool, and the branding to the reviewed app client.
+   Any failure or retained pool stops the deployment for human review. No
+   automatic retry or pool cleanup is authorized.
+
+This repository extension creates no resources or charges. Later deployment
+exposes Cognito's Managed Login endpoint outside the application's CloudFront
+WAF. AUDIT observes risk without blocking abuse and native email is quota
+limited. AWS behavior and billing still require real acceptance.
 
 ## Separate production decision
 

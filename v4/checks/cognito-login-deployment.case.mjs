@@ -251,6 +251,42 @@ test("temporary Cognito authorities separate request tags, owned lifecycle, and 
   assert.throws(() => generatedAuthority(ACCOUNT, phase, "initialization", { userPoolArn: pool }), /No physical/);
 });
 
+test("only temporary TagResource covers the observed pre-ID authorization ARN with approved tags", () => {
+  const initial = generatedAuthority(ACCOUNT, phase, "initialization");
+  const preId = `arn:aws:cognito-idp:us-west-2:${ACCOUNT}:userpool/*`;
+  const cloudFormationTags = {
+    ...requestTags,
+    "aws:TagKeys": [...Object.keys(tags),
+      "aws:cloudformation:logical-id", "aws:cloudformation:stack-id", "aws:cloudformation:stack-name"],
+  };
+  const { "aws:TagKeys": _tagKeys, ...missingTagKeys } = cloudFormationTags;
+  const preIdStatements = initial.Statement.filter(s => s.Resource.includes(preId));
+  assert.deepEqual(preIdStatements.map(s => s.Action), [["cognito-idp:TagResource"]]);
+  assert.equal(policyAllows(initial, "TagResource", preId, cloudFormationTags), true);
+  for (const arn of [preId.replace(ACCOUNT, "999999999999"), preId.replace("us-west-2", "us-east-1")]) {
+    assert.equal(policyAllows(initial, "TagResource", arn, cloudFormationTags), false);
+  }
+  for (const context of [
+    missingTagKeys,
+    { ...cloudFormationTags, "aws:TagKeys": [...cloudFormationTags["aws:TagKeys"], "Unapproved"] },
+    { ...cloudFormationTags, "aws:RequestedRegion": "us-east-1" },
+    { ...cloudFormationTags, "aws:ResourceTag/Environment": "prod" },
+    { ...cloudFormationTags, "aws:ResourceTag/WorkPackage": "WP-008" },
+  ]) assert.equal(policyAllows(initial, "TagResource", preId, context), false);
+  for (const key of Object.keys(tags)) {
+    const { [`aws:RequestTag/${key}`]: _value, ...missingRequestTag } = cloudFormationTags;
+    assert.equal(policyAllows(initial, "TagResource", preId, missingRequestTag), false, key);
+    assert.equal(policyAllows(initial, "TagResource", preId, { ...cloudFormationTags, [`aws:RequestTag/${key}`]: "unapproved" }), false, key);
+  }
+  const ownedContext = { ...cloudFormationTags, ...resourceTags };
+  for (const action of ["UntagResource", "DescribeUserPool", "CreateUserPoolClient", "CreateIdentityProvider", "DeleteUserPool", "AdminCreateUser"]) {
+    assert.equal(policyAllows(initial, action, preId, ownedContext), false, action);
+  }
+  const steady = generatedAuthority(ACCOUNT, phase, "steady", { userPoolArn: pool });
+  assert.equal(policyAllows(steady, "TagResource", preId, ownedContext), false);
+  assert.equal(policyAllows(steady, "TagResource", pool, ownedContext), true);
+});
+
 test("Cognito steady state narrows to the verified exact pool and drops creation and rollback grants", () => {
   const steady = generatedAuthority(ACCOUNT, phase, "steady", { userPoolArn: pool });
   for (const action of ["DescribeUserPool", "UpdateUserPool", "UpdateUserPoolClient", "UpdateUserPoolDomain", "UpdateManagedLoginBranding"]) {

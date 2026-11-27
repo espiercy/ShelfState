@@ -56,8 +56,10 @@ export function cognitoLoginExecutionStatements(account, mode, bindings) {
 
   // Keep all installed statements in their existing attachments. The two
   // Cognito tag statements fit in WestEdge within the managed-policy size cap.
+  // The dependent create-time tag check uses userpool/* before a pool ID exists.
+  const tagResourceArn = initial ? `arn:aws:cognito-idp:us-west-2:${account}:userpool/*` : poolArn;
   const westEdge = [
-    allow("Wp009TagPool", cognito(["TagResource"]), poolArn, initial ? {
+    allow("Wp009TagPool", cognito(["TagResource"]), tagResourceArn, initial ? {
       StringEquals: { ...regionCondition, ...requestTags },
       StringEqualsIfExists: resourceTags,
       ...keyScope(tagKeys),

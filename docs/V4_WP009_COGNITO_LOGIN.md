@@ -158,7 +158,7 @@ tags are `Project=ShelfState`, `Environment=dev`, `ManagedBy=AWS-CDK`, and
 | Mode | Cognito execution grants |
 |---|---|
 | Initialization | `CreateUserPool` on `*` with all four request tags and only approved tag keys. Within the same-account `userpool/us-west-2_*` pattern with all four existing ownership tags, allow pool/client/branding reads, `GetUserPoolMfaConfig`, `ListTagsForResource`, and creation and rollback deletion of the client, prefix domain and branding. |
-| Tagging | Initial `TagResource` requires all four request tags and admits their keys plus the three reserved CloudFormation keys. Existing ownership tags, when present, must agree. `UntagResource` requires ownership and can target only the three reserved stack keys. Steady tagging requires the exact owned pool and preserves ownership tag values. |
+| Tagging | Initial `TagResource` uses the same-account `userpool/*` ARN in `us-west-2`, requires all four request tags, and admits their keys plus the three reserved CloudFormation keys. Existing ownership tags, when present, must agree. `UntagResource` retains the narrower initialization pattern and requires ownership. It can target only the three reserved stack keys. Steady tagging requires the exact owned pool and preserves ownership tag values. |
 | Steady | On the authenticated exact pool ARN with all ownership tags, retain approved reads and tagging, and allow `UpdateUserPool`, `UpdateUserPoolClient`, `UpdateUserPoolDomain`, and `UpdateManagedLoginBranding`. Creation and rollback deletes are removed. |
 | Domain read in both modes | `DescribeUserPoolDomain` uses `*` in `us-west-2` because AWS exposes no resource-level scope or prefix condition for this action. |
 
@@ -179,6 +179,26 @@ requires a different tag context, capture the exact call and stop for
 review. `DeleteUserPool`, user administration and other integrations are
 outside the proposed grant. [Cognito IAM actions and scoping](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cognito-idp.html),
 [CloudFormation tagging](https://docs.aws.amazon.com/cognito/latest/developerguide/tagging.html)
+
+### First deployment and recovery
+
+The first CREATE execution reached `ROLLBACK_COMPLETE` with no physical
+Cognito resources. Request `e99e009e-76cd-421b-a48c-ad5e3af99550` failed with
+`cognito-idp:TagResource` denied on the same-account west `userpool/*` ARN.
+The previous `userpool/us-west-2_*` pattern could only match after an ID was
+available. The correction covers the observed ARN only for initialization
+`TagResource`. CloudFormation can propagate stack and system tags, and the
+reviewed template supplies the four ownership tags. CloudTrail omitted
+request parameters for this failed `CreateUserPool` event. Simulation with
+the required context verifies the proposed authorization. The actual
+create-time tag context remains a live acceptance requirement.
+
+A fresh CREATE requires separate authorization to remove the failed stack
+record after an authenticated check confirms there are still no physical
+resources, including any retained pool. Stop for review if a resource is
+found. Then follow the separate prepare, review and close sequence and the
+separately approved execute and close sequence below with a new immutable
+change-set ARN. The executed change set cannot be reused.
 
 ### Subsequent AWS sequence
 
